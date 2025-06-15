@@ -1,9 +1,29 @@
 import { useState } from "react";
+// import { hasUserCompletedOrder, createWooCompletedOrder } from "@/services/woocommerce";
+import { triggerPaystackPopup } from "@/util/paystack";
+import {  notifySuccess } from "@/util/utils";
+
 
 type Props = {
   onClose: () => void;
   onLoginSuccess: (email: string, hasAccess: boolean) => void;
 };
+
+// Dummy WooCommerce API replacements
+
+async function hasUserCompletedOrder(email: string): Promise<boolean> {
+  console.log(`Simulating check for completed order by: ${email}`);
+  // Always return false or toggle based on testing
+  return false;
+}
+
+async function createWooCompletedOrder(email: string): Promise<{ success: boolean }> {
+  console.log(`Simulating WooCommerce order creation for: ${email}`);
+  // Simulate delay
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  return { success: true };
+}
+
 
 export default function LoginModal({ onClose, onLoginSuccess }: Props) {
   const [email, setEmail] = useState("");
@@ -16,14 +36,35 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
     setError("");
 
     try {
-      // ✅ Always succeed for test
-      setTimeout(() => {
+      const hasAccess = await hasUserCompletedOrder(
+        email
+      );
+
+      if (hasAccess) {
         onLoginSuccess(email, true);
-        setChecking(false);
-      }, 1000); // simulate delay
+      } else {
+        triggerPaystackPopup({
+          email,
+          amount: 500000,
+          onSuccess: () => {
+            createWooCompletedOrder(email)
+              .then(() => {
+                notifySuccess("Payment successful! Access granted.");
+                onLoginSuccess(email, true);
+              })
+              .catch((err) => {
+                console.error("Order creation failed after payment", err);
+                alert("Payment succeeded but order creation failed.");
+                onLoginSuccess(email, false);
+              });
+          },
+          onClose: () => alert("Payment was cancelled."),
+        });
+      }
     } catch (err) {
       setError("Login failed. Please try again.");
       console.error("Login error:", err);
+    } finally {
       setChecking(false);
     }
   };
@@ -35,7 +76,7 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
         <form onSubmit={handleSubmit}>
           <input
             type="email"
-            placeholder="Enter your email"
+            placeholder="Enter your order email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
