@@ -9,6 +9,7 @@ import InstructionModal from "@/components/modal/instruction-modal";
 import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
 import PrivacyConsentModal from "@/components/modal/privacy-consent-modal";
 import CameraPrompt from "@/components/camera-feed";
+import ProductRecommender from "@/components/product-recommender";
 
 interface Product {
   id: number;
@@ -238,7 +239,7 @@ export default function Home() {
         />
       )}
 
-      {/* {!showCameraPrompt && (
+      {!showCameraPrompt && (
         <main
           style={{
             padding: "1rem",
@@ -275,7 +276,7 @@ export default function Home() {
             )}
           </div>
         </main>
-      )} */}
+      )}
 
       <Footer />
     </>
