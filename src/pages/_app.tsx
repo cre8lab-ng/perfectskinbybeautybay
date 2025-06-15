@@ -9,7 +9,7 @@ export default function App({ Component, pageProps }: AppProps) {
   const generateToken = useAccessToken((s) => s.generateToken);
 
   useEffect(() => {
-    generateToken(); // run only once on mount
+    generateToken(); 
   }, []);
   return (
     <>

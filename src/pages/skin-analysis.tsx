@@ -268,6 +268,7 @@ export default function Home() {
               onChange={(e) => handleCapture(e)}
             />
             <ProductRecommender />
+            <p>Test</p>
             {isLoginModalOpen && (
               <LoginModal
                 onClose={() => setIsLoginModalOpen(false)}
