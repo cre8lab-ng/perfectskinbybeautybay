@@ -1,13 +1,19 @@
-import {  useRef, useState, ChangeEvent } from "react";
+import { useEffect, useState, ChangeEvent } from "react";
 import useAccessToken from "@/stores/useAccessToken";
+import {
+  uploadImage,
+  analyzeSkinFeatures,
+  checkSkinAnalysisStatus,
+} from "@/services/skinanalysis";
+// import { getProductsByTagName, createWooCompletedOrder } from "@/services/woocommerce";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import LoginModal from "@/components/modal/login";
 import InstructionModal from "@/components/modal/instruction-modal";
+import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
 import PrivacyConsentModal from "@/components/modal/privacy-consent-modal";
 import CameraPrompt from "@/components/camera-feed";
-import { getGranularLevel } from "@/util/utils";
-import { skinProductMap } from "@/data/skinProductMap";
+import ProductRecommender from "@/components/product-recommender";
 
 interface Product {
   id: number;
@@ -25,6 +31,19 @@ interface AnalysisResult {
   acne?: string;
 }
 
+interface AnalysisStatus {
+  result: {
+    status: "success" | "error" | "running";
+    results?: AnalysisResult;
+    error_message?: string;
+  };
+}
+
+export interface UploadResponse {
+  file_id: string;
+  url?: string;
+}
+
 function dataURLtoFile(dataUrl: string, filename: string): File {
   const arr = dataUrl.split(",");
   const mime = arr[0].match(/:(.*?);/)?.[1] || "";
@@ -37,61 +56,104 @@ function dataURLtoFile(dataUrl: string, filename: string): File {
   return new File([u8arr], filename, { type: mime });
 }
 
-function getRandomPercentage(): string {
-  return `${Math.floor(Math.random() * 101)}%`; // 0% - 100%
-}
-
-function generateRandomAnalysis(): AnalysisResult {
-  return {
-    wrinkle: getRandomPercentage(),
-    pore: getRandomPercentage(),
-    texture: getRandomPercentage(),
-    acne: getRandomPercentage(),
-  };
+async function createWooCompletedOrder(email: string) {
+  console.log(`Simulated WooCommerce order for: ${email}`);
+  return { success: true };
 }
 
 export default function Home() {
   const accessToken = useAccessToken((s) => s.accessToken);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const [preview, setPreview] = useState<string | null>(null);
+  const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(
+    null
+  );
+  const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus | null>(
+    null
+  );
   const [finalResults, setFinalResults] = useState<AnalysisResult | null>(null);
-  const [productGroups, setProductGroups] = useState<{ [tag: string]: Product[] }>({});
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [pendingResults, setPendingResults] = useState<AnalysisResult | null>(
+    null
+  );
+  const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [customerEmail, setCustomerEmail] = useState("");
   const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(true);
   const [showCameraPrompt, setShowCameraPrompt] = useState(false);
-  const [pendingResults, setPendingResults] = useState<AnalysisResult | null>(null);
-console.log(accessToken,customerEmail)
-  function getRecommendedProducts(result: AnalysisResult): { [tag: string]: Product[] } {
-    const recommendations: { [tag: string]: Product[] } = {};
-    Object.entries(result).forEach(([concern, score]) => {
-      const level = getGranularLevel(score);
-      const productList = skinProductMap[concern]?.[level];
-      if (productList?.length) {
-        recommendations[concern] = productList;
-      }
-    });
-    return recommendations;
-  }
 
-  const pollAnalysisStatus = async () => {
-    const fakeSuccessResult = generateRandomAnalysis();
-    setPendingResults(fakeSuccessResult);
-    setAnalyzing(false);
-    setIsLoginModalOpen(true);
+  console.log("preview:",setAnalysisStatus, setPendingProducts, preview);
+  console.log("uploadResponse:", uploadResponse);
+  console.log("uploading:", uploading);
+  console.log("analyzing:", analyzing);
+  console.log("finalResults:", finalResults);
+  console.log("products:", products);
+  console.log("isAuthorized:", isAuthorized);
+  console.log("customerEmail:", customerEmail);
+
+  useEffect(() => {
+    loadPaystackScript();
+  }, []);
+
+  const pollAnalysisStatus = async (
+    taskId: string,
+    accessToken: string
+  ): Promise<AnalysisStatus> => {
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    const delay = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await checkSkinAnalysisStatus(taskId, accessToken);
+        console.log(`Polling attempt ${attempts + 1}:`, response);
+
+        const status = response?.result?.status;
+
+        if (status === "success") {
+          setAnalysisStatus(response);
+          setPendingResults(response.result.results || null);
+          return response;
+        }
+
+        if (status === "error") {
+          throw new Error(response.result?.error_message || "Analysis failed");
+        }
+      } catch (err) {
+        console.error("Poll error:", err);
+      }
+
+      attempts++;
+      await delay(300); 
+    }
+
+    throw new Error("Timed out while polling skin analysis task.");
   };
 
-  const handleLoginSuccess = async (email: string) => {
+  const handleLoginSuccess = async (email: string, hasAccess: boolean) => {
     setCustomerEmail(email);
     setIsLoginModalOpen(false);
-    setFinalResults(pendingResults);
-
-    if (pendingResults) {
-      const recommended = getRecommendedProducts(pendingResults);
-      setProductGroups(recommended);
+    if (hasAccess) {
+      setIsAuthorized(true);
+      setFinalResults(pendingResults);
+      setProducts(pendingProducts);
+    } else {
+      triggerPaystackPopup({
+        email,
+        amount: 500000,
+        onSuccess: async () => {
+          await createWooCompletedOrder(email);
+          setIsAuthorized(true);
+          setFinalResults(pendingResults);
+          setProducts(pendingProducts);
+        },
+        onClose: () => alert("Payment cancelled."),
+      });
     }
   };
 
@@ -101,21 +163,43 @@ console.log(accessToken,customerEmail)
   ) => {
     const file = capturedFile ?? e?.target?.files?.[0];
     if (!file) return;
-    if (e?.target) e.target.value = ""; // allow reselecting same file
-
     const previewUrl = URL.createObjectURL(file);
     setPreview(previewUrl);
-    setAnalyzing(true);
-    pollAnalysisStatus();
+    if (!accessToken) return alert("Access token not available yet.");
+    setUploading(true);
+    uploadImage(file, accessToken)
+      .then((res) => {
+        if (!res?.file_id) throw new Error("Upload failed: Missing file_id.");
+        setUploadResponse(res);
+        setAnalyzing(true);
+        return analyzeSkinFeatures(res.file_id, accessToken, [
+          "wrinkle",
+          "pore",
+          "texture",
+          "acne",
+        ]);
+      })
+      .then((analysisResult) => {
+        const taskId = analysisResult.result.task_id;
+        if (!taskId) throw new Error("No task_id found in analysis response");
+        return pollAnalysisStatus(taskId, accessToken);
+      })
+      .then(() => setPendingResults(analysisStatus?.result?.results || null))
+      .catch((err) => alert(`Failed: ${err.message}`))
+      .finally(() => {
+        setUploading(false);
+        setAnalyzing(false);
+      });
   };
 
+  console.log(LoginModal, isLoginModalOpen, handleLoginSuccess);
   return (
     <>
       {showPrivacyModal && (
         <PrivacyConsentModal
           onAgree={() => {
             setShowPrivacyModal(false);
-            setShowInstructionModal(true);
+            setShowInstructionModal(true); // 👉 show this AFTER agreeing
           }}
         />
       )}
@@ -128,22 +212,12 @@ console.log(accessToken,customerEmail)
           }}
           onUploadPhoto={() => {
             setShowInstructionModal(false);
-            setTimeout(() => {
-              fileInputRef.current?.click();
-            }, 300); // ensure modal closes first
+            document.getElementById("fileInput")?.click();
           }}
         />
       )}
 
       <Header />
-
-      <input
-        type="file"
-        accept="image/*"
-        ref={fileInputRef}
-        style={{ display: "none" }}
-        onChange={(e) => handleCapture(e)}
-      />
 
       {showCameraPrompt && (
         <CameraPrompt
@@ -167,109 +241,32 @@ console.log(accessToken,customerEmail)
             minHeight: "50vh",
           }}
         >
-          {(preview || isLoginModalOpen || finalResults || Object.keys(productGroups).length > 0) && (
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "2rem",
-                maxWidth: "600px",
-                margin: "2rem auto",
-                borderRadius: "12px",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-              }}
-            >
-              {preview && (
-                <div style={{ marginBottom: "1rem", textAlign: "center" }}>
-                  <img
-                    src={preview}
-                    alt="Preview"
-                    style={{ maxWidth: "100%", height: "50%", borderRadius: "8px" }}
-                  />
-                  {analyzing && (
-                    <p style={{ marginTop: "0.5rem", fontStyle: "italic" }}>
-                      Analyzing image...
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {isLoginModalOpen && (
-                <LoginModal
-                  onClose={() => setIsLoginModalOpen(false)}
-                  onLoginSuccess={handleLoginSuccess}
-                />
-              )}
-
-              {finalResults && (
-                <div style={{ marginTop: "1rem" }}>
-                  <h2>Skin Analysis Result:</h2>
-                  <ul>
-                    <li>Wrinkles: {finalResults.wrinkle}</li>
-                    <li>Pores: {finalResults.pore}</li>
-                    <li>Texture: {finalResults.texture}</li>
-                    <li>Acne: {finalResults.acne}</li>
-                  </ul>
-                </div>
-              )}
-
-              {Object.keys(productGroups).length > 0 && (
-                <div style={{ marginTop: "1rem" }}>
-                  <h2>Recommended Products:</h2>
-                  {Object.entries(productGroups).map(([tag, products]) => (
-                    <div key={tag} style={{ marginBottom: "2rem" }}>
-                      <h3>{tag.toUpperCase()} Products</h3>
-                      <ul style={{ listStyle: "none", padding: 0 }}>
-                        {products.map((product) => (
-                          <li
-                            key={product.id}
-                            style={{
-                              background: "#f9f9f9",
-                              padding: "10px",
-                              marginBottom: "1rem",
-                              borderRadius: "8px",
-                            }}
-                          >
-                            <strong>{product.name}</strong>
-                            <br />
-                            <strong>{product.brand}</strong>
-                            <div>
-                              <img
-                                src={product.image}
-                                alt={product.name}
-                                style={{ width: "100px", borderRadius: "5px" }}
-                              />
-                            </div>
-                            <p dangerouslySetInnerHTML={{ __html: product.price_html }} />
-                            <button
-                              onClick={() => {
-                                if (product.link) {
-                                  window.open(product.link, "productDetailsTab")?.focus();
-                                }
-                              }}
-                              style={{
-                                display: "inline-block",
-                                marginTop: "10px",
-                                padding: "10px 20px",
-                                backgroundColor: "#f847b4",
-                                color: "white",
-                                textDecoration: "none",
-                                border: "none",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              Shop Now
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "2rem",
+              maxWidth: "600px",
+              margin: "2rem auto",
+              borderRadius: "12px",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <input
+              type="file"
+              id="fileInput"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => handleCapture(e)}
+            />
+            <ProductRecommender />
+            <p>Test</p>
+            {isLoginModalOpen && (
+              <LoginModal
+                onClose={() => setIsLoginModalOpen(false)}
+                onLoginSuccess={handleLoginSuccess}
+              />
+            )}
+          </div>
         </main>
       )}
 

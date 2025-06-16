@@ -1,7 +1,9 @@
+// @/services/skinanalysis.ts
+
 import api from "@/util/api";
-import { apiEndpoints } from "@/util/endpoints";
 
 export async function uploadImage(file: File, accessToken: string) {
+  // Step 1: Get signed upload URL
   const payload = {
     files: [
       {
@@ -12,42 +14,34 @@ export async function uploadImage(file: File, accessToken: string) {
     ],
   };
 
-  try {
-    const myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
-    myHeaders.append("Authorization", `Bearer ${accessToken}`);
-
-    const raw = JSON.stringify(payload);
-
-    const requestOptions = {
+  const response = await fetch(
+    "https://yce-api-01.perfectcorp.com/s2s/v1.1/file/skin-analysis",
+    {
       method: "POST",
-      headers: myHeaders,
-      body: raw,
-      redirect: "follow",
-    };
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
 
-    const response = await fetch(
-      "https://yce-api-01.perfectcorp.com/s2s/v1.1/file/skin-analysis",
-      // @ts-expect-error: prop not in type but needed for dynamic rendering
-      requestOptions
-    );
+  const result = await response.json();
+  const fileInfo = result.result.files[0];
 
-    const result = await response.json(); 
+  const { url, method, headers } = fileInfo.requests[0];
 
-    return result.result.files[0];
+  // Step 2: Upload the actual file to the signed S3 URL
+  await fetch(url, {
+    method,
+    headers,
+    body: file, // Upload actual binary data
+  });
 
-  } catch (error) {
-    console.error("Upload image error:", error);
-    throw error;
-  }
+  // Return file_id or the full fileInfo if needed for next steps
+  return fileInfo;
 }
 
-
-export interface SkinAnalysisAction {
-  id: number;
-  params: object;
-  dst_actions: string[];
-}
 
 export interface SkinAnalysisPayload {
   request_id: number;
@@ -55,7 +49,11 @@ export interface SkinAnalysisPayload {
     file_sets: {
       src_ids: string[];
     };
-    actions: SkinAnalysisAction[];
+    actions: {
+      id: number;
+      params: object;
+      dst_actions: string[];
+    }[];
   };
 }
 
@@ -66,68 +64,61 @@ export interface SkinAnalysisResponse {
   };
 }
 
-// Call the skin analysis API
-export async function runSkinAnalysis(payload: SkinAnalysisPayload, accessToken: string): Promise<SkinAnalysisResponse> {
-  try {
-    const response = await api.post(
-      "https://yce-api-01.perfectcorp.com/s2s/v1.0/task/skin-analysis",
-      payload,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        }
-      }
-    );
-      // @ts-expect-error: prop not in type but needed for dynamic rendering
-      return response;
-  } catch (error) {
-    throw error;
-  }
+export async function runSkinAnalysis(
+  payload: SkinAnalysisPayload,
+  accessToken: string
+): Promise<SkinAnalysisResponse> {
+  const response = await api.post(
+    "https://yce-api-01.perfectcorp.com/s2s/v1.0/task/skin-analysis",
+    payload,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+      },
+    }
+  );
+  // @ts-expect-error - available_balance is a currency-formatted string (e.g. "₦ 430.00")
+// We sanitize it before converting to number for comparison
+  return response;
 }
 
-// Example usage function
-export async function analyzeSkinFeatures(fileId: string, accessToken: string, features: string[] = ["wrinkle", "pore", "texture", "acne"]) {
+// ✅ REAL task status check using GET
+export async function checkSkinAnalysisStatus(taskId: string, accessToken: string) {
+  const url = `https://yce-api-01.perfectcorp.com/s2s/v1.0/task/skin-analysis?task_id=${encodeURIComponent(taskId)}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  const result = await response.json();
+  return result;
+}
+
+// Wrapper for easier calling
+export async function analyzeSkinFeatures(
+  fileId: string,
+  accessToken: string,
+  features: string[] = ["wrinkle", "pore", "texture", "acne"]
+) {
   const payload: SkinAnalysisPayload = {
     request_id: 0,
     payload: {
       file_sets: {
-        src_ids: [fileId]
+        src_ids: [fileId],
       },
       actions: [
         {
           id: 0,
           params: {},
-          dst_actions: features
-        }
-      ]
-    }
+          dst_actions: features,
+        },
+      ],
+    },
   };
 
-  try {
-    const result = await runSkinAnalysis(payload, accessToken);
-    return result;
-  } catch (error) {
-    console.error('Skin analysis failed:', error);
-    throw error;
-  }
+  return await runSkinAnalysis(payload, accessToken);
 }
-
-// Check skin analysis status (corrected version)
-export async function checkSkinAnalysisStatus(taskId: string, accessToken: string) {
-  try {
-    const response = await api.get(
-      `${apiEndpoints.skinAnalysis.CHECK_STATUS}?task_id=${taskId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      }
-    );
-    return response;
-  } catch (error) {
-    throw error;
-  }
-}
-
-
