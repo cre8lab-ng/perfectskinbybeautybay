@@ -10,10 +10,13 @@ import {
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import InstructionModal from "@/components/modal/instruction-modal";
-import { loadPaystackScript } from "@/util/paystack";
 import PrivacyConsentModal from "@/components/modal/privacy-consent-modal";
 import CameraPrompt from "@/components/camera-prompt";
-import { extractSkinAnalysisResults, getGranularLevel, notifyError } from "@/util/utils";
+import {
+  extractSkinAnalysisResults,
+  getGranularLevel,
+  notifyError,
+} from "@/util/utils";
 import { skinProductMap } from "@/data/skinProductMap";
 import WebPageTitle from "@/components/webpagetitle";
 
@@ -95,17 +98,18 @@ export default function FaceDetectionComponent() {
   const [originalImagePreview, setOriginalImagePreview] = useState<
     string | null
   >(null);
-
+console.log(setModelsLoaded)
   const productRecommendations = getRecommendedProducts(scoreInfo);
   console.log(uploading, analysisStatus, uploadResponse);
+
+
   useEffect(() => {
     const loadModels = async () => {
-      await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
-      setModelsLoaded(true);
+      await faceapi.nets.ssdMobilenetv1.loadFromUri("/models"); // 👈 make sure this matches your folder
     };
     loadModels();
-    loadPaystackScript();
   }, []);
+  
 
   function resizeImageWithOverride(
     inputFile: File,
@@ -185,45 +189,42 @@ export default function FaceDetectionComponent() {
       reader.readAsDataURL(inputFile);
     });
   }
-
   const handleCaptureWithOverride = async (
     e?: ChangeEvent<HTMLInputElement>,
     capturedFile?: File | null
   ): Promise<void> => {
     if (faceDetectionLoading) return;
+  
     const file = capturedFile ?? e?.target?.files?.[0];
     if (!file) return;
-
-    const { file: resizedFile, previewUrl } = await resizeImageWithOverride(
-      file
-    );
+  
+    const { file: resizedFile, previewUrl } = await resizeImageWithOverride(file);
     setScoreInfo(null);
     setZipContent([]);
-
     setProcessedImagePreview(previewUrl);
-
+  
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = previewUrl;
+  
     await new Promise((resolve) => (img.onload = resolve));
-
+  
     setFaceDetectionLoading(true);
     try {
+      // ✅ Use SSD Mobilenetv1 instead of TinyFaceDetector
       const detection = await faceapi.detectSingleFace(
         img,
-        new faceapi.TinyFaceDetectorOptions()
+        new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
       );
-
+  
       if (!detection) {
         notifyError("No face detected. Please try another image.");
         return;
       }
-
+  
       const box = detection.box;
       if (box.width < 300 || box.height < 300) {
-        alert(
-          "Your face is too small in the image. Please move closer or upload a clearer selfie."
-        );
+        alert("Your face is too small in the image. Please move closer or upload a clearer selfie.");
         return;
       }
     } catch (error) {
@@ -231,25 +232,26 @@ export default function FaceDetectionComponent() {
     } finally {
       setFaceDetectionLoading(false);
     }
-
+  
     if (!accessToken) return alert("Access token not available yet.");
     setUploading(true);
-
+  
     try {
       const res = await uploadImage(resizedFile, accessToken);
       if (!res?.file_id) throw new Error("Upload failed: Missing file_id.");
       setUploadResponse(res);
       setAnalyzing(true);
-
+  
       const analysis = await analyzeSkinFeatures(res.file_id, accessToken, [
         "wrinkle",
         "pore",
         "texture",
         "acne",
       ]);
+  
       const taskId = analysis.result.task_id;
       if (!taskId) throw new Error("No task_id found");
-
+  
       const status = await pollAnalysisStatus(taskId, accessToken);
       setAnalysisStatus(status);
     } catch (err) {
@@ -259,7 +261,8 @@ export default function FaceDetectionComponent() {
       setAnalyzing(false);
     }
   };
-
+  
+  
   const pollAnalysisStatus = async (
     taskId: string,
     accessToken: string
@@ -326,6 +329,14 @@ export default function FaceDetectionComponent() {
         />
       )}
 
+      <input
+        type="file"
+        id="fileInput"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => handleCaptureWithOverride(e, null)}
+      />
+
       <WebPageTitle title="Perfect Skin By BeautyHub" />
       <Header />
       <main
@@ -364,13 +375,6 @@ export default function FaceDetectionComponent() {
                 }}
               />
             )}
-            <input
-              type="file"
-              id="fileInput"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={(e) => handleCaptureWithOverride(e, null)}
-            />
 
             {!modelsLoaded && (
               <div style={{ textAlign: "center", margin: "1rem" }}>
