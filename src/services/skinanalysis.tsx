@@ -90,13 +90,22 @@ export async function checkSkinAnalysisStatus(taskId: string, accessToken: strin
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      "Authorization": `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
     },
   });
 
-  const result = await response.json();
-  return result;
+  // First, check content type
+  const contentType = response.headers.get("Content-Type");
+
+  if (contentType?.includes("application/zip")) {
+    const zipBlob = await response.blob(); // Return blob for zip
+    return { isZip: true, blob: zipBlob };
+  }
+
+  const json = await response.json(); // fallback to regular JSON
+  return { isZip: false, result: json.result };
 }
+
 
 // Wrapper for easier calling
 export async function analyzeSkinFeatures(

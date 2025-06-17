@@ -12,7 +12,9 @@
   "dependencies": {
     "axios": "^1.9.0",
     "crypto": "^1.0.1",
+    "face-api.js": "^0.22.2",
     "icomoon-react": "^3.0.0",
+    "jszip": "^3.10.1",
     "next": "15.3.3",
     "node-cache": "^5.1.2",
     "react": "^18.3.1",
