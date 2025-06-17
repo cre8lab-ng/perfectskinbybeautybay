@@ -9,7 +9,7 @@ export default function ProductRecommender() {
   const [productGroups, setProductGroups] = useState<{ [tag: string]: any[] }>(
     {}
   );
-  console.log(setLoading, setProductGroups);
+  console.log(setLoading,setProductGroups)
   // const tagsToLoad = ["acne", "aha", "amella"];
 
   // useEffect(() => {

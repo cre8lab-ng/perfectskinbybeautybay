@@ -47,7 +47,6 @@ export function triggerPaystackPopup({
   onClose: () => void;
 }) {
   const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
-  console.log(paystackKey)
   if (!paystackKey) {
     console.error("❌ Paystack public key not found in environment variables.");
     return;

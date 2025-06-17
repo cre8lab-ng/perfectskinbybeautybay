@@ -12,13 +12,13 @@ type Props = {
 // Dummy WooCommerce API replacements
 
 async function hasUserCompletedOrder(email: string): Promise<boolean> {
-  console.log(`Simulating check for completed order by: ${email}`);
+  console.log(email)
   // Always return false or toggle based on testing
   return false;
 }
 
 async function createWooCompletedOrder(email: string): Promise<{ success: boolean }> {
-  console.log(`Simulating WooCommerce order creation for: ${email}`);
+  console.log(email)
   // Simulate delay
   await new Promise((resolve) => setTimeout(resolve, 1000));
   return { success: true };

@@ -4,6 +4,10 @@ export const notifySuccess = (successMessage: string) => {
   return toast.success(successMessage);
 };
 
+export const notifyError = (errorMessage: string) => {
+  return toast.error(errorMessage);
+};
+
 export function getGranularLevel(score: string | undefined): "very_low" | "moderate" | "high" | "very_high" {
   if (!score) return "very_low";
   const percent = parseInt(score.replace("%", ""), 10);

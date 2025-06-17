@@ -10,7 +10,7 @@ export default function App({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     generateToken(); 
-  }, []);
+  }, [generateToken]);
   return (
     <>
       <Component {...pageProps} />

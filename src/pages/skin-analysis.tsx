@@ -13,7 +13,7 @@ import InstructionModal from "@/components/modal/instruction-modal";
 import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
 import PrivacyConsentModal from "@/components/modal/privacy-consent-modal";
 import CameraPrompt from "@/components/camera-feed";
-import ProductRecommender from "@/components/product-recommender";
+import { notifyError } from "@/util/utils";
 
 interface Product {
   id: number;
@@ -57,7 +57,7 @@ function dataURLtoFile(dataUrl: string, filename: string): File {
 }
 
 async function createWooCompletedOrder(email: string) {
-  console.log(`Simulated WooCommerce order for: ${email}`);
+  console.log(email)
   return { success: true };
 }
 
@@ -85,55 +85,14 @@ export default function Home() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(true);
   const [showCameraPrompt, setShowCameraPrompt] = useState(false);
 
-  console.log("preview:",setAnalysisStatus, setPendingProducts, preview);
-  console.log("uploadResponse:", uploadResponse);
-  console.log("uploading:", uploading);
-  console.log("analyzing:", analyzing);
-  console.log("finalResults:", finalResults);
-  console.log("products:", products);
-  console.log("isAuthorized:", isAuthorized);
-  console.log("customerEmail:", customerEmail);
+console.log(analysisStatus,finalResults,products,setPendingProducts,isAuthorized,customerEmail)
+  
 
   useEffect(() => {
     loadPaystackScript();
   }, []);
 
-  const pollAnalysisStatus = async (
-    taskId: string,
-    accessToken: string
-  ): Promise<AnalysisStatus> => {
-    let attempts = 0;
-    const maxAttempts = 10;
 
-    const delay = (ms: number) =>
-      new Promise((resolve) => setTimeout(resolve, ms));
-
-    while (attempts < maxAttempts) {
-      try {
-        const response = await checkSkinAnalysisStatus(taskId, accessToken);
-        console.log(`Polling attempt ${attempts + 1}:`, response);
-
-        const status = response?.result?.status;
-
-        if (status === "success") {
-          setAnalysisStatus(response);
-          setPendingResults(response.result.results || null);
-          return response;
-        }
-
-        if (status === "error") {
-          throw new Error(response.result?.error_message || "Analysis failed");
-        }
-      } catch (err) {
-        console.error("Poll error:", err);
-      }
-
-      attempts++;
-      await delay(300); 
-    }
-
-    throw new Error("Timed out while polling skin analysis task.");
-  };
 
   const handleLoginSuccess = async (email: string, hasAccess: boolean) => {
     setCustomerEmail(email);
@@ -157,42 +116,181 @@ export default function Home() {
     }
   };
 
+  function resizeImage(file: File, maxWidth: number, minHeight: number, quality: number = 0.7): Promise<File> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+  
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
+  
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Failed to get canvas context"));
+  
+        let width = img.width;
+        let height = img.height;
+  
+        // Resize image maintaining aspect ratio
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (maxWidth / width) * height;
+            width = maxWidth;
+          }
+        } else {
+          if (height < minHeight) {
+            width = (minHeight / height) * width;
+            height = minHeight;
+          }
+        }
+  
+        canvas.width = width;
+        canvas.height = height;
+  
+        // Draw the image on the canvas
+        ctx.drawImage(img, 0, 0, width, height);
+  
+        // Convert the canvas image to a Blob and then a File
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              // Compress and convert Blob to File
+              resolve(new File([blob], file.name, { type: file.type }));
+            } else {
+              reject(new Error("Failed to convert image to blob"));
+            }
+          },
+          file.type,
+          quality // Set compression quality (0.0 to 1.0)
+        );
+      };
+  
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  }
+  
   const handleCapture = (
     e?: ChangeEvent<HTMLInputElement>,
     capturedFile?: File
   ) => {
     const file = capturedFile ?? e?.target?.files?.[0];
     if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setPreview(previewUrl);
-    if (!accessToken) return alert("Access token not available yet.");
-    setUploading(true);
-    uploadImage(file, accessToken)
-      .then((res) => {
-        if (!res?.file_id) throw new Error("Upload failed: Missing file_id.");
-        setUploadResponse(res);
-        setAnalyzing(true);
-        return analyzeSkinFeatures(res.file_id, accessToken, [
-          "wrinkle",
-          "pore",
-          "texture",
-          "acne",
-        ]);
+  
+    resizeImage(file, 1920, 480) // Resize image with max width of 1920px and min height of 480px
+      .then((resizedFile) => {
+        const previewUrl = URL.createObjectURL(resizedFile);
+        setPreview(previewUrl);
+        if (!accessToken) return alert("Access token not available yet.");
+        setUploading(true);
+        uploadImage(resizedFile, accessToken)
+          .then((res) => {
+            if (!res?.file_id) throw new Error("Upload failed: Missing file_id.");
+            setUploadResponse(res);
+            setAnalyzing(true);
+            return analyzeSkinFeatures(res.file_id, accessToken, [
+              "wrinkle",
+              "pore",
+              "texture",
+              "acne",
+            ]);
+          })
+          .then((analysisResult) => {
+            console.log("Initial Analysis Response from Backend:", analysisResult);  // Log the backend response containing task_id
+            const taskId = analysisResult.result.task_id;
+            if (!taskId) throw new Error("No task_id found in analysis response");
+            return pollAnalysisStatus(taskId, accessToken);  // Poll for final results
+          })
+          .then((finalAnalysisStatus) => {
+            // Once polling is successful, log the analysis results
+            console.log("Final Analysis Results from Backend:", finalAnalysisStatus);  // Log the correct final response after analysis
+            setAnalysisStatus(finalAnalysisStatus);
+            const results = finalAnalysisStatus?.result?.results;
+            console.log("Final Analysis Results (from Polling):", results);  // Log the results from polling
+             // @ts-expect-error - available_balance is a currency-formatted string (e.g. "₦ 430.00")
+// We sanitize it before converting to number for comparison
+            setPendingResults(results); // Store the final results
+          })
+          .catch((err) => alert(`Failed: ${err.message}`))
+          .finally(() => {
+            setUploading(false);
+            setAnalyzing(false);
+          });
       })
+      .catch((err) => alert(`Image resizing failed: ${err.message}`));
+  };
+  
+  const handleReRunAnalysis = () => {
+    if (!uploadResponse?.file_id) {
+      alert("No file uploaded to re-run the analysis.");
+      return;
+    }
+  
+    setUploading(true);
+    setAnalyzing(true);
+  
+    analyzeSkinFeatures(uploadResponse.file_id, accessToken, [
+      "wrinkle",
+      "pore",
+      "texture",
+      "acne",
+    ])
       .then((analysisResult) => {
         const taskId = analysisResult.result.task_id;
         if (!taskId) throw new Error("No task_id found in analysis response");
-        return pollAnalysisStatus(taskId, accessToken);
+        return pollAnalysisStatus(taskId, accessToken); // Poll for final results
       })
-      .then(() => setPendingResults(analysisStatus?.result?.results || null))
-      .catch((err) => alert(`Failed: ${err.message}`))
+      .then((finalAnalysisStatus) => {
+        // Logging directly from here, right after polling returns the response
+        console.log("Re-run Analysis Final Status:", finalAnalysisStatus); // Log response from polling
+        setAnalysisStatus(finalAnalysisStatus);
+        setPendingResults(finalAnalysisStatus?.result?.results || null);
+        console.log("Re-run Analysis Results:", finalAnalysisStatus?.result?.results); // Log re-run results from polling
+      })
+      .catch((err) => alert(`Re-run failed: ${err.message}`))
       .finally(() => {
         setUploading(false);
         setAnalyzing(false);
       });
   };
-
-  console.log(LoginModal, isLoginModalOpen, handleLoginSuccess);
+  
+  // Polling function, ensure you log the response here before state update
+  const pollAnalysisStatus = async (
+    taskId: string,
+    accessToken: string
+  ): Promise<AnalysisStatus> => {
+    let attempts = 0;
+    const maxAttempts = 10;
+  
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  
+    while (attempts < maxAttempts) {
+      try {
+        const response = await checkSkinAnalysisStatus(taskId, accessToken);
+        const status = response?.result?.status;
+  
+        if (status === "success") {
+          console.log("Polling Response:", response);
+          return response; 
+        }
+  
+        // Handle other cases like "running" or "error"
+        if (status === "error") {
+          notifyError(response.result?.error);
+        }
+      } catch (err) {
+        console.error("Poll error:", err);
+      }
+  
+      attempts++;
+      await delay(300); // Wait before retrying
+    }
+  
+    throw new Error("Timed out while polling skin analysis task.");
+  };
+  
   return (
     <>
       {showPrivacyModal && (
@@ -258,7 +356,23 @@ export default function Home() {
               style={{ display: "none" }}
               onChange={(e) => handleCapture(e)}
             />
-            <ProductRecommender />
+              {preview && (
+        <div>
+          <img
+            src={preview}
+            alt="Image Preview"
+            style={{ maxWidth: "100%", maxHeight: "500px" }}
+          />
+        </div>
+      )}
+
+      {/* Re-run Analysis Button */}
+      <button onClick={handleReRunAnalysis} disabled={uploading || analyzing}>
+        Re-run Analysis
+      </button>
+
+
+            {/* <ProductRecommender /> */}
             <p>Test</p>
             {isLoginModalOpen && (
               <LoginModal
