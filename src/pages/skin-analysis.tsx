@@ -17,27 +17,6 @@ import { extractSkinAnalysisResults, getGranularLevel } from "@/util/utils";
 import { skinProductMap } from "@/data/skinProductMap";
 import WebPageTitle from "@/components/webpagetitle";
 
-interface SkinAnalysisDataItem {
-  url: string;
-}
-
-interface SkinAnalysisResultItem {
-  id: number;
-  data: SkinAnalysisDataItem[];
-}
-
-interface SkinAnalysisResponse {
-  status: number;
-  result: {
-    polling_interval: number;
-    status: "running" | "success" | "error";
-    error?: string;
-    error_message?: string;
-    results?: SkinAnalysisResultItem[];
-  };
-}
-
-
 interface ScoreEntry {
   ui_score?: number;
   raw_score?: number;
@@ -280,44 +259,44 @@ export default function FaceDetectionComponent() {
   const pollAnalysisStatus = async (
     taskId: string,
     accessToken: string
-  ): Promise<SkinAnalysisResponse> => {
+  ): Promise<any> => {
     let attempts = 0;
     const maxAttempts = 10;
     const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-  
+
     while (attempts < maxAttempts) {
       try {
-        const res: SkinAnalysisResponse = await checkSkinAnalysisStatus(taskId, accessToken);
-        const status = res.result.status;
-  
+        const res = await checkSkinAnalysisStatus(taskId, accessToken);
+        const status = res?.result?.status;
+
         if (status === "success") {
           console.log("✅ Poll success:", res);
-  
-          const zipUrl = res.result.results?.[0]?.data?.[0]?.url;
+
+          const zipUrl = res.result?.results?.[0]?.data?.[0]?.url;
           if (!zipUrl) throw new Error("No ZIP URL found in result");
-  
+
           const { score, images } = await extractSkinAnalysisResults(zipUrl);
           if (score) setScoreInfo(score);
+
           if (images.length > 0) setZipContent(images);
-  
+
           return res;
         }
-  
+
         if (status === "error") {
-          console.warn("❌ Server returned error:", res.result.error_message);
+          console.warn("❌ Server returned error:", res.result?.error_message);
           break;
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
-  
+
       attempts++;
       await delay(500);
     }
-  
+
     throw new Error("❌ Polling timed out after max attempts");
   };
-  
 
   return (
     <>
