@@ -21,8 +21,7 @@ import { skinProductMap } from "@/data/skinProductMap";
 import WebPageTitle from "@/components/webpagetitle";
 import { useResultAccess } from "@/stores/useResultAccess";
 import LoginModal from "@/components/modal/login";
-import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
-import { createWooCompletedOrder } from "@/services/woocommerce";
+import { loadPaystackScript} from "@/util/paystack";
 
 interface ScoreEntry {
   ui_score?: number;
@@ -115,7 +114,7 @@ export default function FaceDetectionComponent() {
     setShowLoginModal,
     handleLogin,
   } = useResultAccess();
-
+console.log(userEmail)
   useEffect(() => {
     const loadModels = async () => {
       await faceapi.nets.ssdMobilenetv1.loadFromUri("/models"); // 👈 make sure this matches your folder

@@ -33,8 +33,8 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
             await createWooCompletedOrder(email);
             onLoginSuccess(email, true); // ✅ Access granted
           },
-          // @ts-ignore: Ignore onCancel because it's used by our custom Paystack popup logic
-          onCancel: () => {
+// @ts-expect-error: 'onCancel' is a custom prop not included in the base type
+onCancel: () => {
             setError("Payment was cancelled. Please try again.");
           },
         });
