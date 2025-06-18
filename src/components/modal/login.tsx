@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { hasUserCompletedOrder, createWooCompletedOrder } from "@/services/woocommerce";
+import { triggerPaystackPopup } from "@/util/paystack";
 
 type Props = {
   onClose: () => void;
@@ -16,14 +18,31 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
     setError("");
 
     try {
-      // ✅ Always succeed for test
-      setTimeout(() => {
+      const hasAccess = await hasUserCompletedOrder(email);
+
+      if (hasAccess) {
+        console.log(email)
+        // ✅ Already has a completed order
         onLoginSuccess(email, true);
-        setChecking(false);
-      }, 1000); // simulate delay
+      } else {
+        // 🧾 Trigger Paystack payment
+        triggerPaystackPopup({
+          email,
+          amount: 500000, // ₦5000 in kobo
+          onSuccess: async () => {
+            await createWooCompletedOrder(email);
+            onLoginSuccess(email, true); // ✅ Access granted
+          },
+          // @ts-ignore: Ignore onCancel because it's used by our custom Paystack popup logic
+          onCancel: () => {
+            setError("Payment was cancelled. Please try again.");
+          },
+        });
+      }
     } catch (err) {
-      setError("Login failed. Please try again.");
       console.error("Login error:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
       setChecking(false);
     }
   };
@@ -46,15 +65,21 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
           </button>
           {error && <p style={{ color: "red" }}>{error}</p>}
         </form>
-        <button onClick={onClose} style={closeButtonStyle}>Close</button>
+        <button onClick={onClose} style={closeButtonStyle}>
+          Close
+        </button>
       </div>
     </div>
   );
 }
 
+// Styles
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
-  top: 0, left: 0, right: 0, bottom: 0,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
   backgroundColor: "rgba(0,0,0,0.6)",
   display: "flex",
   alignItems: "center",

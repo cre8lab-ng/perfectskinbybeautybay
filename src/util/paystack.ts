@@ -1,5 +1,3 @@
-// paystack.ts
-
 /** Dynamically loads the Paystack inline.js script once */
 export function loadPaystackScript() {
   if (typeof window === "undefined") return;
@@ -27,7 +25,7 @@ declare global {
         amount: number;
         currency?: string;
         ref?: string;
-        callback: () => void;
+        callback: (response: any) => void;
         onClose: () => void;
       }) => PaystackHandler;
     };
@@ -43,8 +41,8 @@ export function triggerPaystackPopup({
 }: {
   email: string;
   amount: number;
-  onSuccess: () => void;
-  onClose: () => void;
+  onSuccess?: (response?: any) => void;
+  onClose?: () => void;
 }) {
   const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
   if (!paystackKey) {
@@ -52,20 +50,45 @@ export function triggerPaystackPopup({
     return;
   }
 
-  const handler = window.PaystackPop?.setup({
-    key: paystackKey,
-    email,
-    amount,
-    currency: "NGN",
-    ref: `SA-${Date.now()}`,
-    callback: onSuccess,
-    onClose: onClose,
-  });
-
-  if (!handler) {
-    alert("❌ Paystack failed to initialize. Script not loaded?");
+  if (typeof window === "undefined" || !window.PaystackPop) {
+    alert("Paystack is not ready yet. Please try again in a few seconds.");
     return;
   }
 
-  handler.openIframe();
+  // Ensure we always have valid functions, with proper fallbacks
+  const callbackFn = (response: any) => {
+    console.log("Payment successful:", response);
+    if (onSuccess && typeof onSuccess === "function") {
+      onSuccess(response);
+    }
+  };
+
+  const onCloseFn = () => {
+    console.log("Payment popup closed");
+    if (onClose && typeof onClose === "function") {
+      onClose();
+    }
+  };
+
+  try {
+    const handler = window.PaystackPop.setup({
+      key: paystackKey,
+      email,
+      amount,
+      currency: "NGN",
+      ref: `SA-${Date.now()}`,
+      callback: callbackFn,
+      onClose: onCloseFn,
+    });
+
+    if (!handler || typeof handler.openIframe !== "function") {
+      alert("❌ Paystack failed to initialize.");
+      return;
+    }
+
+    handler.openIframe();
+  } catch (error) {
+    console.error("Paystack setup error:", error);
+    alert("❌ Failed to initialize payment. Please try again.");
+  }
 }

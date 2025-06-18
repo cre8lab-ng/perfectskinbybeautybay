@@ -19,6 +19,10 @@ import {
 } from "@/util/utils";
 import { skinProductMap } from "@/data/skinProductMap";
 import WebPageTitle from "@/components/webpagetitle";
+import { useResultAccess } from "@/stores/useResultAccess";
+import LoginModal from "@/components/modal/login";
+import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
+import { createWooCompletedOrder } from "@/services/woocommerce";
 
 interface ScoreEntry {
   ui_score?: number;
@@ -88,6 +92,7 @@ export default function FaceDetectionComponent() {
   const [showCameraPrompt, setShowCameraPrompt] = useState(false);
   const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(true);
+  const [showOverlays, setShowOverlays] = useState(true); // 👈 toggle overlay state
 
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [scoreInfo, setScoreInfo] = useState<ScoreInfo | null>(null);
@@ -98,10 +103,18 @@ export default function FaceDetectionComponent() {
   const [originalImagePreview, setOriginalImagePreview] = useState<
     string | null
   >(null);
-console.log(setModelsLoaded)
+  console.log(setModelsLoaded);
   const productRecommendations = getRecommendedProducts(scoreInfo);
-  console.log(uploading, analysisStatus, uploadResponse);
 
+  
+  console.log(uploading, analysisStatus, uploadResponse);
+  const {
+    userEmail,
+    hasAccess,
+    showLoginModal,
+    setShowLoginModal,
+    handleLogin,
+  } = useResultAccess();
 
   useEffect(() => {
     const loadModels = async () => {
@@ -109,7 +122,9 @@ console.log(setModelsLoaded)
     };
     loadModels();
   }, []);
-  
+
+
+
 
   function resizeImageWithOverride(
     inputFile: File,
@@ -189,42 +204,52 @@ console.log(setModelsLoaded)
       reader.readAsDataURL(inputFile);
     });
   }
+
+  useEffect(() => {
+    loadPaystackScript();
+  }, []);
+
   const handleCaptureWithOverride = async (
     e?: ChangeEvent<HTMLInputElement>,
     capturedFile?: File | null
   ): Promise<void> => {
     if (faceDetectionLoading) return;
-  
+
     const file = capturedFile ?? e?.target?.files?.[0];
     if (!file) return;
-  
-    const { file: resizedFile, previewUrl } = await resizeImageWithOverride(file);
+
+    const { file: resizedFile, previewUrl } = await resizeImageWithOverride(
+      file
+    );
     setScoreInfo(null);
     setZipContent([]);
     setProcessedImagePreview(previewUrl);
-  
+    setAnalysisStatus(null);
+    setUploadResponse(null);
+
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = previewUrl;
-  
+
     await new Promise((resolve) => (img.onload = resolve));
-  
+
     setFaceDetectionLoading(true);
     try {
-      // ✅ Use SSD Mobilenetv1 instead of TinyFaceDetector
       const detection = await faceapi.detectSingleFace(
         img,
         new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
       );
-  
+
       if (!detection) {
         notifyError("No face detected. Please try another image.");
         return;
       }
-  
+
       const box = detection.box;
       if (box.width < 300 || box.height < 300) {
-        alert("Your face is too small in the image. Please move closer or upload a clearer selfie.");
+        alert(
+          "Your face is too small in the image. Please move closer or upload a clearer selfie."
+        );
         return;
       }
     } catch (error) {
@@ -232,37 +257,49 @@ console.log(setModelsLoaded)
     } finally {
       setFaceDetectionLoading(false);
     }
-  
-    if (!accessToken) return alert("Access token not available yet.");
+
+    if (!accessToken) {
+      alert("Access token not available yet.");
+      return;
+    }
+
     setUploading(true);
-  
+
     try {
       const res = await uploadImage(resizedFile, accessToken);
       if (!res?.file_id) throw new Error("Upload failed: Missing file_id.");
-      setUploadResponse(res);
-      setAnalyzing(true);
-  
-      const analysis = await analyzeSkinFeatures(res.file_id, accessToken, [
+      setUploadResponse(res); // ✅ Store file_id for later use (delayed analysis)
+    } catch (err) {
+      alert("Upload failed: " + (err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const runSkinAnalysis = async (fileId: string) => {
+    if (!accessToken) return alert("Access token not available");
+    setAnalyzing(true);
+
+    try {
+      const analysis = await analyzeSkinFeatures(fileId, accessToken, [
         "wrinkle",
         "pore",
         "texture",
         "acne",
       ]);
-  
+
       const taskId = analysis.result.task_id;
-      if (!taskId) throw new Error("No task_id found");
-  
+      if (!taskId) throw new Error("No task_id returned");
+
       const status = await pollAnalysisStatus(taskId, accessToken);
       setAnalysisStatus(status);
     } catch (err) {
-      alert("Upload or analysis failed: " + (err as Error).message);
+      alert("Analysis failed: " + (err as Error).message);
     } finally {
-      setUploading(false);
       setAnalyzing(false);
     }
   };
-  
-  
+
   const pollAnalysisStatus = async (
     taskId: string,
     accessToken: string
@@ -418,50 +455,86 @@ console.log(setModelsLoaded)
                 </p>
               </div>
             )}
-            {zipContent.length > 0 && originalImagePreview && (
-              <div
+           {originalImagePreview && (
+            <div
+              style={{
+                position: "relative",
+                display: "inline-block",
+                width: "100%",
+                maxWidth: "100%",
+              }}
+            >
+              <img
+                src={originalImagePreview}
+                alt="Original Face"
                 style={{
-                  position: "relative",
-                  display: "inline-block",
                   width: "100%",
-                  maxWidth: "100%",
+                  display: "block",
+                  backgroundColor: "#f5f5f5",
+                  border: "1px solid #ddd",
+                  borderRadius: "8px",
+                  position: "relative",
+                  zIndex: 1,
                 }}
-              >
-                {/* Base face image */}
+              />
+              {showOverlays && zipContent.length > 0 && zipContent.map((mask, i) => (
                 <img
-                  src={originalImagePreview}
-                  alt="Original Face"
+                  key={i}
+                  src={mask.url}
+                  alt={mask.name}
                   style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
                     width: "100%",
-                    display: "block",
-                    backgroundColor: "#f5f5f5", // fallback in case image loads slowly
-                    border: "1px solid #ddd", // optional border for visual structure
-                    borderRadius: "8px",
+                    height: "100%",
+                    pointerEvents: "none",
+                    opacity: 0.85,
+                    zIndex: 2,
+                    border: "1px dashed transparent",
                   }}
                 />
+              ))}
+            </div>
+          )}
 
-                {/* Overlay PNG masks */}
-                {zipContent.map((mask, i) => (
-                  <img
-                    key={i}
-                    src={mask.url}
-                    alt={mask.name}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      height: "100%",
-                      pointerEvents: "none",
-                      opacity: 0.85,
-                      border: "1px dashed transparent", // toggle to 'lime' to debug
-                    }}
-                  />
-                ))}
-              </div>
+          {zipContent.length > 0 && (
+            <div style={{ marginTop: "0.5rem", textAlign: "right" }}>
+              <label style={{ fontSize: "0.9rem" }}>
+                <input
+                  type="checkbox"
+                  checked={showOverlays}
+                  onChange={() => setShowOverlays(!showOverlays)}
+                  style={{ marginRight: "0.5rem" }}
+                />
+                Show skin concern overlays
+              </label>
+            </div>
+          )}
+
+
+            {uploadResponse?.file_id && !scoreInfo && (
+              <>
+                <p>
+                  Your image is ready. Log in to view your skin analysis
+                  results.
+                </p>
+                <button
+  onClick={() => {
+    if (!hasAccess) {
+      setShowLoginModal(true);
+    } else if (!analyzing && uploadResponse?.file_id) {
+      runSkinAnalysis(uploadResponse.file_id);
+    }
+  }}
+>
+  {hasAccess ? "View Result" : "Log In to View Result"}
+</button>
+
+              </>
             )}
 
-            {scoreInfo && (
+            {scoreInfo && hasAccess && (
               <div style={{ marginBottom: "2rem" }}>
                 <h3 style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>
                   🧪 Skin Analysis Results
@@ -565,7 +638,7 @@ console.log(setModelsLoaded)
               </div>
             )}
 
-            {scoreInfo && productRecommendations.length > 0 && (
+            {scoreInfo && hasAccess && productRecommendations.length > 0 && (
               <div style={{ marginTop: "2rem" }}>
                 <h3>🧴 Personalized Product Recommendations</h3>
                 {productRecommendations.map(({ concern, level, products }) => (
@@ -612,6 +685,20 @@ console.log(setModelsLoaded)
         )}{" "}
       </main>
       <Footer />
+      {showLoginModal && (
+  <LoginModal
+    onClose={() => setShowLoginModal(false)}
+    onLoginSuccess={(email, hasAccess) => {
+      handleLogin(email);
+      setShowLoginModal(false);
+
+      if (hasAccess && uploadResponse?.file_id) {
+        runSkinAnalysis(uploadResponse.file_id);
+      }
+    }}
+  />
+)}
+
     </>
   );
 }

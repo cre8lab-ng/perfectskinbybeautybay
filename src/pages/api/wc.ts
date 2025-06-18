@@ -110,28 +110,28 @@ export default async function handler(
     }
 
     // ----------- COMPLETED ORDERS ----------
-    if (action === "completedOrders" && req.method === "GET") {
-      const email = (req.query.email as string)?.toLowerCase();
-      if (!email)
-        return res.status(400).json({ error: "Missing 'email' parameter" });
+// ----------- COMPLETED ORDERS ----------
+if (action === "completedOrders" && req.method === "GET") {
+  const email = (req.query.email as string)?.toLowerCase();
+  if (!email)
+    return res.status(400).json({ error: "Missing 'email' parameter" });
 
-      const cacheKey = `orders:${email}`;
-      const cached = cache.get(cacheKey);
-      if (cached) return res.status(200).json(cached);
+  const cacheKey = `orders:${email}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return res.status(200).json({ orders: cached });
 
-      const response = await axios.get(`${BASE_URL}/orders`, {
-        auth,
-        params: { status: "completed", per_page: 100 },
-      });
+  const response = await axios.get(`${BASE_URL}/orders`, {
+    auth,
+    params: { status: "completed", per_page: 100 },
+  });
 
-      const orders = (response.data as WCOrder[]).filter(
-        (order) => order.billing?.email?.toLowerCase() === email
-      );
-      
+  const orders = (response.data as WCOrder[]).filter(
+    (order) => order.billing?.email?.toLowerCase() === email
+  );
 
-      cache.set(cacheKey, orders);
-      return res.status(200).json(orders);
-    }
+  cache.set(cacheKey, orders);
+  return res.status(200).json({ orders }); // 👈 wrap in object
+}
 
     // ----------- CREATE ORDER ----------
     if (action === "createOrder" && req.method === "POST") {
