@@ -21,7 +21,7 @@ import { skinProductMap } from "@/data/skinProductMap";
 import WebPageTitle from "@/components/webpagetitle";
 import { useResultAccess } from "@/stores/useResultAccess";
 import LoginModal from "@/components/modal/login";
-import { loadPaystackScript} from "@/util/paystack";
+import { loadPaystackScript } from "@/util/paystack";
 
 interface ScoreEntry {
   ui_score?: number;
@@ -105,7 +105,6 @@ export default function FaceDetectionComponent() {
   console.log(setModelsLoaded);
   const productRecommendations = getRecommendedProducts(scoreInfo);
 
-  
   console.log(uploading, analysisStatus, uploadResponse);
   const {
     userEmail,
@@ -114,16 +113,13 @@ export default function FaceDetectionComponent() {
     setShowLoginModal,
     handleLogin,
   } = useResultAccess();
-console.log(userEmail)
+  console.log(userEmail);
   useEffect(() => {
     const loadModels = async () => {
-      await faceapi.nets.ssdMobilenetv1.loadFromUri("/models"); 
+      await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
     };
     loadModels();
   }, []);
-
-
-
 
   function resizeImageWithOverride(
     inputFile: File,
@@ -134,7 +130,7 @@ console.log(userEmail)
       const reader = new FileReader();
       reader.onload = (e) => {
         const originalUrl = e.target?.result as string;
-        setOriginalImagePreview(originalUrl); // new state to store this
+        setOriginalImagePreview(originalUrl); 
         img.src = originalUrl;
       };
 
@@ -454,63 +450,64 @@ console.log(userEmail)
                 </p>
               </div>
             )}
-           {originalImagePreview && (
-            <div
-              style={{
-                position: "relative",
-                display: "inline-block",
-                width: "100%",
-                maxWidth: "100%",
-              }}
-            >
-              <img
-                src={originalImagePreview}
-                alt="Original Face"
+            {originalImagePreview && (
+              <div
                 style={{
-                  width: "100%",
-                  display: "block",
-                  backgroundColor: "#f5f5f5",
-                  border: "1px solid #ddd",
-                  borderRadius: "8px",
                   position: "relative",
-                  zIndex: 1,
+                  display: "inline-block",
+                  width: "100%",
+                  maxWidth: "100%",
                 }}
-              />
-              {showOverlays && zipContent.length > 0 && zipContent.map((mask, i) => (
+              >
                 <img
-                  key={i}
-                  src={mask.url}
-                  alt={mask.name}
+                  src={originalImagePreview}
+                  alt="Original Face"
                   style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
                     width: "100%",
-                    height: "100%",
-                    pointerEvents: "none",
-                    opacity: 0.85,
-                    zIndex: 2,
-                    border: "1px dashed transparent",
+                    display: "block",
+                    backgroundColor: "#f5f5f5",
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                    position: "relative",
+                    zIndex: 1,
                   }}
                 />
-              ))}
-            </div>
-          )}
+                {showOverlays &&
+                  zipContent.length > 0 &&
+                  zipContent.map((mask, i) => (
+                    <img
+                      key={i}
+                      src={mask.url}
+                      alt={mask.name}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        pointerEvents: "none",
+                        opacity: 0.85,
+                        zIndex: 2,
+                        border: "1px dashed transparent",
+                      }}
+                    />
+                  ))}
+              </div>
+            )}
 
-          {zipContent.length > 0 && (
-            <div style={{ marginTop: "0.5rem", textAlign: "right" }}>
-              <label style={{ fontSize: "0.9rem" }}>
-                <input
-                  type="checkbox"
-                  checked={showOverlays}
-                  onChange={() => setShowOverlays(!showOverlays)}
-                  style={{ marginRight: "0.5rem" }}
-                />
-                Show skin concern overlays
-              </label>
-            </div>
-          )}
-
+            {zipContent.length > 0 && (
+              <div style={{ marginTop: "0.5rem", textAlign: "right" }}>
+                <label style={{ fontSize: "0.9rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={showOverlays}
+                    onChange={() => setShowOverlays(!showOverlays)}
+                    style={{ marginRight: "0.5rem" }}
+                  />
+                  Show skin concern overlays
+                </label>
+              </div>
+            )}
 
             {uploadResponse?.file_id && !scoreInfo && (
               <>
@@ -519,17 +516,16 @@ console.log(userEmail)
                   results.
                 </p>
                 <button
-  onClick={() => {
-    if (!hasAccess) {
-      setShowLoginModal(true);
-    } else if (!analyzing && uploadResponse?.file_id) {
-      runSkinAnalysis(uploadResponse.file_id);
-    }
-  }}
->
-  {hasAccess ? "View Result" : "Log In to View Result"}
-</button>
-
+                  onClick={() => {
+                    if (!hasAccess) {
+                      setShowLoginModal(true);
+                    } else if (!analyzing && uploadResponse?.file_id) {
+                      runSkinAnalysis(uploadResponse.file_id);
+                    }
+                  }}
+                >
+                  {hasAccess ? "View Result" : "Log In to View Result"}
+                </button>
               </>
             )}
 
@@ -685,19 +681,18 @@ console.log(userEmail)
       </main>
       <Footer />
       {showLoginModal && (
-  <LoginModal
-    onClose={() => setShowLoginModal(false)}
-    onLoginSuccess={(email, hasAccess) => {
-      handleLogin(email);
-      setShowLoginModal(false);
+        <LoginModal
+          onClose={() => setShowLoginModal(false)}
+          onLoginSuccess={(email, hasAccess) => {
+            handleLogin(email);
+            setShowLoginModal(false);
 
-      if (hasAccess && uploadResponse?.file_id) {
-        runSkinAnalysis(uploadResponse.file_id);
-      }
-    }}
-  />
-)}
-
+            if (hasAccess && uploadResponse?.file_id) {
+              runSkinAnalysis(uploadResponse.file_id);
+            }
+          }}
+        />
+      )}
     </>
   );
 }
