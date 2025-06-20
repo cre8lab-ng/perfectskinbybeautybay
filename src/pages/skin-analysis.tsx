@@ -117,7 +117,7 @@ export default function FaceDetectionComponent() {
 console.log(userEmail)
   useEffect(() => {
     const loadModels = async () => {
-      await faceapi.nets.ssdMobilenetv1.loadFromUri("/models"); // 👈 make sure this matches your folder
+      await faceapi.nets.ssdMobilenetv1.loadFromUri("/models"); 
     };
     loadModels();
   }, []);
