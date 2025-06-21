@@ -38,11 +38,13 @@ export function triggerPaystackPopup({
   amount,
   onSuccess,
   onClose,
+  onCancel,
 }: {
   email: string;
   amount: number;
   onSuccess?: (response?: any) => void;
   onClose?: () => void;
+  onCancel?: () => void;
 }) {
   const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
   if (!paystackKey) {
@@ -54,7 +56,7 @@ export function triggerPaystackPopup({
     alert("Paystack is not ready yet. Please try again in a few seconds.");
     return;
   }
-
+  console.log(onCancel);
   // Ensure we always have valid functions, with proper fallbacks
   const callbackFn = (response: any) => {
     console.log("Payment successful:", response);

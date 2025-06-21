@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { hasUserCompletedOrder, createWooCompletedOrder } from "@/services/woocommerce";
+import {
+  hasUserCompletedOrder,
+  createWooCompletedOrder,
+} from "@/services/woocommerce";
 import { triggerPaystackPopup } from "@/util/paystack";
+import { useAccessManager } from "@/stores/useAccessManager";
 
 type Props = {
   onClose: () => void;
@@ -8,42 +12,44 @@ type Props = {
 };
 
 export default function LoginModal({ onClose, onLoginSuccess }: Props) {
+  console.log(hasUserCompletedOrder)
+  const [showPayButton, setShowPayButton] = useState(false);
   const [email, setEmail] = useState("");
-  const [checking, setChecking] = useState(false);
+  const {
+    checkAccess,
+    markAsPaid,
+    loading,
+    error: accessError,
+  } = useAccessManager();
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setChecking(true);
-    setError("");
 
-    try {
-      const hasAccess = await hasUserCompletedOrder(email);
+    const result = await checkAccess(email);
 
-      if (hasAccess) {
-        console.log(email)
-        // ✅ Already has a completed order
-        onLoginSuccess(email, true);
-      } else {
-        // 🧾 Trigger Paystack payment
-        triggerPaystackPopup({
-          email,
-          amount: 500000, // ₦5000 in kobo
-          onSuccess: async () => {
-            await createWooCompletedOrder(email);
-            onLoginSuccess(email, true); // ✅ Access granted
-          },
-// @ts-expect-error: 'onCancel' is a custom prop not included in the base type
-onCancel: () => {
-            setError("Payment was cancelled. Please try again.");
-          },
-        });
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setChecking(false);
+    if (result.accessGranted) {
+      onLoginSuccess(email, true);
+    } else if (result.reason === "requires_payment") {
+      triggerPaystackPopup({
+        email,
+        amount: 500000,
+        onSuccess: async () => {
+          const success = await markAsPaid(email);
+          if (success) {
+            await createWooCompletedOrder(email); // optional
+            onLoginSuccess(email, true);
+          }
+        },
+        onCancel: () => {
+          setError("Payment was cancelled. Please try again.");
+        },
+      });
+    } else if (result.reason === "already_used") {
+      setError("You've already used your free access. Please pay to continue.");
+      setShowPayButton(true);
+    } else {
+      setError(result.error || "Something went wrong.");
     }
   };
 
@@ -60,10 +66,40 @@ onCancel: () => {
             required
             style={inputStyle}
           />
-          <button type="submit" disabled={checking} style={buttonStyle}>
-            {checking ? "Checking..." : "Continue"}
+          <button type="submit" disabled={loading} style={buttonStyle}>
+            {loading ? "Checking..." : "Continue"}
           </button>
           {error && <p style={{ color: "red" }}>{error}</p>}
+          {accessError && <p style={{ color: "red" }}>{accessError}</p>}
+
+          {showPayButton && (
+            <button
+              type="button"
+              onClick={() =>
+                triggerPaystackPopup({
+                  email,
+                  amount: 500000,
+                  onSuccess: async () => {
+                    const success = await markAsPaid(email);
+                    if (success) {
+                      await createWooCompletedOrder(email); // optional
+                      onLoginSuccess(email, true);
+                    }
+                  },
+                  onCancel: () => {
+                    setError("Payment was cancelled. Please try again.");
+                  },
+                })
+              }
+              style={{
+                ...buttonStyle,
+                backgroundColor: "green",
+                marginTop: "1rem",
+              }}
+            >
+              Pay ₦5000 to Continue
+            </button>
+          )}
         </form>
         <button onClick={onClose} style={closeButtonStyle}>
           Close
