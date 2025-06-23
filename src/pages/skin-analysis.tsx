@@ -374,7 +374,7 @@ export default function FaceDetectionComponent() {
       <main
         style={{
           padding: "1rem",
-          backgroundImage: "url('/images/perfectskin.jpg')",
+          backgroundImage: "url('/images/perfectskin-background.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
