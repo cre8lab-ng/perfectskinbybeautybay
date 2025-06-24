@@ -1,4 +1,3 @@
-// /pages/api/access.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import axios from "axios";
@@ -22,7 +21,10 @@ export default async function handler(
   res: NextApiResponse
 ) {
   const ip =
-    req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    req.socket.remoteAddress ||
+    "unknown";
+
   const deviceId = req.cookies.device_id || uuidv4();
   const key = `access-check:${ip}`;
   const current = rateLimiter.get(key) || 0;
@@ -34,17 +36,20 @@ export default async function handler(
   }
   rateLimiter.set(key, current + 1);
 
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
 
-  const { email, type } = req.body; // type = "check" | "mark-paid"
-  if (!email || !type)
+  const { email, type, reference, source = "analysis" } = req.body;
+
+  if (!email || !type) {
     return res.status(400).json({ error: "Missing email or type" });
+  }
 
   const emailLower = email.toLowerCase();
 
   try {
-    // Log all attempts to a log table
+    // Log access attempt
     await supabaseAdmin.from("access_log").insert({
       email: emailLower,
       ip,
@@ -52,7 +57,7 @@ export default async function handler(
       action: type,
     });
 
-    // Check how many unique emails this IP has tried before
+    // Unique email attempts by IP
     const { data: ipAttempts, error: ipErr } = await supabaseAdmin
       .from("access_log")
       .select("email")
@@ -61,11 +66,11 @@ export default async function handler(
 
     if (ipErr) throw ipErr;
 
-    const uniqueEmailsByIP = Array.from(
-      new Set(ipAttempts.map((entry) => entry.email))
-    );
+    const uniqueEmailsByIP = [
+      ...new Set(ipAttempts.map((entry) => entry.email)),
+    ];
 
-    // Check how many unique emails this device has tried before
+    // Unique email attempts by device
     const { data: deviceAttempts, error: devErr } = await supabaseAdmin
       .from("access_log")
       .select("email")
@@ -74,9 +79,9 @@ export default async function handler(
 
     if (devErr) throw devErr;
 
-    const uniqueEmailsByDevice = Array.from(
-      new Set(deviceAttempts.map((entry) => entry.email))
-    );
+    const uniqueEmailsByDevice = [
+      ...new Set(deviceAttempts.map((entry) => entry.email)),
+    ];
 
     if (
       (!uniqueEmailsByIP.includes(emailLower) &&
@@ -90,24 +95,27 @@ export default async function handler(
       });
     }
 
-    // 1. First check if already used free access
+    // Check if already granted
     const { data: existing } = await supabaseAdmin
       .from("free_access_once")
       .select("email")
       .eq("email", emailLower)
       .maybeSingle();
 
-    if (existing) {
+    if (existing && type !== "mark-analysis") {
       return res
         .status(200)
         .json({ access_granted: false, reason: "already_used" });
     }
 
+    // ✅ WooCommerce verification
     if (type === "check") {
-      // 2. Check WooCommerce completed orders
       const orderResponse = await axios.get(`${WC_BASE_URL}/orders`, {
         auth: WC_AUTH,
-        params: { status: "completed", per_page: 100 },
+        params: {
+          status: "completed",
+          per_page: 100,
+        },
       });
 
       const orders = orderResponse.data.filter(
@@ -115,12 +123,6 @@ export default async function handler(
       );
 
       if (orders.length > 0) {
-        // Save to Supabase with source: woocommerce
-        await supabaseAdmin.from("free_access_once").insert({
-          email: emailLower,
-          source: "woocommerce",
-          payment_verified: false,
-        });
         return res
           .status(200)
           .json({ access_granted: true, source: "woocommerce" });
@@ -130,20 +132,56 @@ export default async function handler(
           .json({ access_granted: false, reason: "requires_payment" });
       }
     }
+
+    // ✅ Paystack verification
     if (type === "mark-paid") {
-      const { email, reference } = req.body;
-      console.log(email)
-      const verifyRes = await axios.get(`https://api.paystack.co/transaction/verify/${reference}`, {
-        headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-        },
-      });
-    
-      if (verifyRes.data.status === true && verifyRes.data.data.status === "success") {
-        return res.status(200).json({ access_granted: true });
+      if (!reference) {
+        return res.status(400).json({ error: "Missing payment reference" });
       }
-    
-      return res.status(400).json({ access_granted: false });
+
+      const verifyRes = await axios.get(
+        `https://api.paystack.co/transaction/verify/${reference}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          },
+        }
+      );
+
+      const isSuccessful =
+        verifyRes.data?.status === true &&
+        verifyRes.data?.data?.status === "success";
+
+      if (isSuccessful) {
+        return res
+          .status(200)
+          .json({ access_granted: true, source: "paystack" });
+      }
+
+      return res
+        .status(200)
+        .json({ access_granted: false, reason: "payment_failed" });
+    }
+
+    // ✅ Mark analysis success + insert access record
+    if (type === "mark-analysis") {
+      if (existing) {
+        return res
+          .status(200)
+          .json({ success: false, reason: "already_exists" });
+      }
+
+      const { error: insertError } = await supabaseAdmin
+        .from("free_access_once")
+        .insert({
+          email: emailLower,
+          source,
+          payment_verified: false,
+        });
+
+      if (insertError) throw insertError;
+
+      return res.status(200).json({ success: true });
     }
 
     return res.status(400).json({ error: "Invalid type" });

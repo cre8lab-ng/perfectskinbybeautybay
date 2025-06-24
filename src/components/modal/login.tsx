@@ -30,8 +30,10 @@ console.log(markAsPaid)
     const result = await checkAccess(email);
 
     if (result.accessGranted) {
+      useResultAccess.getState().setUserEmail(email);
+      useResultAccess.getState().setHasAccess(true);
       onLoginSuccess(email, true);
-    } else if (result.reason === "requires_payment") {
+        } else if (result.reason === "requires_payment") {
       triggerPaystackPopup({
         email,
         amount: 500000,

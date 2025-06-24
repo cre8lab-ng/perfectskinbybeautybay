@@ -1,6 +1,4 @@
-// Modified to support face-api.js based face size check with loading spinner and fallback
 import { useEffect, useState, ChangeEvent } from "react";
-import * as faceapi from "face-api.js";
 import useAccessToken from "@/stores/useAccessToken";
 import {
   uploadImage,
@@ -22,6 +20,9 @@ import WebPageTitle from "@/components/webpagetitle";
 import { useResultAccess } from "@/stores/useResultAccess";
 import LoginModal from "@/components/modal/login";
 import { loadPaystackScript } from "@/util/paystack";
+import {
+  runMediaPipeFaceDetection,
+} from "@/util/faceValidation";
 
 interface ScoreEntry {
   ui_score?: number;
@@ -95,7 +96,6 @@ export default function FaceDetectionComponent() {
   const [lastCaptureMethod, setLastCaptureMethod] = useState<
     "upload" | "camera" | null
   >(null);
-  const [modelsLoaded, setModelsLoaded] = useState(false);
   const [scoreInfo, setScoreInfo] = useState<ScoreInfo | null>(null);
   const [zipContent, setZipContent] = useState<ZipImage[]>([]);
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(
@@ -104,26 +104,20 @@ export default function FaceDetectionComponent() {
   const [originalImagePreview, setOriginalImagePreview] = useState<
     string | null
   >(null);
-  console.log(setModelsLoaded);
   const productRecommendations = getRecommendedProducts(scoreInfo);
 
   console.log(uploading, analysisStatus, uploadResponse);
-  const {
-    userEmail,
-    hasAccess,
-    showLoginModal,
-    setShowLoginModal,
-    
-  } = useResultAccess();
-  
-  console.log(userEmail);
-  useEffect(() => {
-    const loadModels = async () => {
-      await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
-      setModelsLoaded(true); // ✅ mark as loaded
-    };
-    loadModels();
-  }, []);
+  const { userEmail, hasAccess, showLoginModal, setShowLoginModal } =
+    useResultAccess();
+
+  // console.log(userEmail);
+  // useEffect(() => {
+  //   const loadModels = async () => {
+  //     await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
+  //     setModelsLoaded(true); // ✅ mark as loaded
+  //   };
+  //   loadModels();
+  // }, []);
 
   function resizeImageWithOverride(
     inputFile: File,
@@ -234,12 +228,14 @@ export default function FaceDetectionComponent() {
 
     setFaceDetectionLoading(true);
     try {
-      const detection = await faceapi.detectSingleFace(
-        img,
-        new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
-      );
+      img.crossOrigin = "anonymous";
+      img.src = previewUrl;
 
-      if (!detection) {
+      await new Promise((res) => (img.onload = res));
+
+      const landmarks = await runMediaPipeFaceDetection(img);
+
+      if (!landmarks || landmarks.length === 0) {
         notifyError("No face detected. Please try again.");
         setShowCameraPrompt(false);
 
@@ -254,15 +250,26 @@ export default function FaceDetectionComponent() {
         return;
       }
 
-      const box = detection.box;
-      if (box.width < 300 || box.height < 300) {
+      // Optional: check bounding box from landmarks
+      const xs = landmarks.map((lm) => lm.x * img.width);
+      const ys = landmarks.map((lm) => lm.y * img.height);
+      const width = Math.max(...xs) - Math.min(...xs);
+      const height = Math.max(...ys) - Math.min(...ys);
+
+      if (width < 300 || height < 300) {
         alert(
           "Your face is too small in the image. Please move closer or upload a clearer selfie."
         );
         return;
       }
+
+      // ✅ If you want to re-enable blur/brightness checks later, reinsert these:
+      // const box = getBoundingBox(landmarks, img.width, img.height);
+      // const ctx = canvas.getContext("2d")!;
+      // const brightness = getAverageBrightness(ctx, box);
+      // const blurry = isImageBlurry(ctx, box);
     } catch (error) {
-      console.warn("Face detection failed, proceeding anyway", error);
+      console.warn("MediaPipe face detection failed", error);
     } finally {
       setFaceDetectionLoading(false);
     }
@@ -324,17 +331,35 @@ export default function FaceDetectionComponent() {
 
         if (status === "success") {
           console.log("✅ Poll success:", res);
-
+        
           const zipUrl = res.result?.results?.[0]?.data?.[0]?.url;
           if (!zipUrl) throw new Error("No ZIP URL found in result");
-
+        
           const { score, images } = await extractSkinAnalysisResults(zipUrl);
           if (score) setScoreInfo(score);
-
           if (images.length > 0) setZipContent(images);
-
+        
+          // ✅ Grant access only after successful analysis via secure API
+          if (userEmail) {
+            const apiRes = await fetch("/api/access", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: userEmail,
+                type: "mark-analysis",
+                source: "analysis",
+              }),
+            });
+        
+            const data = await apiRes.json();
+            if (!apiRes.ok || data.success === false) {
+              console.warn("❌ Failed to insert free access:", data.reason || data.error);
+            }
+          }
+        
           return res;
         }
+        
 
         if (status === "error") {
           console.warn("❌ Server returned error:", res.result?.error_message);
@@ -351,41 +376,55 @@ export default function FaceDetectionComponent() {
     throw new Error("❌ Polling timed out after max attempts");
   };
 
-  return (
-    <>
-      {showPrivacyModal && (
-        <PrivacyConsentModal
-          onAgree={() => {
-            setShowPrivacyModal(false);
-            setShowInstructionModal(true);
-          }}
-        />
-      )}
+  
 
-      {showInstructionModal && (
-        <InstructionModal
-          onTakeSelfie={() => {
-            setLastCaptureMethod("camera");
-            setShowInstructionModal(false);
-            setShowCameraPrompt(true);
-          }}
-          onUploadPhoto={() => {
-            setLastCaptureMethod("upload");
-            setShowInstructionModal(false);
-            document.getElementById("fileInput")?.click();
-          }}
-        />
-      )}
 
-      <input
-        type="file"
-        id="fileInput"
-        accept="image/*"
-        style={{ display: "none" }}
-        onChange={(e) => handleCaptureWithOverride(e, null)}
+
+return (
+  <>
+    {showPrivacyModal && (
+      <PrivacyConsentModal
+        onAgree={() => {
+          setShowPrivacyModal(false);
+          setShowInstructionModal(true);
+        }}
       />
+    )}
 
-      <WebPageTitle title="Perfect Skin By BeautyHub" />
+    {showInstructionModal && (
+      <InstructionModal
+        onTakeSelfie={() => {
+          setLastCaptureMethod("camera");
+          setShowInstructionModal(false);
+          setShowCameraPrompt(true);
+        }}
+        onUploadPhoto={() => {
+          setLastCaptureMethod("upload");
+          setShowInstructionModal(false);
+          document.getElementById("fileInput")?.click();
+        }}
+      />
+    )}
+
+    <input
+      type="file"
+      id="fileInput"
+      accept="image/*"
+      style={{ display: "none" }}
+      onChange={(e) => handleCaptureWithOverride(e, null)}
+    />
+
+    {showCameraPrompt ? (
+      <CameraPrompt
+        onCapture={(imageData) => {
+          setShowCameraPrompt(false);
+          const file = dataURLtoFile(imageData, "captured.jpg");
+          handleCaptureWithOverride(undefined, file);
+        }}
+      />
+    ) : (
+      <>
+       <WebPageTitle title="Perfect Skin By BeautyHub" />
       <Header />
       <main
         style={{
@@ -414,17 +453,7 @@ export default function FaceDetectionComponent() {
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
             }}
           >
-            {showCameraPrompt && (
-              <CameraPrompt
-                onCapture={(imageData) => {
-                  setShowCameraPrompt(false);
-                  const file = dataURLtoFile(imageData, "captured.jpg");
-                  handleCaptureWithOverride(undefined, file);
-                }}
-              />
-            )}
-
-            {processedImagePreview && !modelsLoaded && (
+            {processedImagePreview && faceDetectionLoading && (
               <div style={{ textAlign: "center", margin: "1rem" }}>
                 <p>Loading face detection model...</p>
               </div>
@@ -531,18 +560,21 @@ export default function FaceDetectionComponent() {
                   results.
                 </p>
                 <button
-  disabled={analyzing}
-  onClick={() => {
-    if (!hasAccess) {
-      setShowLoginModal(true);
-    } else if (!analyzing && uploadResponse?.file_id) {
-      runSkinAnalysis(uploadResponse.file_id);
-    }
-  }}
->
-  {analyzing ? "Analyzing..." : hasAccess ? "View Result" : "Log In to View Result"}
-</button>
-
+                  disabled={analyzing}
+                  onClick={() => {
+                    if (!hasAccess) {
+                      setShowLoginModal(true);
+                    } else if (!analyzing && uploadResponse?.file_id) {
+                      runSkinAnalysis(uploadResponse.file_id);
+                    }
+                  }}
+                >
+                  {analyzing
+                    ? "Analyzing..."
+                    : hasAccess
+                    ? "View Result"
+                    : "Log In to View Result"}
+                </button>
               </>
             )}
 
@@ -697,18 +729,21 @@ export default function FaceDetectionComponent() {
         )}{" "}
       </main>
       <Footer />
-      {showLoginModal && (
-     <LoginModal
-     onClose={() => setShowLoginModal(false)}
-     onLoginSuccess={(email, hasAccess) => {
-       setShowLoginModal(false);
-       if (hasAccess && uploadResponse?.file_id) {
-         runSkinAnalysis(uploadResponse.file_id);
-       }
-     }}
-   />
-   
-      )}
-    </>
-  );
+     
+      </>
+    )}
+
+    {showLoginModal && (
+      <LoginModal
+        onClose={() => setShowLoginModal(false)}
+        onLoginSuccess={(email, hasAccess) => {
+          setShowLoginModal(false);
+          if (hasAccess && uploadResponse?.file_id) {
+            runSkinAnalysis(uploadResponse.file_id);
+          }
+        }}
+      />
+    )}
+  </>
+);
 }
