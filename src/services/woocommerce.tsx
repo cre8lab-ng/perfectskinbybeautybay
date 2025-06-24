@@ -81,16 +81,19 @@ export async function getProductsByTagName(tagName: string): Promise<MappedProdu
 export async function getCompletedOrdersByEmail(email: string): Promise<WooOrder[]> {
   try {
     const res = await fetch(`/api/wc?action=completedOrders&email=${encodeURIComponent(email)}`);
-    const data: WooOrder[] = await res.json();
-    return data || [];
+    const data = await res.json();
+    console.log(data,"whatimissed")
+    return data.orders || []; // ✅ THIS is what you missed
   } catch (error) {
     console.error(`❌ Failed to fetch completed orders for ${email}:`, error);
     return [];
   }
 }
 
+
 export async function hasUserCompletedOrder(email: string): Promise<boolean> {
   const orders = await getCompletedOrdersByEmail(email);
+  console.log(orders)
   return orders.length > 0;
 }
 

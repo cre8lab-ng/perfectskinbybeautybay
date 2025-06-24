@@ -1,4 +1,11 @@
 import { useState } from "react";
+import {
+  hasUserCompletedOrder,
+  createWooCompletedOrder,
+} from "@/services/woocommerce";
+import { triggerPaystackPopup } from "@/util/paystack";
+import { useAccessManager } from "@/stores/useAccessManager";
+import { useResultAccess } from "@/stores/useResultAccess";
 
 type Props = {
   onClose: () => void;
@@ -6,25 +13,49 @@ type Props = {
 };
 
 export default function LoginModal({ onClose, onLoginSuccess }: Props) {
+  console.log(hasUserCompletedOrder)
+  const [showPayButton, setShowPayButton] = useState(false);
   const [email, setEmail] = useState("");
-  const [checking, setChecking] = useState(false);
+  const {
+    checkAccess,
+    markAsPaid,
+    loading,
+    error: accessError,
+  } = useAccessManager();
   const [error, setError] = useState("");
-
+console.log(markAsPaid)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setChecking(true);
-    setError("");
 
-    try {
-      // ✅ Always succeed for test
-      setTimeout(() => {
-        onLoginSuccess(email, true);
-        setChecking(false);
-      }, 1000); // simulate delay
-    } catch (err) {
-      setError("Login failed. Please try again.");
-      console.error("Login error:", err);
-      setChecking(false);
+    const result = await checkAccess(email);
+
+    if (result.accessGranted) {
+      onLoginSuccess(email, true);
+    } else if (result.reason === "requires_payment") {
+      triggerPaystackPopup({
+        email,
+        amount: 500000,
+        onSuccess: async (response) => {
+          console.log(response)
+
+          const created = await createWooCompletedOrder(email);
+          if (created) {
+            useResultAccess.getState().setUserEmail(email);
+            useResultAccess.getState().setHasAccess(true);
+            alert("Payment successful! You now have access to your results.");
+            onLoginSuccess(email, true);
+          }
+        },
+        onCancel: () => {
+          setError("Payment was cancelled. Please try again.");
+        },
+      });
+      
+    } else if (result.reason === "already_used") {
+      setError("You've already used your free access. Please pay to continue.");
+      setShowPayButton(true);
+    } else {
+      setError(result.error || "Something went wrong.");
     }
   };
 
@@ -41,20 +72,61 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
             required
             style={inputStyle}
           />
-          <button type="submit" disabled={checking} style={buttonStyle}>
-            {checking ? "Checking..." : "Continue"}
+          <button type="submit" disabled={loading} style={buttonStyle}>
+            {loading ? "Checking..." : "Continue"}
           </button>
           {error && <p style={{ color: "red" }}>{error}</p>}
+          {accessError && <p style={{ color: "red" }}>{accessError}</p>}
+
+          {showPayButton && (
+            <button
+              type="button"
+              onClick={() =>
+                triggerPaystackPopup({
+                  email,
+                  amount: 500000,
+                  onSuccess: async (response) => {
+                    console.log(response)
+
+                    const created = await createWooCompletedOrder(email);
+                    if (created) {
+                      useResultAccess.getState().setUserEmail(email);
+                      useResultAccess.getState().setHasAccess(true);
+                      alert("Payment successful! You now have access to your results.");
+                      onLoginSuccess(email, true);
+                    }
+                  },
+                  onCancel: () => {
+                    setError("Payment was cancelled. Please try again.");
+                  },
+                })
+              }
+              
+              style={{
+                ...buttonStyle,
+                backgroundColor: "green",
+                marginTop: "1rem",
+              }}
+            >
+              Pay ₦5000 to Continue
+            </button>
+          )}
         </form>
-        <button onClick={onClose} style={closeButtonStyle}>Close</button>
+        <button onClick={onClose} style={closeButtonStyle}>
+          Close
+        </button>
       </div>
     </div>
   );
 }
 
+// Styles
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
-  top: 0, left: 0, right: 0, bottom: 0,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
   backgroundColor: "rgba(0,0,0,0.6)",
   display: "flex",
   alignItems: "center",

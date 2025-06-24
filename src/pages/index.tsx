@@ -1,5 +1,6 @@
 import Footer from "@/components/footer";
 import Header from "@/components/header";
+import PremiumSkincareSection from "@/components/PremiumSkincareSection";
 import WebPageTitle from "@/components/webpagetitle";
 import Image from "next/image";
 
@@ -8,53 +9,17 @@ export default function Home() {
     <>
       <WebPageTitle title="Perfect Skin By BeautyHub" />
       <Header />
-      <div
-        className="relative bg-cover bg-center bg-no-repeat min-h-[70vh] flex items-center justify-center px-6"
-        style={{ backgroundImage: "url('/images/perfectskin.jpg')" }}
-      >
-        {/* Softer white overlay with slight blur */}
-        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px]"></div>
-
-        {/* Content Card */}
-        <div className="relative z-10 max-w-2xl w-full bg-white/80 rounded-3xl shadow-lg p-6 md:p-8 text-center space-y-5">
-          <h1 className="text-3xl md:text-4xl font-extrabold text-[#f847b4] leading-tight">
-            Perfect Skin by Beauty Hub
-          </h1>
-
-          <h2 className="text-base md:text-lg font-medium text-gray-800">
-            Fast, AI-Powered Skin Analysis
-          </h2>
-
-          <p className="text-gray-700 text-sm md:text-base">
-            Upload or snap a photo to discover your skin condition and get a
-            personalized skincare routine—powered by AI trained on 50,000+ skin
-            images.
-          </p>
-
-          {/* QR Code */}
-          <div className="flex flex-col items-center mt-2">
-            <div className="bg-white rounded-full p-2 shadow-sm">
-              <Image
-                src="/images/qr-perfectskin-pink-transparent.png"
-                alt="QR Code"
-                width={80}
-                height={80}
-                className="rounded-md"
-                style={{ backgroundColor: "transparent" }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-[#f847b4] font-semibold">
-              Scan to start your analysis
-            </p>
-          </div>
-        </div>
-      </div>
+      <PremiumSkincareSection />
 
       {/* Steps */}
       <section className="bg-white py-12 px-4 md:px-12 text-center">
-        <h2 className="text-2xl md:text-4xl font-bold mb-10">
+        <h2 className="text-2xl md:text-4xl font-bold mb-4">
           YOUR PERSONAL SKIN ANALYSIS IN THREE EASY STEPS
         </h2>
+        <p className="text-gray-600 text-base md:text-lg mb-10 max-w-2xl mx-auto">
+          Discover your skin’s unique needs and get personalized product
+          recommendations in minutes.
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {/* Step 1 */}
@@ -111,55 +76,6 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="w-full bg-[#fff0f6] text-black py-16">
-        <div className="max-w-screen-xl mx-auto flex flex-col-reverse md:flex-row items-center justify-between px-6 md:px-12 gap-12">
-          {/* Left Section */}
-          <div className="w-full md:w-1/2 text-center md:text-left space-y-6">
-            <h1 className="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight">
-              Discover Your
-              <br />
-              <span className="text-[#f847b4]">Tailored Routine</span>
-              <br />& Skincare Tips
-            </h1>
-            <p className="text-lg md:text-xl text-gray-700 max-w-md mx-auto md:mx-0">
-              Scan to begin your personalized skin analysis powered by AI.
-            </p>
-          </div>
-
-          {/* Right Section */}
-          <div className="w-full md:w-1/2 relative flex flex-col items-center">
-            {/* Phone Image */}
-            <div className="relative">
-              <Image
-                src="/images/girls.png"
-                alt="Phone Over Face"
-                width={320}
-                height={320}
-                className="rounded-2xl shadow-xl"
-              />
-
-              {/* QR Code - Floating top-right on image */}
-              <div className="absolute -top-4 -right-4 bg-white p-2 rounded-xl shadow-md">
-                <Image
-                  src="/images/qr-perfectskin-pink-transparent.png"
-                  alt="QR Code"
-                  width={80}
-                  height={80}
-                  className="rounded-md"
-                  style={{ backgroundColor: "transparent" }}
-                />
-              </div>
-            </div>
-
-            {/* QR Instruction Below */}
-            <p className="mt-6 text-center text-sm text-[#f847b4] font-medium">
-              Scan the QR code on a mobile device <br />
-              to start your skin analysis
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Behind the tech */}
       <section className="bg-white text-gray-800 py-12 px-6 md:px-12">
         <div className="max-w-5xl mx-auto space-y-12">
@@ -203,6 +119,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+
       <Footer />
     </>
   );

@@ -110,28 +110,28 @@ export default async function handler(
     }
 
     // ----------- COMPLETED ORDERS ----------
-    if (action === "completedOrders" && req.method === "GET") {
-      const email = (req.query.email as string)?.toLowerCase();
-      if (!email)
-        return res.status(400).json({ error: "Missing 'email' parameter" });
+// ----------- COMPLETED ORDERS ----------
+if (action === "completedOrders" && req.method === "GET") {
+  const email = (req.query.email as string)?.toLowerCase();
+  if (!email)
+    return res.status(400).json({ error: "Missing 'email' parameter" });
 
-      const cacheKey = `orders:${email}`;
-      const cached = cache.get(cacheKey);
-      if (cached) return res.status(200).json(cached);
+  const cacheKey = `orders:${email}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return res.status(200).json({ orders: cached });
 
-      const response = await axios.get(`${BASE_URL}/orders`, {
-        auth,
-        params: { status: "completed", per_page: 100 },
-      });
+  const response = await axios.get(`${BASE_URL}/orders`, {
+    auth,
+    params: { status: "completed", per_page: 100 },
+  });
 
-      const orders = (response.data as WCOrder[]).filter(
-        (order) => order.billing?.email?.toLowerCase() === email
-      );
-      
+  const orders = (response.data as WCOrder[]).filter(
+    (order) => order.billing?.email?.toLowerCase() === email
+  );
 
-      cache.set(cacheKey, orders);
-      return res.status(200).json(orders);
-    }
+  cache.set(cacheKey, orders);
+  return res.status(200).json({ orders }); // 👈 wrap in object
+}
 
     // ----------- CREATE ORDER ----------
     if (action === "createOrder" && req.method === "POST") {
@@ -140,7 +140,22 @@ export default async function handler(
         return res
           .status(400)
           .json({ error: "Missing 'email' in request body" });
-
+    
+      // 🔍 Check if user already has a completed order
+      const existingOrders = await axios.get(`${BASE_URL}/orders`, {
+        auth,
+        params: { status: "completed", per_page: 100 },
+      });
+    
+      const alreadyExists = existingOrders.data.some(
+        (order: any) => order.billing?.email?.toLowerCase() === email.toLowerCase()
+      );
+    
+      if (alreadyExists) {
+        return res.status(200).json({ message: "Order already exists" });
+      }
+    
+      // 🧾 Create order if not found
       const payload = {
         payment_method: "paystack",
         payment_method_title: "Paystack",
@@ -153,17 +168,18 @@ export default async function handler(
         },
         line_items: [
           {
-            product_id: 53604, // ✅ Use product ID for Skin Analysis Access
+            product_id: 53604, // ✅ your skin analysis product
             quantity: 1,
           },
         ],
       };
-
+    
       const response = await axios.post(`${BASE_URL}/orders`, payload, {
         auth,
       });
       return res.status(200).json(response.data);
     }
+    
 
     // ----------- FALLBACK ----------
     return res.status(400).json({ error: "Invalid action or method" });
