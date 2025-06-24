@@ -140,7 +140,22 @@ if (action === "completedOrders" && req.method === "GET") {
         return res
           .status(400)
           .json({ error: "Missing 'email' in request body" });
-
+    
+      // 🔍 Check if user already has a completed order
+      const existingOrders = await axios.get(`${BASE_URL}/orders`, {
+        auth,
+        params: { status: "completed", per_page: 100 },
+      });
+    
+      const alreadyExists = existingOrders.data.some(
+        (order: any) => order.billing?.email?.toLowerCase() === email.toLowerCase()
+      );
+    
+      if (alreadyExists) {
+        return res.status(200).json({ message: "Order already exists" });
+      }
+    
+      // 🧾 Create order if not found
       const payload = {
         payment_method: "paystack",
         payment_method_title: "Paystack",
@@ -153,17 +168,18 @@ if (action === "completedOrders" && req.method === "GET") {
         },
         line_items: [
           {
-            product_id: 53604, // ✅ Use product ID for Skin Analysis Access
+            product_id: 53604, // ✅ your skin analysis product
             quantity: 1,
           },
         ],
       };
-
+    
       const response = await axios.post(`${BASE_URL}/orders`, payload, {
         auth,
       });
       return res.status(200).json(response.data);
     }
+    
 
     // ----------- FALLBACK ----------
     return res.status(400).json({ error: "Invalid action or method" });

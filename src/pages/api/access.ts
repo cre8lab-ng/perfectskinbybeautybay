@@ -130,18 +130,20 @@ export default async function handler(
           .json({ access_granted: false, reason: "requires_payment" });
       }
     }
-
     if (type === "mark-paid") {
-      // 3. Mark user as paid via Paystack
-      const { error } = await supabaseAdmin.from("free_access_once").insert({
-        email: emailLower,
-        source: "paystack",
-        payment_verified: true,
+      const { email, reference } = req.body;
+      console.log(email)
+      const verifyRes = await axios.get(`https://api.paystack.co/transaction/verify/${reference}`, {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
       });
-
-      if (error) throw error;
-
-      return res.status(200).json({ access_granted: true, source: "paystack" });
+    
+      if (verifyRes.data.status === true && verifyRes.data.data.status === "success") {
+        return res.status(200).json({ access_granted: true });
+      }
+    
+      return res.status(400).json({ access_granted: false });
     }
 
     return res.status(400).json({ error: "Invalid type" });

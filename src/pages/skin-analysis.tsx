@@ -92,7 +92,9 @@ export default function FaceDetectionComponent() {
   const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(true);
   const [showOverlays, setShowOverlays] = useState(true); // 👈 toggle overlay state
-
+  const [lastCaptureMethod, setLastCaptureMethod] = useState<
+    "upload" | "camera" | null
+  >(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [scoreInfo, setScoreInfo] = useState<ScoreInfo | null>(null);
   const [zipContent, setZipContent] = useState<ZipImage[]>([]);
@@ -111,12 +113,14 @@ export default function FaceDetectionComponent() {
     hasAccess,
     showLoginModal,
     setShowLoginModal,
-    handleLogin,
+    
   } = useResultAccess();
+  
   console.log(userEmail);
   useEffect(() => {
     const loadModels = async () => {
       await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
+      setModelsLoaded(true); // ✅ mark as loaded
     };
     loadModels();
   }, []);
@@ -130,7 +134,7 @@ export default function FaceDetectionComponent() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const originalUrl = e.target?.result as string;
-        setOriginalImagePreview(originalUrl); 
+        setOriginalImagePreview(originalUrl);
         img.src = originalUrl;
       };
 
@@ -236,7 +240,17 @@ export default function FaceDetectionComponent() {
       );
 
       if (!detection) {
-        notifyError("No face detected. Please try another image.");
+        notifyError("No face detected. Please try again.");
+        setShowCameraPrompt(false);
+
+        if (lastCaptureMethod === "camera") {
+          setShowCameraPrompt(true);
+        } else if (lastCaptureMethod === "upload") {
+          document.getElementById("fileInput")?.click();
+        } else {
+          setShowInstructionModal(true);
+        }
+
         return;
       }
 
@@ -351,10 +365,12 @@ export default function FaceDetectionComponent() {
       {showInstructionModal && (
         <InstructionModal
           onTakeSelfie={() => {
+            setLastCaptureMethod("camera");
             setShowInstructionModal(false);
             setShowCameraPrompt(true);
           }}
           onUploadPhoto={() => {
+            setLastCaptureMethod("upload");
             setShowInstructionModal(false);
             document.getElementById("fileInput")?.click();
           }}
@@ -408,12 +424,11 @@ export default function FaceDetectionComponent() {
               />
             )}
 
-            {!modelsLoaded && (
+            {processedImagePreview && !modelsLoaded && (
               <div style={{ textAlign: "center", margin: "1rem" }}>
                 <p>Loading face detection model...</p>
               </div>
             )}
-
             {faceDetectionLoading && (
               <div style={{ textAlign: "center", margin: "1rem" }}>
                 <p style={{ fontWeight: "bold" }}>Detecting face...</p>
@@ -516,16 +531,18 @@ export default function FaceDetectionComponent() {
                   results.
                 </p>
                 <button
-                  onClick={() => {
-                    if (!hasAccess) {
-                      setShowLoginModal(true);
-                    } else if (!analyzing && uploadResponse?.file_id) {
-                      runSkinAnalysis(uploadResponse.file_id);
-                    }
-                  }}
-                >
-                  {hasAccess ? "View Result" : "Log In to View Result"}
-                </button>
+  disabled={analyzing}
+  onClick={() => {
+    if (!hasAccess) {
+      setShowLoginModal(true);
+    } else if (!analyzing && uploadResponse?.file_id) {
+      runSkinAnalysis(uploadResponse.file_id);
+    }
+  }}
+>
+  {analyzing ? "Analyzing..." : hasAccess ? "View Result" : "Log In to View Result"}
+</button>
+
               </>
             )}
 
@@ -681,17 +698,16 @@ export default function FaceDetectionComponent() {
       </main>
       <Footer />
       {showLoginModal && (
-        <LoginModal
-          onClose={() => setShowLoginModal(false)}
-          onLoginSuccess={(email, hasAccess) => {
-            handleLogin(email);
-            setShowLoginModal(false);
-
-            if (hasAccess && uploadResponse?.file_id) {
-              runSkinAnalysis(uploadResponse.file_id);
-            }
-          }}
-        />
+     <LoginModal
+     onClose={() => setShowLoginModal(false)}
+     onLoginSuccess={(email, hasAccess) => {
+       setShowLoginModal(false);
+       if (hasAccess && uploadResponse?.file_id) {
+         runSkinAnalysis(uploadResponse.file_id);
+       }
+     }}
+   />
+   
       )}
     </>
   );

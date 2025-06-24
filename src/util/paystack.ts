@@ -94,3 +94,4 @@ export function triggerPaystackPopup({
     alert("❌ Failed to initialize payment. Please try again.");
   }
 }
+

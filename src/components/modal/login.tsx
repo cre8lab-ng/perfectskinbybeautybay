@@ -5,6 +5,7 @@ import {
 } from "@/services/woocommerce";
 import { triggerPaystackPopup } from "@/util/paystack";
 import { useAccessManager } from "@/stores/useAccessManager";
+import { useResultAccess } from "@/stores/useResultAccess";
 
 type Props = {
   onClose: () => void;
@@ -22,7 +23,7 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
     error: accessError,
   } = useAccessManager();
   const [error, setError] = useState("");
-
+console.log(markAsPaid)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -34,10 +35,14 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
       triggerPaystackPopup({
         email,
         amount: 500000,
-        onSuccess: async () => {
-          const success = await markAsPaid(email);
-          if (success) {
-            await createWooCompletedOrder(email); // optional
+        onSuccess: async (response) => {
+          console.log(response)
+
+          const created = await createWooCompletedOrder(email);
+          if (created) {
+            useResultAccess.getState().setUserEmail(email);
+            useResultAccess.getState().setHasAccess(true);
+            alert("Payment successful! You now have access to your results.");
             onLoginSuccess(email, true);
           }
         },
@@ -45,6 +50,7 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
           setError("Payment was cancelled. Please try again.");
         },
       });
+      
     } else if (result.reason === "already_used") {
       setError("You've already used your free access. Please pay to continue.");
       setShowPayButton(true);
@@ -79,10 +85,14 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
                 triggerPaystackPopup({
                   email,
                   amount: 500000,
-                  onSuccess: async () => {
-                    const success = await markAsPaid(email);
-                    if (success) {
-                      await createWooCompletedOrder(email); // optional
+                  onSuccess: async (response) => {
+                    console.log(response)
+
+                    const created = await createWooCompletedOrder(email);
+                    if (created) {
+                      useResultAccess.getState().setUserEmail(email);
+                      useResultAccess.getState().setHasAccess(true);
+                      alert("Payment successful! You now have access to your results.");
                       onLoginSuccess(email, true);
                     }
                   },
@@ -91,6 +101,7 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
                   },
                 })
               }
+              
               style={{
                 ...buttonStyle,
                 backgroundColor: "green",

@@ -32,7 +32,7 @@ export function useAccessManager() {
     }
   };
 
-  const markAsPaid = async (email) => {
+  const markAsPaid = async (email, reference) => {
     setLoading(true);
     setError(null);
 
@@ -40,7 +40,7 @@ export function useAccessManager() {
       const res = await fetch("/api/access", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, type: "mark-paid" }),
+        body: JSON.stringify({ email, reference, type: "mark-paid" }),
       });
 
       const result = await res.json();

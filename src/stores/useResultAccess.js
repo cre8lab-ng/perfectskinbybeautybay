@@ -1,47 +1,47 @@
-// stores/useResultAccess.ts
-import { useState } from "react";
+import { create } from "zustand";
 import {
   hasUserCompletedOrder,
   createWooCompletedOrder,
 } from "@/services/woocommerce";
 import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
-import { notifyError } from "@/util/utils"; // Make sure this import exists
+import { notifyError } from "@/util/utils";
 
-export function useResultAccess() {
-  const [userEmail, setUserEmail] = useState(null);
-  const [hasAccess, setHasAccess] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+export const useResultAccess = create((set, get) => ({
 
-  async function handleLogin(email) {
-    setUserEmail(email);
+  userEmail: null,
+  hasAccess: false,
+  showLoginModal: false,
 
-    let access = false;
+  setUserEmail: (email) => set({ userEmail: email }),
+  setHasAccess: (access) => set({ hasAccess: access }),
+  setShowLoginModal: (value) => set({ showLoginModal: value }),
+  handleLogin: async (email) => {
+    set({ userEmail: email });
+
     try {
-      access = await hasUserCompletedOrder(email);
+      const access = await hasUserCompletedOrder(email);
+      if (access) {
+        set({ hasAccess: true });
+        return;
+      }
     } catch (err) {
+      console.log(get,"get");
       console.error("Order check failed:", err);
       notifyError("Unsuccessful Login");
     }
 
-    if (access) {
-      setHasAccess(true);
-      return;
-    }
-
-    // Load Paystack script before using it
     loadPaystackScript();
 
-    // Add a small delay to ensure Paystack script is loaded
     setTimeout(() => {
       triggerPaystackPopup({
         email,
-        amount: 500000, // ₦5,000.00 in kobo
+        amount: 500000,
         onSuccess: async (response) => {
           console.log("Payment successful:", response);
           try {
             const created = await createWooCompletedOrder(email);
             if (created) {
-              setHasAccess(true);
+              set({ hasAccess: true });
               alert("Payment successful! You now have access to your results.");
             } else {
               alert("Payment succeeded, but access setup failed. Please contact support.");
@@ -52,19 +52,9 @@ export function useResultAccess() {
           }
         },
         onClose: () => {
-          console.log("Payment popup was closed");
-          // Don't show alert for every close - user might just be reviewing
-          // alert("Payment was cancelled.");
+          console.log("Payment popup closed");
         },
       });
-    }, 1000); // 1 second delay to ensure Paystack is loaded
-  }
-
-  return {
-    userEmail,
-    hasAccess,
-    showLoginModal,
-    setShowLoginModal,
-    handleLogin,
-  };
-}
+    }, 1000);
+  },
+}));
