@@ -18,11 +18,11 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const hasCapturedRef = useRef(false);
-  const MARGIN_RATIO = 0.06;
   const cameraRef = useRef<any>(null);
   const faceMeshInstanceRef = useRef<any>(null);
+  const countdownRef = useRef<number | null>(null); // requestAnimationFrame returns number
+
 
   useEffect(() => {
     let camera: any;
@@ -79,34 +79,44 @@ export default function CameraPrompt({ onCapture }: Props) {
           const faceCanvasH = canvasRef.current.height;
       
           const isBigEnough =
-            faceBox.width > 0.45 * faceCanvasW && faceBox.height > 0.45 * faceCanvasH;
+          faceBox.width > 0.5 * faceCanvasW &&
+          faceBox.height > 0.5 * faceCanvasH; // was 0.45
+        
           const isTooClose =
             faceBox.width > 0.85 * faceCanvasW || faceBox.height > 0.85 * faceCanvasH;
-          const isFullyInside =
-            faceBox.x >= 0 &&
-            faceBox.y >= 0 &&
-            faceBox.x + faceBox.width <= faceCanvasW &&
-            faceBox.y + faceBox.height <= faceCanvasH;
+            const isFullyInside =
+            faceBox.x > 10 &&
+            faceBox.y > 10 &&
+            faceBox.x + faceBox.width < faceCanvasW - 10 &&
+            faceBox.y + faceBox.height < faceCanvasH - 10;
+          
       
           const centerX = faceBox.x + faceBox.width / 2;
           const centerY = faceBox.y + faceBox.height / 2;
           const isCentered =
-            Math.abs(centerX - faceCanvasW / 2) < 80 &&
-            Math.abs(centerY - faceCanvasH / 2) < 80;
-      
-          const hasMargin =
-            faceBox.x > faceCanvasW * MARGIN_RATIO &&
-            faceBox.y > faceCanvasH * MARGIN_RATIO &&
-            faceBox.x + faceBox.width < faceCanvasW * (1 - MARGIN_RATIO) &&
-            faceBox.y + faceBox.height < faceCanvasH * (1 - MARGIN_RATIO);
+          Math.abs(centerX - faceCanvasW / 2) < 50 && // tighten from 80
+          Math.abs(centerY - faceCanvasH / 2) < 50;   // tighter tolerance
+        
+        const hasMargin =
+          faceBox.x > faceCanvasW * 0.1 &&
+          faceBox.y > faceCanvasH * 0.1 &&
+          faceBox.x + faceBox.width < faceCanvasW * 0.9 &&
+          faceBox.y + faceBox.height < faceCanvasH * 0.9;
+        
       
           const brightness = getAverageBrightness(ctx, faceBox);
-          const lighting = brightness > 60;
+          const lighting = brightness > 80;
           const straight = isLookingStraight(landmarks);
       
           const isValid =
-            lighting && straight && isFullyInside && isBigEnough && isCentered && hasMargin;
-      
+          lighting &&
+          straight &&
+          isFullyInside &&
+          isBigEnough &&
+          isCentered &&
+          hasMargin &&
+          !isTooClose;
+              
           const feedback: string[] = [];
           if (!lighting) feedback.push("💡 Improve lighting on your face");
           if (!straight) feedback.push("🧍 Look straight into the camera");
@@ -132,7 +142,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       
             // Start countdown if stable for 1.5s and not already counting down
             if (
-              now - validationStableFor > 1500 &&
+              now - validationStableFor > 2500 && // was 1500ms
               !countdownStarted &&
               !isCountingDown
             ) {
@@ -205,27 +215,42 @@ export default function CameraPrompt({ onCapture }: Props) {
 
   const startCountdown = (image: string) => {
     setIsCountingDown(true);
-    let time = 3;
-    setCountdown(time);
+    setCountdown(3);
   
-    countdownRef.current = setInterval(() => {
-      time -= 1;
-      setCountdown(time);
+    let lastTime = performance.now();
   
-      if (time === 0) {
-        clearInterval(countdownRef.current!);
-        setIsCountingDown(false);
+    const animateCountdown = (time: number) => {
+      if (time - lastTime >= 1000) {
+        setCountdown((prev) => {
+          const next = prev - 1;
+          if (next === 0) {
+            setIsCountingDown(false);
+            cancelAnimationFrame(countdownRef.current!);
   
-        if (!faceValid) {
-          setCaptureFailed(true); // ❗mark as failed
-          setCapturedImage(image); // still show the image
-          hasCapturedRef.current = false;
-          return;
-        }
-        
+            if (!faceValid) {
+              setCaptureFailed(true);
+              setCapturedImage(image); // still show the image
+              hasCapturedRef.current = false;
+            } else {
+              onCapture(image); // you can also trigger this here if you want auto-continue
+            }
+          }
+          return next;
+        });
+        lastTime = time;
       }
-    }, 1000);
+  
+      countdownRef.current = requestAnimationFrame(animateCountdown);
+    };
+  
+    countdownRef.current = requestAnimationFrame(animateCountdown);
   };
+  
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) cancelAnimationFrame(countdownRef.current);
+    };
+  }, []);
   
 
   const getBoundingBox = (landmarks: any[]) => {
@@ -245,13 +270,12 @@ export default function CameraPrompt({ onCapture }: Props) {
   };
 
   const isLookingStraight = (landmarks: any[]) => {
-    const left = landmarks[33],
-      right = landmarks[263],
-      nose = landmarks[1];
+    const left = landmarks[33], right = landmarks[263], nose = landmarks[1];
     const symmetry = Math.abs(nose.x - left.x - (right.x - nose.x));
     const verticalTilt = Math.abs(landmarks[10].y - landmarks[152].y);
-    return symmetry < 0.02 && verticalTilt > 0.25;
+    return symmetry < 0.015 && verticalTilt > 0.27; // stricter
   };
+  
 
   const handleRetake = () => {
     hasCapturedRef.current = false;
