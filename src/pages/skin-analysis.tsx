@@ -108,15 +108,6 @@ export default function FaceDetectionComponent() {
   const { userEmail, hasAccess, showLoginModal, setShowLoginModal } =
     useResultAccess();
 
-  // console.log(userEmail);
-  // useEffect(() => {
-  //   const loadModels = async () => {
-  //     await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
-  //     setModelsLoaded(true); // ✅ mark as loaded
-  //   };
-  //   loadModels();
-  // }, []);
-
   function resizeImageWithOverride(
     inputFile: File,
     quality = 0.6
@@ -456,9 +447,6 @@ export default function FaceDetectionComponent() {
               productRecommendations.length > 0) && (
               <div
                 style={{
-            
-               
-             
                   position: "relative",
                   overflow: "hidden",
                 }}
@@ -647,24 +635,22 @@ export default function FaceDetectionComponent() {
                   <div
                     style={{
                       position: "relative",
-                      display: "inline-block",
                       width: "100%",
                       maxWidth: "100%",
+                      marginBottom: "2rem",
                     }}
                   >
                     <img
                       src={originalImagePreview}
-                      alt="Original Face"
+                      alt="Analyzed Face"
                       style={{
                         width: "100%",
                         display: "block",
-                        backgroundColor: "#f5f5f5",
-                        border: "1px solid #ddd",
                         borderRadius: "8px",
-                        position: "relative",
-                        zIndex: 1,
                       }}
                     />
+
+                    {/* Overlays from backend masks */}
                     {showOverlays &&
                       zipContent.length > 0 &&
                       zipContent.map((mask, i) => (
@@ -678,13 +664,134 @@ export default function FaceDetectionComponent() {
                             left: 0,
                             width: "100%",
                             height: "100%",
-                            pointerEvents: "none",
                             opacity: 0.85,
-                            zIndex: 2,
-                            border: "1px dashed transparent",
+                            pointerEvents: "none",
                           }}
                         />
                       ))}
+
+                    {/* "Skin Age" Score */}
+                    {scoreInfo?.all?.score && hasAccess && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: "10%",
+                          top: "65%",
+                          fontSize: "2.2rem",
+                          color: "white",
+                          fontWeight: "bold",
+                          textShadow: "0 2px 4px rgba(0,0,0,0.6)",
+                        }}
+                      >
+                        Skin Age {Math.round(scoreInfo.all.score)}
+                      </div>
+                    )}
+
+                    {hasAccess && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "10px",
+                          left: "0",
+                          right: "0",
+                          display: "flex",
+                          justifyContent: "space-around",
+                          alignItems: "center",
+                          padding: "0 1rem",
+                          gap: "0.5rem",
+                        }}
+                      >
+                        {["wrinkle", "pore", "texture", "acne"].map((key) => {
+// @ts-expect-error: Supabase typing is too strict here
+const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
+                          const percentage = Math.min(Math.max(score, 0), 100);
+
+                          return (
+                            <div
+                              key={key}
+                              style={{
+                                padding: "0.75rem",
+                                minWidth: "80px",
+                              }}
+                            >
+                              {/* Label */}
+                              <div
+                                style={{
+                                  color: "white",
+                                  fontSize: "0.75rem",
+                                  fontWeight: "600",
+                                  textTransform: "capitalize",
+                                  marginBottom: "0.5rem",
+                                  textAlign: "center",
+                                }}
+                              >
+                                {key}
+                              </div>
+
+                              {/* Circular Progress */}
+                              <div
+                                style={{
+                                  position: "relative",
+                                  width: "50px",
+                                  height: "50px",
+                                  margin: "0 auto",
+                                }}
+                              >
+                                <svg
+                                  width="50"
+                                  height="50"
+                                  style={{
+                                    transform: "rotate(-90deg)",
+                                  }}
+                                >
+                                  {/* Background circle */}
+                                  <circle
+                                    cx="25"
+                                    cy="25"
+                                    r="20"
+                                    fill="none"
+                                    stroke="#ffd9f0"
+                                    strokeWidth="4"
+                                  />
+                                  {/* Progress circle */}
+                                  <circle
+                                    cx="25"
+                                    cy="25"
+                                    r="20"
+                                    fill="none"
+                                    stroke="#f847b4"
+                                    strokeWidth="4"
+                                    strokeLinecap="round"
+                                    strokeDasharray={`${2 * Math.PI * 20}`}
+                                    strokeDashoffset={`${
+                                      2 * Math.PI * 20 * (1 - percentage / 100)
+                                    }`}
+                                    style={{
+                                      transition:
+                                        "stroke-dashoffset 0.3s ease-in-out",
+                                    }}
+                                  />
+                                </svg>
+                                {/* Score in center */}
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: "50%",
+                                    left: "50%",
+                                    transform: "translate(-50%, -50%)",
+                                    color: "#f847b4",
+                                    fontSize: "0.7rem",
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  {score}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -842,129 +949,6 @@ export default function FaceDetectionComponent() {
                       >
                         Your comprehensive skin health rating
                       </p>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(300px, 1fr))",
-                        gap: "2rem",
-                        marginBottom: "2rem",
-                      }}
-                    >
-                      {(["wrinkle", "pore", "texture", "acne"] as const).map(
-                        (key) => {
-                          const score = scoreInfo?.[key]?.ui_score ?? 0;
-                          const raw =
-                            scoreInfo?.[key]?.raw_score?.toFixed(2) ?? "N/A";
-                          const level = getGranularLevel(`${score}%`);
-                          const bgColor =
-                            level === "very_high"
-                              ? "#2e7d32"
-                              : level === "high"
-                              ? "#4caf50"
-                              : level === "moderate"
-                              ? "#ffa000"
-                              : "#e53935";
-
-                          return (
-                            <div
-                              key={key}
-                              style={{
-                                padding: "2rem",
-                                background: `
-                      linear-gradient(135deg, 
-                        rgba(255, 255, 255, 0.9) 0%, 
-                        rgba(255, 217, 240, 0.3) 100%
-                      )
-                    `,
-                                borderRadius: "20px",
-                                border: "1px solid rgba(248, 71, 180, 0.1)",
-                                boxShadow:
-                                  "0 10px 30px rgba(248, 71, 180, 0.1)",
-                                textAlign: "center",
-                                position: "relative",
-                                overflow: "hidden",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "-20px",
-                                  right: "-20px",
-                                  width: "40px",
-                                  height: "40px",
-                                  background: "rgba(248, 71, 180, 0.1)",
-                                  borderRadius: "50%",
-                                }}
-                              />
-
-                              <div
-                                style={{
-                                  width: "100px",
-                                  height: "100px",
-                                  borderRadius: "50%",
-                                  border: `6px solid ${bgColor}`,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: "1.4rem",
-                                  fontWeight: "700",
-                                  margin: "0 auto 1rem",
-                                  color: bgColor,
-                                  position: "relative",
-                                  background: `
-                        conic-gradient(
-                          ${bgColor} 0deg,
-                          ${bgColor} ${(score / 100) * 360}deg,
-                          rgba(248, 71, 180, 0.1) ${(score / 100) * 360}deg,
-                          rgba(248, 71, 180, 0.1) 360deg
-                        )
-                      `,
-                                  boxShadow: `0 8px 25px ${bgColor}30`,
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    width: "80px",
-                                    height: "80px",
-                                    borderRadius: "50%",
-                                    background: "white",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    flexDirection: "column",
-                                  }}
-                                >
-                                  <span>{score}%</span>
-                                  <span
-                                    style={{
-                                      fontSize: "0.6rem",
-                                      color: "#999",
-                                      marginTop: "2px",
-                                    }}
-                                  >
-                                    Raw: {raw}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <h4
-                                style={{
-                                  textTransform: "capitalize",
-                                  fontSize: "1.3rem",
-                                  color: "#f847b4",
-                                  fontWeight: "700",
-                                  margin: "0 0 0.5rem",
-                                }}
-                              >
-                                {key}
-                              </h4>
-                            </div>
-                          );
-                        }
-                      )}
                     </div>
                   </div>
                 )}
@@ -1215,6 +1199,19 @@ export default function FaceDetectionComponent() {
                 border-radius: 50%;
                 background: linear-gradient(45deg, #f847b4, #ffd9f0);
                 animation: pulse 1s ease-in-out infinite alternate;
+              }
+
+              /* Custom scrollbar */
+              div::-webkit-scrollbar {
+                width: 6px;
+              }
+              div::-webkit-scrollbar-track {
+                background: rgba(248, 71, 180, 0.1);
+                border-radius: 10px;
+              }
+              div::-webkit-scrollbar-thumb {
+                background: linear-gradient(45deg, #f847b4, #ff6bc7);
+                border-radius: 10px;
               }
 
               @keyframes pulse {

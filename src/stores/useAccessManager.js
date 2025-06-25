@@ -1,4 +1,3 @@
-// /hooks/useAccessManager.ts
 import { useState } from "react";
 
 export function useAccessManager() {
@@ -18,6 +17,14 @@ export function useAccessManager() {
 
       const result = await res.json();
 
+      if (!res.ok) {
+        // Capture error message from API and return to UI
+        return {
+          accessGranted: false,
+          error: result.error || "Something went wrong. Please try again.",
+        };
+      }
+
       return {
         accessGranted: result.access_granted,
         source: result.source,
@@ -25,8 +32,8 @@ export function useAccessManager() {
       };
     } catch (err) {
       console.error("Access check error:", err);
-      setError("Failed to check access");
-      return { accessGranted: false, error: "Failed to check access" };
+      setError("Failed to check access.");
+      return { accessGranted: false, error: "Failed to check access." };
     } finally {
       setLoading(false);
     }
@@ -47,7 +54,7 @@ export function useAccessManager() {
       return result.access_granted === true;
     } catch (err) {
       console.error("Mark paid error:", err);
-      setError("Failed to update access");
+      setError("Failed to update access.");
       return false;
     } finally {
       setLoading(false);

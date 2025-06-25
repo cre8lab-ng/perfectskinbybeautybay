@@ -335,13 +335,10 @@ export default function CameraPrompt({ onCapture }: Props) {
           <Image
             src="/images/bh-logo.png"
             alt="BH Logo"
-            width={80}
-            height={80}
+            width={100}
+            height={100}
           />
         </div>
-        <p className="text-gray-600 text-lg mt-4">
-          Position your face within the frame for verification
-        </p>
       </div>
 
       {/* Status indicators */}

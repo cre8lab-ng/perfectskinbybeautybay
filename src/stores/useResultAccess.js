@@ -1,60 +1,81 @@
 import { create } from "zustand";
-import {
-  hasUserCompletedOrder,
-  createWooCompletedOrder,
-} from "@/services/woocommerce";
 import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
 import { notifyError } from "@/util/utils";
 
 export const useResultAccess = create((set, get) => ({
-
   userEmail: null,
   hasAccess: false,
   showLoginModal: false,
-
+  isBlocked: false,
   setUserEmail: (email) => set({ userEmail: email }),
   setHasAccess: (access) => set({ hasAccess: access }),
   setShowLoginModal: (value) => set({ showLoginModal: value }),
+  setIsBlocked: (value) => set({ isBlocked: value }),
+
   handleLogin: async (email) => {
-    set({ userEmail: email });
+    set({ userEmail: email, isBlocked: false });
 
     try {
-      const access = await hasUserCompletedOrder(email);
-      if (access) {
+      const res = await fetch("/api/access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, type: "check" }),
+      });
+
+      const result = await res.json();
+
+      if (res.status === 429 || result.error?.includes("trial limit")) {
+        set({ isBlocked: true });
+        notifyError("You’ve reached the trial limit. Please try again later.");
+        return;
+      }
+
+      if (result.access_granted) {
         set({ hasAccess: true });
         return;
       }
-    } catch (err) {
-      console.log(get,"get");
-      console.error("Order check failed:", err);
-      notifyError("Unsuccessful Login");
-    }
 
-    loadPaystackScript();
+      // No access yet → Show Paystack
+      loadPaystackScript();
 
-    setTimeout(() => {
-      triggerPaystackPopup({
-        email,
-        amount: 500000,
-        onSuccess: async (response) => {
-          console.log("Payment successful:", response);
-          try {
-            const created = await createWooCompletedOrder(email);
-            if (created) {
-              set({ hasAccess: true });
-              alert("Payment successful! You now have access to your results.");
-            } else {
-              alert("Payment succeeded, but access setup failed. Please contact support.");
+      setTimeout(() => {
+        triggerPaystackPopup({
+          email,
+          amount: 500000,
+          onSuccess: async (response) => {
+            try {
+              const payRes = await fetch("/api/access", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email,
+                  reference: response.reference,
+                  type: "mark-paid",
+                }),
+              });
+
+              const payData = await payRes.json();
+
+              if (payRes.ok && payData.access_granted) {
+                set({ hasAccess: true });
+                alert("Payment successful! You now have access to your results.");
+              } else {
+                alert("Payment succeeded, but access setup failed. Please contact support.");
+              }
+            } catch (err) {
+              console.error("Post-payment error:", err);
+              alert("Payment verified but failed to set up access. Please contact support.");
             }
-          } catch (err) {
-            console.error("Post-payment callback error:", err);
-            alert("Payment was successful, but there was an issue setting up your access. Please contact support.");
-          }
-        },
-        onClose: () => {
-          console.log("Payment popup closed");
-        },
-      });
-    }, 1000);
+          },
+          onClose: () => {
+            console.log("Payment popup closed");
+          },
+        });
+      }, 1000);
+    } catch (err) {
+      console.log(get)
+      console.error("Access check failed:", err);
+      notifyError("Login failed. Please try again.");
+    }
   },
 }));
