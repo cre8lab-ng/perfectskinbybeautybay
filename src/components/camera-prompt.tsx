@@ -14,19 +14,24 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [straightOK, setStraightOK] = useState(false);
   const [faceValid, setFaceValid] = useState(false);
   const [tips, setTips] = useState<string[]>([]);
-console.log(faceValid)
+  console.log(faceValid);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const hasCapturedRef = useRef(false);
   const MARGIN_RATIO = 0.06;
+  const cameraRef = useRef<any>(null);
+  const faceMeshInstanceRef = useRef<any>(null);
 
   useEffect(() => {
-    let faceMeshInstance: any;
     let camera: any;
-
+  
     const loadMediaPipe = async () => {
+      // ✅ Prevent reinitialization
+      if (faceMeshInstanceRef.current) return;
+  
+      // ✅ Load scripts once
       if (!(window as any).FaceMesh)
         await loadScript(
           "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"
@@ -35,24 +40,27 @@ console.log(faceValid)
         await loadScript(
           "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"
         );
-
-      faceMeshInstance = new (window as any).FaceMesh({
+  
+      // ✅ Initialize FaceMesh only once
+      const faceMesh = new (window as any).FaceMesh({
         locateFile: (file: string) =>
           `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
       });
-
-      faceMeshInstance.setOptions({
+  
+      faceMesh.setOptions({
         maxNumFaces: 1,
         refineLandmarks: true,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
       });
-
-      faceMeshInstance.onResults((results: any) => {
+  
+      // ✅ Use stable handler defined outside
+      faceMesh.onResults((results: any) => {
         if (!canvasRef.current || !videoRef.current) return;
+  
         const ctx = canvasRef.current.getContext("2d")!;
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-
+  
         if (results.multiFaceLandmarks?.length > 0) {
           const landmarks = results.multiFaceLandmarks[0];
           ctx.drawImage(
@@ -62,39 +70,29 @@ console.log(faceValid)
             canvasRef.current.width,
             canvasRef.current.height
           );
-
+  
           const faceBox = getBoundingBox(landmarks);
-
           const faceCanvasW = canvasRef.current.width;
           const faceCanvasH = canvasRef.current.height;
-
-          // Require face to be big enough (not too far)
+  
           const isBigEnough =
             faceBox.width > 0.45 * faceCanvasW &&
             faceBox.height > 0.45 * faceCanvasH;
-
-          // Disallow too close (face nearly fills frame)
           const isTooClose =
             faceBox.width > 0.85 * faceCanvasW ||
             faceBox.height > 0.85 * faceCanvasH;
-
-          // Require face to be fully within bounds
           const isFullyInside =
             faceBox.x >= 0 &&
             faceBox.y >= 0 &&
             faceBox.x + faceBox.width <= faceCanvasW &&
             faceBox.y + faceBox.height <= faceCanvasH;
-
-          // Allow more relaxed centering
+  
           const centerX = faceBox.x + faceBox.width / 2;
           const centerY = faceBox.y + faceBox.height / 2;
           const isCentered =
             Math.abs(centerX - faceCanvasW / 2) < 80 &&
             Math.abs(centerY - faceCanvasH / 2) < 80;
-
-          const facePositionOK =
-            isFullyInside && !isTooClose && isBigEnough && isCentered;
-
+  
           const hasMargin =
             faceBox.x > canvasRef.current.width * MARGIN_RATIO &&
             faceBox.y > canvasRef.current.height * MARGIN_RATIO &&
@@ -102,30 +100,29 @@ console.log(faceValid)
               canvasRef.current.width * (1 - MARGIN_RATIO) &&
             faceBox.y + faceBox.height <
               canvasRef.current.height * (1 - MARGIN_RATIO);
-
+  
           const brightness = getAverageBrightness(ctx, faceBox);
           const lighting = brightness > 60;
           const straight = isLookingStraight(landmarks);
-
+  
           const feedback: string[] = [];
           if (!lighting) feedback.push("💡 Improve lighting on your face");
           if (!straight) feedback.push("🧍 Look straight into the camera");
-          if (!(isCentered && isBigEnough))
-            feedback.push("🎯 Center your face");
+          if (!(isCentered && isBigEnough)) feedback.push("🎯 Center your face");
           if (!hasMargin) feedback.push("↔️ Add more space around your face");
           if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
           if (!isBigEnough) feedback.push("↩️ Move closer to fill the box");
           if (isTooClose) feedback.push("↪️ Move back a little");
           if (!isFullyInside)
             feedback.push("🎯 Keep your full face within the frame");
-
+  
           setTips(feedback);
-          const isValid = lighting && straight && facePositionOK;
+          const isValid = lighting && straight && isFullyInside && isBigEnough && isCentered && hasMargin;
           setLightingOK(lighting);
           setStraightOK(straight);
-          setFacePositionOK(facePositionOK);
+          setFacePositionOK(isCentered && isFullyInside && isBigEnough && !isTooClose);
           setFaceValid(isValid);
-
+  
           if (isValid && !hasCapturedRef.current) {
             hasCapturedRef.current = true;
             const canvas = document.createElement("canvas");
@@ -151,31 +148,40 @@ console.log(faceValid)
           setTips(["❌ No face detected"]);
         }
       });
-
+  
+      faceMeshInstanceRef.current = faceMesh;
+  
+      // Wait for video before canvas sizing
       videoRef.current!.onloadedmetadata = () => {
         canvasRef.current!.width = videoRef.current!.videoWidth;
         canvasRef.current!.height = videoRef.current!.videoHeight;
         videoRef.current!.play();
       };
-
+  
+      // ✅ Only create Camera once
       camera = new (window as any).Camera(videoRef.current!, {
         onFrame: async () => {
           if (!videoRef.current) return;
-          await faceMeshInstance.send({ image: videoRef.current });
+          await faceMesh.send({ image: videoRef.current });
         },
         width: 640,
         height: 480,
       });
-
+  
+      cameraRef.current = camera;
       camera.start();
     };
-
+  
     loadMediaPipe().catch(console.error);
-    return () => camera?.stop?.();
+  
+    return () => {
+      camera?.stop?.();
+    };
   }, []);
+  
 
   const startCountdown = (image: string) => {
-    console.log(image)
+    console.log(image);
     setIsCountingDown(true);
     let time = 3;
     setCountdown(time);
@@ -220,6 +226,26 @@ console.log(faceValid)
     setCapturedImage(null);
     setCountdown(3);
     setIsCountingDown(false);
+
+    if (cameraRef.current) {
+      cameraRef.current.stop();
+    }
+
+    // Clear and restart camera after a short delay
+    setTimeout(() => {
+      if (videoRef.current && faceMeshInstanceRef.current) {
+        cameraRef.current = new (window as any).Camera(videoRef.current, {
+          onFrame: async () => {
+            if (!videoRef.current) return;
+            await faceMeshInstanceRef.current.send({ image: videoRef.current });
+          },
+          width: 640,
+          height: 480,
+        });
+
+        cameraRef.current.start();
+      }
+    }, 300);
   };
 
   return (
@@ -341,25 +367,28 @@ console.log(faceValid)
       </div>
 
       {/* Feedback section */}
-      <div className="mt-8 z-10 max-w-md">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-pink-200 shadow-xl">
-          <div className="space-y-3">
-            {tips.map((tip, i) => (
-              <div
-                key={i}
-                className="flex items-center space-x-3 text-gray-700 animate-fadeIn"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <div
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: "#f847b4" }}
-                ></div>
-                <p className="text-sm leading-relaxed">{tip}</p>
-              </div>
-            ))}
+      {tips.length > 0 ? (
+  <div className="mt-8 z-10 max-w-md">
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-pink-200 shadow-xl">
+      <div className="space-y-3">
+        {tips.map((tip, i) => (
+          <div
+            key={i}
+            className="flex items-center space-x-3 text-gray-700 animate-fadeIn"
+            style={{ animationDelay: `${i * 100}ms` }}
+          >
+            <div
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: "#f847b4" }}
+            ></div>
+            <p className="text-sm leading-relaxed">{tip}</p>
           </div>
-        </div>
+        ))}
       </div>
+    </div>
+  </div>
+) : null}
+
 
       {/* Action buttons */}
       {capturedImage && !isCountingDown && (

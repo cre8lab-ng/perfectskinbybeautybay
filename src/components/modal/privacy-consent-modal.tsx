@@ -70,7 +70,7 @@ export default function PrivacyConsentModal({
             }}
           >
             <span style={buttonTextStyle}>
-              {agreed ? '✨ Submit & Continue' : '🔒 Please Agree to Continue'}
+              {agreed ? 'Submit & Continue' : 'Please Agree to Continue'}
             </span>
           </button>
         </div>
