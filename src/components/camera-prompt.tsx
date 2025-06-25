@@ -143,7 +143,7 @@ export default function CameraPrompt({ onCapture }: Props) {
 
             // Start countdown if stable for 1.5s and not already counting down
             if (
-              now - validationStableFor > 5000 && // was 1500ms
+              now - validationStableFor > 2000 && // was 1500ms
               !countdownStarted &&
               !isCountingDown
             ) {
@@ -346,7 +346,7 @@ export default function CameraPrompt({ onCapture }: Props) {
 
       {/* Status indicators */}
       <div className="flex flex-wrap gap-3 mb-8 z-10">
-        <StatusBox label="LIGHTINGo" active={lightingOK} icon="💡" />
+        <StatusBox label="LIGHTING" active={lightingOK} icon="💡" />
         <StatusBox label="POSITION" active={facePositionOK} icon="🎯" />
         <StatusBox label="ALIGNMENT" active={straightOK} icon="👁️" />
       </div>
