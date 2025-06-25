@@ -105,18 +105,15 @@ export default function FaceDetectionComponent() {
   const productRecommendations = getRecommendedProducts(scoreInfo);
 
   console.log(uploading, analysisStatus, uploadResponse);
-  const { userEmail, hasAccess, showLoginModal, setShowLoginModal } =
+  const {  hasAccess, showLoginModal, setShowLoginModal } =
     useResultAccess();
+    const userEmail = useResultAccess((s) => s.userEmail);
 
-  // console.log(userEmail);
-  // useEffect(() => {
-  //   const loadModels = async () => {
-  //     await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
-  //     setModelsLoaded(true); // ✅ mark as loaded
-  //   };
-  //   loadModels();
-  // }, []);
 
+    useEffect(() => {
+      console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
+    }, [userEmail]);
+    
   function resizeImageWithOverride(
     inputFile: File,
     quality = 0.6
@@ -296,10 +293,10 @@ export default function FaceDetectionComponent() {
 
     try {
       const analysis = await analyzeSkinFeatures(fileId, accessToken, [
+        "acne",
         "wrinkle",
         "pore",
         "texture",
-        "acne",
       ]);
 
       const taskId = analysis.result.task_id;
@@ -327,8 +324,10 @@ export default function FaceDetectionComponent() {
         const res = await checkSkinAnalysisStatus(taskId, accessToken);
         const status = res?.result?.status;
 
+        console.log(`🔄 Polling attempt ${attempts + 1}, status: ${status}`);
+
         if (status === "success") {
-          console.log("✅ Poll success:", res);
+          console.log("✅ Analysis successful, processing results...");
 
           const zipUrl = res.result?.results?.[0]?.data?.[0]?.url;
           if (!zipUrl) throw new Error("No ZIP URL found in result");
@@ -336,28 +335,65 @@ export default function FaceDetectionComponent() {
           const { score, images } = await extractSkinAnalysisResults(zipUrl);
           if (score) setScoreInfo(score);
           if (images.length > 0) setZipContent(images);
+        
+          const currentEmail = useResultAccess.getState().userEmail;
+
+          console.log("📊 Results processed, now granting access...");
+          console.log("👤 Current userEmail:", currentEmail);
+          console.log("🔐 Current hasAccess:", hasAccess);
 
           // ✅ Grant access only after successful analysis via secure API
-          if (userEmail) {
-            const apiRes = await fetch("/api/access", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: userEmail,
-                type: "mark-analysis",
-                source: "analysis",
-              }),
-            });
+          if (currentEmail) {
+            console.log("🚀 Making API request to grant access...");
 
-            const data = await apiRes.json();
-            if (!apiRes.ok || data.success === false) {
-              console.warn(
-                "❌ Failed to insert free access:",
-                data.reason || data.error
-              );
+            try {
+              const apiRes = await fetch("/api/access", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email: currentEmail,
+                  type: "mark-analysis",
+                  source: "analysis",
+                }),
+              });
+
+              console.log("📡 API Response status:", apiRes.status);
+              console.log("📡 API Response ok:", apiRes.ok);
+
+              const data = await apiRes.json();
+              console.log("📄 API Response data:", data);
+
+              if (!apiRes.ok) {
+                console.error("❌ API request failed:", apiRes.status, data);
+                throw new Error(
+                  `API request failed: ${data.error || "Unknown error"}`
+                );
+              }
+
+              if (data.success === false) {
+                console.warn("❌ Failed to insert free access:", data.reason);
+                // Handle specific failure reasons
+                if (data.reason === "already_exists") {
+                  console.log("✅ User already has access recorded");
+                } else if (data.reason === "no_payment") {
+                  console.error("❌ No valid payment found for user");
+                  // Don't throw error for no payment - might be intentional
+                  console.log("ℹ️ Continuing without database insertion");
+                }
+              } else if (data.success === true) {
+                console.log("✅ Successfully granted free access to user!");
+              }
+            } catch (error) {
+              console.error("❌ Error granting access:", error);
+              // Don't fail the entire analysis for access issues
+              console.log("⚠️ Analysis completed but access grant failed");
             }
+          } else {
+            console.warn("⚠️ No userEmail available - cannot grant access");
+            console.log("🔍 Check if user is logged in or email is set");
           }
 
+          console.log("✅ Analysis flow completed");
           return res;
         }
 
@@ -365,8 +401,10 @@ export default function FaceDetectionComponent() {
           console.warn("❌ Server returned error:", res.result?.error_message);
           break;
         }
+
+        console.log(`⏳ Status: ${status}, retrying in 500ms...`);
       } catch (err) {
-        console.error("Polling error:", err);
+        console.error("❌ Polling error:", err);
       }
 
       attempts++;
@@ -375,6 +413,14 @@ export default function FaceDetectionComponent() {
 
     throw new Error("❌ Polling timed out after max attempts");
   };
+
+  useEffect(() => {
+    return () => {
+      console.log("👋 User left skin analysis page. Resetting access...");
+      useResultAccess.getState().resetAccess();
+    };
+  }, []);
+  
 
   return (
     <>
@@ -456,9 +502,6 @@ export default function FaceDetectionComponent() {
               productRecommendations.length > 0) && (
               <div
                 style={{
-            
-               
-             
                   position: "relative",
                   overflow: "hidden",
                 }}
@@ -647,24 +690,22 @@ export default function FaceDetectionComponent() {
                   <div
                     style={{
                       position: "relative",
-                      display: "inline-block",
                       width: "100%",
                       maxWidth: "100%",
+                      marginBottom: "2rem",
                     }}
                   >
                     <img
                       src={originalImagePreview}
-                      alt="Original Face"
+                      alt="Analyzed Face"
                       style={{
                         width: "100%",
                         display: "block",
-                        backgroundColor: "#f5f5f5",
-                        border: "1px solid #ddd",
                         borderRadius: "8px",
-                        position: "relative",
-                        zIndex: 1,
                       }}
                     />
+
+                    {/* Overlays from backend masks */}
                     {showOverlays &&
                       zipContent.length > 0 &&
                       zipContent.map((mask, i) => (
@@ -678,13 +719,143 @@ export default function FaceDetectionComponent() {
                             left: 0,
                             width: "100%",
                             height: "100%",
-                            pointerEvents: "none",
                             opacity: 0.85,
-                            zIndex: 2,
-                            border: "1px dashed transparent",
+                            pointerEvents: "none",
                           }}
                         />
                       ))}
+
+                    {/* {scoreInfo?.all?.score && hasAccess && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: "10%",
+                          top: "65%",
+                          fontSize: "2.2rem",
+                          color: "white",
+                          fontWeight: "bold",
+                          textShadow: "0 2px 4px rgba(0,0,0,0.6)",
+                        }}
+                      >
+                        Skin Age {Math.round(scoreInfo.all.score)}
+                      </div>
+                    )} */}
+
+
+
+
+{hasAccess && (
+  <div
+    style={{
+      position: "absolute",
+      bottom: "10px",
+      left: "10px",
+      right: "10px",
+      display: "flex",
+      justifyContent: "flex-start",
+      alignItems: "center",
+      padding: "0",
+      gap: "0.5rem",
+      overflowX: "auto",
+      overflowY: "hidden",
+      scrollbarWidth: "none",
+      msOverflowStyle: "none",
+    }}
+  >
+    {["acne","wrinkle", "pore", "texture"].map((key) => {
+      // @ts-expect-error: Supabase typing is too strict here
+      const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
+      const percentage = Math.min(Math.max(score, 0), 100);
+
+      return (
+        <div
+          key={key}
+          style={{
+            padding: "0.75rem",
+            minWidth: "100px", // Increased from 80px
+          }}
+        >
+          {/* Label */}
+          <div
+            style={{
+              color: "white",
+              fontSize: "0.75rem",
+              fontWeight: "600",
+              textTransform: "capitalize",
+              marginBottom: "0.5rem",
+              textAlign: "center",
+            }}
+          >
+            {key}
+          </div>
+
+          {/* Circular Progress */}
+          <div
+            style={{
+              position: "relative",
+              width: "70px", // Increased from 50px
+              height: "70px", // Increased from 50px
+              margin: "0 auto",
+            }}
+          >
+            <svg
+              width="70" // Increased from 50
+              height="70" // Increased from 50
+              style={{
+                transform: "rotate(-90deg)",
+              }}
+            >
+              {/* Background circle */}
+              <circle
+                cx="35" // Adjusted center (70/2)
+                cy="35" // Adjusted center (70/2)
+                r="28" // Increased radius from 20
+                fill="none"
+                stroke="#ffd9f0"
+                strokeWidth="6" // Increased from 4
+              />
+              {/* Progress circle */}
+              <circle
+                cx="35" // Adjusted center (70/2)
+                cy="35" // Adjusted center (70/2)
+                r="28" // Increased radius from 20
+                fill="none"
+                stroke="#f847b4"
+                strokeWidth="6" // Increased from 4
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 28}`} // Updated for new radius
+                strokeDashoffset={`${
+                  2 * Math.PI * 28 * (1 - percentage / 100)
+                }`} // Updated for new radius
+                style={{
+                  transition: "stroke-dashoffset 0.3s ease-in-out",
+                }}
+              />
+            </svg>
+            {/* Score in center */}
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                color: "#f847b4",
+                fontSize: "1rem", // Increased from 0.7rem
+                fontWeight: "bold",
+              }}
+            >
+              {score}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
+
+                 
+
+
                   </div>
                 )}
 
@@ -843,129 +1014,6 @@ export default function FaceDetectionComponent() {
                         Your comprehensive skin health rating
                       </p>
                     </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(300px, 1fr))",
-                        gap: "2rem",
-                        marginBottom: "2rem",
-                      }}
-                    >
-                      {(["wrinkle", "pore", "texture", "acne"] as const).map(
-                        (key) => {
-                          const score = scoreInfo?.[key]?.ui_score ?? 0;
-                          const raw =
-                            scoreInfo?.[key]?.raw_score?.toFixed(2) ?? "N/A";
-                          const level = getGranularLevel(`${score}%`);
-                          const bgColor =
-                            level === "very_high"
-                              ? "#2e7d32"
-                              : level === "high"
-                              ? "#4caf50"
-                              : level === "moderate"
-                              ? "#ffa000"
-                              : "#e53935";
-
-                          return (
-                            <div
-                              key={key}
-                              style={{
-                                padding: "2rem",
-                                background: `
-                      linear-gradient(135deg, 
-                        rgba(255, 255, 255, 0.9) 0%, 
-                        rgba(255, 217, 240, 0.3) 100%
-                      )
-                    `,
-                                borderRadius: "20px",
-                                border: "1px solid rgba(248, 71, 180, 0.1)",
-                                boxShadow:
-                                  "0 10px 30px rgba(248, 71, 180, 0.1)",
-                                textAlign: "center",
-                                position: "relative",
-                                overflow: "hidden",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "-20px",
-                                  right: "-20px",
-                                  width: "40px",
-                                  height: "40px",
-                                  background: "rgba(248, 71, 180, 0.1)",
-                                  borderRadius: "50%",
-                                }}
-                              />
-
-                              <div
-                                style={{
-                                  width: "100px",
-                                  height: "100px",
-                                  borderRadius: "50%",
-                                  border: `6px solid ${bgColor}`,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: "1.4rem",
-                                  fontWeight: "700",
-                                  margin: "0 auto 1rem",
-                                  color: bgColor,
-                                  position: "relative",
-                                  background: `
-                        conic-gradient(
-                          ${bgColor} 0deg,
-                          ${bgColor} ${(score / 100) * 360}deg,
-                          rgba(248, 71, 180, 0.1) ${(score / 100) * 360}deg,
-                          rgba(248, 71, 180, 0.1) 360deg
-                        )
-                      `,
-                                  boxShadow: `0 8px 25px ${bgColor}30`,
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    width: "80px",
-                                    height: "80px",
-                                    borderRadius: "50%",
-                                    background: "white",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    flexDirection: "column",
-                                  }}
-                                >
-                                  <span>{score}%</span>
-                                  <span
-                                    style={{
-                                      fontSize: "0.6rem",
-                                      color: "#999",
-                                      marginTop: "2px",
-                                    }}
-                                  >
-                                    Raw: {raw}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <h4
-                                style={{
-                                  textTransform: "capitalize",
-                                  fontSize: "1.3rem",
-                                  color: "#f847b4",
-                                  fontWeight: "700",
-                                  margin: "0 0 0.5rem",
-                                }}
-                              >
-                                {key}
-                              </h4>
-                            </div>
-                          );
-                        }
-                      )}
-                    </div>
                   </div>
                 )}
 
@@ -1031,6 +1079,9 @@ export default function FaceDetectionComponent() {
                               background: "rgba(255, 255, 255, 0.7)",
                               borderRadius: "16px",
                               border: "1px solid rgba(248, 71, 180, 0.1)",
+                              // Center the entire container horizontally
+                              margin: "0 auto 3rem auto",
+                              maxWidth: "1200px", // Optional: set max width
                             }}
                           >
                             <h4
@@ -1064,41 +1115,25 @@ export default function FaceDetectionComponent() {
                                   "repeat(auto-fit, minmax(200px, 1fr))",
                                 gap: "2rem",
                                 marginTop: "1.5rem",
+                                // Center the grid items when there are fewer items
+                                justifyContent: "center",
+                                justifyItems: "center",
                               }}
                             >
                               {products.map((product) => (
                                 <div
                                   key={product.id}
                                   style={{
-                                    background: "white",
-                                    borderRadius: "16px",
-                                    padding: "1.5rem",
-                                    border: "1px solid rgba(248, 71, 180, 0.1)",
-                                    boxShadow:
-                                      "0 8px 25px rgba(248, 71, 180, 0.08)",
-                                    transition: "all 0.3s ease",
-                                    cursor: "pointer",
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform =
-                                      "translateY(-5px)";
-                                    e.currentTarget.style.boxShadow =
-                                      "0 15px 35px rgba(248, 71, 180, 0.15)";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform =
-                                      "translateY(0)";
-                                    e.currentTarget.style.boxShadow =
-                                      "0 8px 25px rgba(248, 71, 180, 0.08)";
+                                    // Center each product card
+                                    width: "100%",
+                                    maxWidth: "250px", // Optional: limit card width
                                   }}
                                 >
                                   <div
                                     style={{
-                                      borderRadius: "12px",
                                       overflow: "hidden",
                                       marginBottom: "1rem",
-                                      border:
-                                        "1px solid rgba(248, 71, 180, 0.1)",
+                                      borderRadius: "8px", // Added for better visual
                                     }}
                                   >
                                     <img
@@ -1119,6 +1154,7 @@ export default function FaceDetectionComponent() {
                                       color: "#333",
                                       fontSize: "1rem",
                                       lineHeight: "1.3",
+                                      textAlign: "center", // Center product name
                                     }}
                                   >
                                     {product.name}
@@ -1130,6 +1166,7 @@ export default function FaceDetectionComponent() {
                                       color: "#f847b4",
                                       fontWeight: "700",
                                       fontSize: "1.1rem",
+                                      textAlign: "center", // Center price
                                     }}
                                   >
                                     {product.price_html}
@@ -1168,7 +1205,7 @@ export default function FaceDetectionComponent() {
                                         "0 4px 15px rgba(248, 71, 180, 0.3)";
                                     }}
                                   >
-                                    ✨ Shop Now
+                                    Shop Now
                                   </a>
                                 </div>
                               ))}
@@ -1176,6 +1213,8 @@ export default function FaceDetectionComponent() {
                           </div>
                         )
                       )}
+
+                   
                     </div>
                   )}
               </div>
@@ -1215,6 +1254,19 @@ export default function FaceDetectionComponent() {
                 border-radius: 50%;
                 background: linear-gradient(45deg, #f847b4, #ffd9f0);
                 animation: pulse 1s ease-in-out infinite alternate;
+              }
+
+              /* Custom scrollbar */
+              div::-webkit-scrollbar {
+                width: 6px;
+              }
+              div::-webkit-scrollbar-track {
+                background: rgba(248, 71, 180, 0.1);
+                border-radius: 10px;
+              }
+              div::-webkit-scrollbar-thumb {
+                background: linear-gradient(45deg, #f847b4, #ff6bc7);
+                border-radius: 10px;
               }
 
               @keyframes pulse {

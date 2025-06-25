@@ -79,7 +79,7 @@ export default function PrivacyConsentModal({
   );
 }
 
-// Enhanced Styles with Beauty Hub Theme
+// Mobile-Friendly Styles
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   top: 0,
@@ -92,24 +92,26 @@ const overlayStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   zIndex: 50,
+  padding: "1rem", // Mobile padding
   animation: "fadeIn 0.3s ease-out",
 };
 
 const modalStyle: React.CSSProperties = {
   background: "linear-gradient(135deg, #ffffff 0%, #ffd9f0 100%)",
-  borderRadius: "24px",
+  borderRadius: "20px", // Smaller for mobile
   width: "100%",
-  maxWidth: "450px",
+  maxWidth: "400px", // Smaller max width
+  maxHeight: "90vh", // Prevent overflow
+  overflowY: "auto", // Allow scrolling
   boxShadow: "0 25px 70px rgba(248, 71, 180, 0.3), 0 10px 40px rgba(0, 0, 0, 0.1)",
   border: "1px solid rgba(248, 71, 180, 0.2)",
-  overflow: "hidden",
   position: "relative",
   animation: "slideUp 0.4s ease-out",
 };
 
 const headerStyle: React.CSSProperties = {
   background: "linear-gradient(135deg, #f847b4 0%, #ff69c4 100%)",
-  padding: "2.5rem 2rem 2rem 2rem",
+  padding: "1.5rem 1rem 1rem 1rem", // Reduced mobile padding
   textAlign: "center",
   position: "relative",
   overflow: "hidden",
@@ -118,24 +120,24 @@ const headerStyle: React.CSSProperties = {
 const iconContainerStyle: React.CSSProperties = {
   background: "rgba(255, 255, 255, 0.2)",
   borderRadius: "50%",
-  width: "60px",
-  height: "60px",
+  width: "45px", // Smaller for mobile
+  height: "45px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  margin: "0 auto 1rem auto",
+  margin: "0 auto 0.75rem auto", // Reduced margin
   backdropFilter: "blur(10px)",
   border: "2px solid rgba(255, 255, 255, 0.3)",
 };
 
 const iconStyle: React.CSSProperties = {
-  fontSize: "1.8rem",
+  fontSize: "1.6rem", // Smaller for mobile
   filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))",
 };
 
 const titleStyle: React.CSSProperties = {
   color: "white",
-  fontSize: "1.6rem",
+  fontSize: "1.3rem", // Smaller for mobile
   fontWeight: "700",
   margin: "0 0 0.5rem 0",
   textShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
@@ -145,60 +147,64 @@ const titleStyle: React.CSSProperties = {
 
 const subtitleStyle: React.CSSProperties = {
   color: "rgba(255, 255, 255, 0.9)",
-  fontSize: "0.9rem",
+  fontSize: "0.8rem", // Smaller for mobile
   margin: "0",
   fontWeight: "400",
+  lineHeight: "1.4",
+  padding: "0 0.5rem", // Better mobile spacing
 };
 
 const contentStyle: React.CSSProperties = {
-  padding: "2rem",
+  padding: "1rem", // Reduced mobile padding
 };
 
 const infoSectionStyle: React.CSSProperties = {
-  marginBottom: "2rem",
+  marginBottom: "1.5rem", // Reduced margin
 };
 
 const featureTagStyle: React.CSSProperties = {
   background: "linear-gradient(135deg, #ffd9f0 0%, #f8bbd9 100%)",
-  borderRadius: "20px",
-  padding: "0.5rem 1rem",
+  borderRadius: "16px", // Smaller radius
+  padding: "0.4rem 0.75rem", // Better mobile padding
   display: "inline-block",
-  marginBottom: "1rem",
+  marginBottom: "0.75rem", // Reduced margin
   border: "1px solid rgba(248, 71, 180, 0.2)",
 };
 
 const featureTagTextStyle: React.CSSProperties = {
   color: "#f847b4",
-  fontSize: "0.8rem",
+  fontSize: "0.75rem", // Smaller for mobile
   fontWeight: "600",
   textTransform: "uppercase",
-  letterSpacing: "0.5px",
+  letterSpacing: "0.3px", // Reduced letter spacing
 };
 
 const descriptionStyle: React.CSSProperties = {
   color: "#555",
-  fontSize: "0.95rem",
-  lineHeight: "1.6",
+  fontSize: "0.85rem", // Smaller for mobile
+  lineHeight: "1.5", // Better mobile line height
   margin: "0",
   textAlign: "left",
 };
 
 const consentSectionStyle: React.CSSProperties = {
   background: "rgba(255, 255, 255, 0.7)",
-  borderRadius: "16px",
-  padding: "1.5rem",
-  marginBottom: "2rem",
+  borderRadius: "14px", // Smaller radius
+  padding: "1rem", // Reduced mobile padding
+  marginBottom: "1.5rem", // Reduced margin
   border: "1px solid rgba(248, 71, 180, 0.1)",
 };
 
 const checkboxLabelStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
-  gap: "1rem",
+  gap: "0.75rem", // Reduced gap
   cursor: "pointer",
-  fontSize: "0.9rem",
+  fontSize: "0.85rem", // Smaller for mobile
   color: "#444",
-  lineHeight: "1.5",
+  lineHeight: "1.4", // Better mobile line height
+  minHeight: "44px", // Minimum touch target
+  padding: "0.25rem 0", // Extra touch area
 };
 
 const customCheckboxStyle: React.CSSProperties = {
@@ -215,20 +221,20 @@ const hiddenCheckboxStyle: React.CSSProperties = {
 };
 
 const checkboxIndicatorStyle: React.CSSProperties = {
-  width: "20px",
-  height: "20px",
+  width: "22px", // Slightly larger for mobile touch
+  height: "22px",
   borderRadius: "6px",
   border: "2px solid",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   transition: "all 0.3s ease",
-  marginTop: "2px",
+  marginTop: "1px",
 };
 
 const checkmarkStyle: React.CSSProperties = {
   color: "white",
-  fontSize: "12px",
+  fontSize: "13px", // Slightly larger
   fontWeight: "bold",
 };
 
@@ -239,19 +245,20 @@ const consentTextStyle: React.CSSProperties = {
 
 const buttonStyle: React.CSSProperties = {
   width: "100%",
-  padding: "1rem 1.5rem",
+  padding: "0.875rem 1rem", // Better mobile padding
   border: "none",
-  borderRadius: "16px",
-  fontSize: "1rem",
+  borderRadius: "14px", // Smaller radius
+  fontSize: "0.9rem", // Smaller for mobile
   fontWeight: "600",
   transition: "all 0.3s ease",
   textTransform: "uppercase",
-  letterSpacing: "0.5px",
+  letterSpacing: "0.3px", // Reduced letter spacing
+  minHeight: "48px", // Minimum touch target
 };
 
 const buttonTextStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: "0.5rem",
+  gap: "0.4rem", // Reduced gap
 };

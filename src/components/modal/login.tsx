@@ -6,6 +6,7 @@ import {
 import { triggerPaystackPopup } from "@/util/paystack";
 import { useAccessManager } from "@/stores/useAccessManager";
 import { useResultAccess } from "@/stores/useResultAccess";
+import { notifySuccess } from "@/util/utils";
 
 type Props = {
   onClose: () => void;
@@ -26,8 +27,15 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
   console.log(markAsPaid);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
 
     const result = await checkAccess(email);
+
+    if (result.error?.toLowerCase().includes("trial limit")) {
+      setError("You’ve reached the trial limit. Please try again later.");
+      setShowPayButton(false);
+      return;
+    }
 
     if (result.accessGranted) {
       useResultAccess.getState().setUserEmail(email);
@@ -63,21 +71,31 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={inputStyle}
+              disabled={error.includes("trial limit")}
+              style={{
+                ...inputStyle,
+                backgroundColor: error.includes("trial limit")
+                  ? "#f5f5f5"
+                  : "white",
+                cursor: error.includes("trial limit") ? "not-allowed" : "text",
+              }}
             />
           </div>
           <button
             type="submit"
-            disabled={loading || showPayButton}
+            disabled={loading || error.includes("trial limit")}
             style={{
               ...buttonStyle,
-              opacity: loading || showPayButton ? 0.2 : 1,
-              cursor: loading || showPayButton ? "not-allowed" : "pointer",
+              opacity: loading || error.includes("trial limit") ? 0.2 : 1,
+              cursor:
+                loading || error.includes("trial limit")
+                  ? "not-allowed"
+                  : "pointer",
             }}
             onClick={handleSubmit}
           >
             <span style={buttonTextStyle}>
-              {loading ? "✨ Checking..." : "Continue"}
+              {loading ? "Checking..." : "Continue"}
             </span>
           </button>
 
@@ -88,7 +106,7 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
             </div>
           )}
 
-          {showPayButton && (
+          {showPayButton && !error.includes("trial limit") && (
             <div style={paymentSectionStyle}>
               <div style={dividerStyle}>
                 <span style={dividerTextStyle}>Payment Required</span>
@@ -106,7 +124,8 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
                       if (created) {
                         useResultAccess.getState().setUserEmail(email);
                         useResultAccess.getState().setHasAccess(true);
-                        alert(
+                        onLoginSuccess(email, true);
+                        notifySuccess(
                           "Payment successful! You now have access to your results."
                         );
                         onLoginSuccess(email, true);
