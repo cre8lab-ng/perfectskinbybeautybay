@@ -105,9 +105,15 @@ export default function FaceDetectionComponent() {
   const productRecommendations = getRecommendedProducts(scoreInfo);
 
   console.log(uploading, analysisStatus, uploadResponse);
-  const { userEmail, hasAccess, showLoginModal, setShowLoginModal } =
+  const {  hasAccess, showLoginModal, setShowLoginModal } =
     useResultAccess();
+    const userEmail = useResultAccess((s) => s.userEmail);
 
+
+    useEffect(() => {
+      console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
+    }, [userEmail]);
+    
   function resizeImageWithOverride(
     inputFile: File,
     quality = 0.6
@@ -318,8 +324,10 @@ export default function FaceDetectionComponent() {
         const res = await checkSkinAnalysisStatus(taskId, accessToken);
         const status = res?.result?.status;
 
+        console.log(`🔄 Polling attempt ${attempts + 1}, status: ${status}`);
+
         if (status === "success") {
-          console.log("✅ Poll success:", res);
+          console.log("✅ Analysis successful, processing results...");
 
           const zipUrl = res.result?.results?.[0]?.data?.[0]?.url;
           if (!zipUrl) throw new Error("No ZIP URL found in result");
@@ -327,28 +335,64 @@ export default function FaceDetectionComponent() {
           const { score, images } = await extractSkinAnalysisResults(zipUrl);
           if (score) setScoreInfo(score);
           if (images.length > 0) setZipContent(images);
+          const currentEmail = useResultAccess.getState().userEmail;
+
+          console.log("📊 Results processed, now granting access...");
+          console.log("👤 Current userEmail:", currentEmail);
+          console.log("🔐 Current hasAccess:", hasAccess);
 
           // ✅ Grant access only after successful analysis via secure API
-          if (userEmail) {
-            const apiRes = await fetch("/api/access", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: userEmail,
-                type: "mark-analysis",
-                source: "analysis",
-              }),
-            });
+          if (currentEmail) {
+            console.log("🚀 Making API request to grant access...");
 
-            const data = await apiRes.json();
-            if (!apiRes.ok || data.success === false) {
-              console.warn(
-                "❌ Failed to insert free access:",
-                data.reason || data.error
-              );
+            try {
+              const apiRes = await fetch("/api/access", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email: currentEmail,
+                  type: "mark-analysis",
+                  source: "analysis",
+                }),
+              });
+
+              console.log("📡 API Response status:", apiRes.status);
+              console.log("📡 API Response ok:", apiRes.ok);
+
+              const data = await apiRes.json();
+              console.log("📄 API Response data:", data);
+
+              if (!apiRes.ok) {
+                console.error("❌ API request failed:", apiRes.status, data);
+                throw new Error(
+                  `API request failed: ${data.error || "Unknown error"}`
+                );
+              }
+
+              if (data.success === false) {
+                console.warn("❌ Failed to insert free access:", data.reason);
+                // Handle specific failure reasons
+                if (data.reason === "already_exists") {
+                  console.log("✅ User already has access recorded");
+                } else if (data.reason === "no_payment") {
+                  console.error("❌ No valid payment found for user");
+                  // Don't throw error for no payment - might be intentional
+                  console.log("ℹ️ Continuing without database insertion");
+                }
+              } else if (data.success === true) {
+                console.log("✅ Successfully granted free access to user!");
+              }
+            } catch (error) {
+              console.error("❌ Error granting access:", error);
+              // Don't fail the entire analysis for access issues
+              console.log("⚠️ Analysis completed but access grant failed");
             }
+          } else {
+            console.warn("⚠️ No userEmail available - cannot grant access");
+            console.log("🔍 Check if user is logged in or email is set");
           }
 
+          console.log("✅ Analysis flow completed");
           return res;
         }
 
@@ -356,8 +400,10 @@ export default function FaceDetectionComponent() {
           console.warn("❌ Server returned error:", res.result?.error_message);
           break;
         }
+
+        console.log(`⏳ Status: ${status}, retrying in 500ms...`);
       } catch (err) {
-        console.error("Polling error:", err);
+        console.error("❌ Polling error:", err);
       }
 
       attempts++;
@@ -366,6 +412,15 @@ export default function FaceDetectionComponent() {
 
     throw new Error("❌ Polling timed out after max attempts");
   };
+
+  // Add this somewhere in your component to debug
+useEffect(() => {
+  console.log("🔍 Debug useResultAccess state:", {
+    userEmail,
+    hasAccess,
+    showLoginModal
+  });
+}, [userEmail, hasAccess, showLoginModal]);
 
   return (
     <>
@@ -670,8 +725,7 @@ export default function FaceDetectionComponent() {
                         />
                       ))}
 
-                    {/* "Skin Age" Score */}
-                    {scoreInfo?.all?.score && hasAccess && (
+                    {/* {scoreInfo?.all?.score && hasAccess && (
                       <div
                         style={{
                           position: "absolute",
@@ -685,7 +739,7 @@ export default function FaceDetectionComponent() {
                       >
                         Skin Age {Math.round(scoreInfo.all.score)}
                       </div>
-                    )}
+                    )} */}
 
                     {hasAccess && (
                       <div
@@ -702,8 +756,8 @@ export default function FaceDetectionComponent() {
                         }}
                       >
                         {["wrinkle", "pore", "texture", "acne"].map((key) => {
-// @ts-expect-error: Supabase typing is too strict here
-const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
+                          // @ts-expect-error: Supabase typing is too strict here
+                          const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
                           const percentage = Math.min(Math.max(score, 0), 100);
 
                           return (
@@ -1015,6 +1069,151 @@ const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
                               background: "rgba(255, 255, 255, 0.7)",
                               borderRadius: "16px",
                               border: "1px solid rgba(248, 71, 180, 0.1)",
+                              // Center the entire container horizontally
+                              margin: "0 auto 3rem auto",
+                              maxWidth: "1200px", // Optional: set max width
+                            }}
+                          >
+                            <h4
+                              style={{
+                                textTransform: "capitalize",
+                                color: "#f847b4",
+                                fontSize: "1.4rem",
+                                fontWeight: "700",
+                                marginBottom: "1rem",
+                                textAlign: "center",
+                              }}
+                            >
+                              {concern} Care Solutions
+                              <span
+                                style={{
+                                  fontSize: "1rem",
+                                  fontStyle: "italic",
+                                  color: "#888",
+                                  fontWeight: "400",
+                                }}
+                              >
+                                {" "}
+                                - {level.replace("_", " ")} priority
+                              </span>
+                            </h4>
+
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns:
+                                  "repeat(auto-fit, minmax(200px, 1fr))",
+                                gap: "2rem",
+                                marginTop: "1.5rem",
+                                // Center the grid items when there are fewer items
+                                justifyContent: "center",
+                                justifyItems: "center",
+                              }}
+                            >
+                              {products.map((product) => (
+                                <div
+                                  key={product.id}
+                                  style={{
+                                    // Center each product card
+                                    width: "100%",
+                                    maxWidth: "250px", // Optional: limit card width
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      overflow: "hidden",
+                                      marginBottom: "1rem",
+                                      borderRadius: "8px", // Added for better visual
+                                    }}
+                                  >
+                                    <img
+                                      src={product.image}
+                                      alt={product.name}
+                                      style={{
+                                        width: "100%",
+                                        height: "200px",
+                                        objectFit: "cover",
+                                      }}
+                                    />
+                                  </div>
+
+                                  <h5
+                                    style={{
+                                      margin: "0 0 0.5rem",
+                                      fontWeight: "600",
+                                      color: "#333",
+                                      fontSize: "1rem",
+                                      lineHeight: "1.3",
+                                      textAlign: "center", // Center product name
+                                    }}
+                                  >
+                                    {product.name}
+                                  </h5>
+
+                                  <p
+                                    style={{
+                                      margin: "0 0 1rem",
+                                      color: "#f847b4",
+                                      fontWeight: "700",
+                                      fontSize: "1.1rem",
+                                      textAlign: "center", // Center price
+                                    }}
+                                  >
+                                    {product.price_html}
+                                  </p>
+
+                                  <a
+                                    href={product.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      display: "inline-block",
+                                      background:
+                                        "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                                      color: "white",
+                                      textDecoration: "none",
+                                      padding: "0.8rem 1.5rem",
+                                      borderRadius: "10px",
+                                      fontSize: "0.9rem",
+                                      fontWeight: "600",
+                                      boxShadow:
+                                        "0 4px 15px rgba(248, 71, 180, 0.3)",
+                                      transition: "all 0.3s ease",
+                                      width: "100%",
+                                      textAlign: "center",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.transform =
+                                        "translateY(-2px)";
+                                      e.currentTarget.style.boxShadow =
+                                        "0 6px 20px rgba(248, 71, 180, 0.4)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.transform =
+                                        "translateY(0)";
+                                      e.currentTarget.style.boxShadow =
+                                        "0 4px 15px rgba(248, 71, 180, 0.3)";
+                                    }}
+                                  >
+                                    Shop Now
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      )}
+
+                      {productRecommendations.map(
+                        ({ concern, level, products }) => (
+                          <div
+                            key={concern}
+                            style={{
+                              marginBottom: "3rem",
+                              padding: "2rem",
+                              background: "rgba(255, 255, 255, 0.7)",
+                              borderRadius: "16px",
+                              border: "1px solid rgba(248, 71, 180, 0.1)",
                             }}
                           >
                             <h4
@@ -1051,38 +1250,11 @@ const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
                               }}
                             >
                               {products.map((product) => (
-                                <div
-                                  key={product.id}
-                                  style={{
-                                    background: "white",
-                                    borderRadius: "16px",
-                                    padding: "1.5rem",
-                                    border: "1px solid rgba(248, 71, 180, 0.1)",
-                                    boxShadow:
-                                      "0 8px 25px rgba(248, 71, 180, 0.08)",
-                                    transition: "all 0.3s ease",
-                                    cursor: "pointer",
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform =
-                                      "translateY(-5px)";
-                                    e.currentTarget.style.boxShadow =
-                                      "0 15px 35px rgba(248, 71, 180, 0.15)";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform =
-                                      "translateY(0)";
-                                    e.currentTarget.style.boxShadow =
-                                      "0 8px 25px rgba(248, 71, 180, 0.08)";
-                                  }}
-                                >
+                                <div key={product.id}>
                                   <div
                                     style={{
-                                      borderRadius: "12px",
                                       overflow: "hidden",
                                       marginBottom: "1rem",
-                                      border:
-                                        "1px solid rgba(248, 71, 180, 0.1)",
                                     }}
                                   >
                                     <img

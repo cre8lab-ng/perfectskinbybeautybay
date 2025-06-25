@@ -125,7 +125,8 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
                       const created = await createWooCompletedOrder(email);
                       if (created) {
                         useResultAccess.getState().setUserEmail(email);
-                        useResultAccess.getState().setHasAccess(true);
+useResultAccess.getState().setHasAccess(true);
+onLoginSuccess(email, true);
                         alert(
                           "Payment successful! You now have access to your results."
                         );
