@@ -14,7 +14,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [straightOK, setStraightOK] = useState(false);
   const [faceValid, setFaceValid] = useState(false);
   const [tips, setTips] = useState<string[]>([]);
-  console.log(faceValid);
+  console.log(faceValid,captureFailed);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
@@ -415,15 +415,6 @@ export default function CameraPrompt({ onCapture }: Props) {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
 
-                {captureFailed && (
-                  <div className="absolute inset-0 flex items-center justify-center text-white text-center bg-black/50 backdrop-blur-sm p-4 rounded-2xl">
-                    <p className="text-lg">
-                      ❌ Face moved during capture.
-                      <br />
-                      Please retake and try again.
-                    </p>
-                  </div>
-                )}
               </div>
             )}
 
