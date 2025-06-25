@@ -13,7 +13,7 @@ type Props = {
 };
 
 export default function LoginModal({ onClose, onLoginSuccess }: Props) {
-  console.log(hasUserCompletedOrder)
+  console.log(hasUserCompletedOrder);
   const [showPayButton, setShowPayButton] = useState(false);
   const [email, setEmail] = useState("");
   const {
@@ -23,7 +23,7 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
     error: accessError,
   } = useAccessManager();
   const [error, setError] = useState("");
-console.log(markAsPaid)
+  console.log(markAsPaid);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -33,26 +33,9 @@ console.log(markAsPaid)
       useResultAccess.getState().setUserEmail(email);
       useResultAccess.getState().setHasAccess(true);
       onLoginSuccess(email, true);
-        } else if (result.reason === "requires_payment") {
-      triggerPaystackPopup({
-        email,
-        amount: 500000,
-        onSuccess: async (response) => {
-          console.log(response)
-
-          const created = await createWooCompletedOrder(email);
-          if (created) {
-            useResultAccess.getState().setUserEmail(email);
-            useResultAccess.getState().setHasAccess(true);
-            alert("Payment successful! You now have access to your results.");
-            onLoginSuccess(email, true);
-          }
-        },
-        onCancel: () => {
-          setError("Payment was cancelled. Please try again.");
-        },
-      });
-      
+    } else if (result.reason === "requires_payment") {
+      setError("You need to pay ₦5,000 to access your results.");
+      setShowPayButton(true);
     } else if (result.reason === "already_used") {
       setError("You've already used your free access. Please pay to continue.");
       setShowPayButton(true);
@@ -65,10 +48,12 @@ console.log(markAsPaid)
     <div style={overlayStyle}>
       <div style={modalStyle}>
         <div style={headerStyle}>
-          <h2 style={titleStyle}>✨ Sign In to View Your Results</h2>
-          <p style={subtitleStyle}>Enter your email to access your personalized beauty insights</p>
+          <h2 style={titleStyle}>Sign In to View Your Results</h2>
+          <p style={subtitleStyle}>
+            Enter your email to access your personalized beauty insights
+          </p>
         </div>
-        
+
         <div style={formStyle}>
           <div style={inputContainerStyle}>
             <label style={labelStyle}>Email Address</label>
@@ -81,17 +66,21 @@ console.log(markAsPaid)
               style={inputStyle}
             />
           </div>
-          
-          <button type="submit" disabled={loading} style={{
-            ...buttonStyle,
-            opacity: loading ? 0.7 : 1,
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }} onClick={handleSubmit}>
+          <button
+            type="submit"
+            disabled={loading || showPayButton}
+            style={{
+              ...buttonStyle,
+              opacity: loading || showPayButton ? 0.2 : 1,
+              cursor: loading || showPayButton ? "not-allowed" : "pointer",
+            }}
+            onClick={handleSubmit}
+          >
             <span style={buttonTextStyle}>
-              {loading ? "✨ Checking..." : "🌸 Continue"}
+              {loading ? "✨ Checking..." : "Continue"}
             </span>
           </button>
-          
+
           {(error || accessError) && (
             <div style={errorStyle}>
               <span style={errorIconStyle}>⚠️</span>
@@ -111,13 +100,15 @@ console.log(markAsPaid)
                     email,
                     amount: 500000,
                     onSuccess: async (response) => {
-                      console.log(response)
+                      console.log(response);
 
                       const created = await createWooCompletedOrder(email);
                       if (created) {
                         useResultAccess.getState().setUserEmail(email);
                         useResultAccess.getState().setHasAccess(true);
-                        alert("Payment successful! You now have access to your results.");
+                        alert(
+                          "Payment successful! You now have access to your results."
+                        );
                         onLoginSuccess(email, true);
                       }
                     },
@@ -128,16 +119,14 @@ console.log(markAsPaid)
                 }
                 style={payButtonStyle}
               >
-                <span style={payButtonTextStyle}>
-                  💎 Pay ₦5,000 to Continue
-                </span>
+                <span style={payButtonTextStyle}>Pay ₦5,000 to Continue</span>
               </button>
             </div>
           )}
         </div>
-        
+
         <button onClick={onClose} style={closeButtonStyle}>
-          <span style={closeButtonTextStyle}>✕ Close</span>
+          <span style={closeButtonTextStyle}> X </span>
         </button>
       </div>
     </div>
@@ -166,7 +155,8 @@ const modalStyle: React.CSSProperties = {
   borderRadius: "24px",
   width: "100%",
   maxWidth: "420px",
-  boxShadow: "0 20px 60px rgba(248, 71, 180, 0.3), 0 8px 32px rgba(0, 0, 0, 0.1)",
+  boxShadow:
+    "0 20px 60px rgba(248, 71, 180, 0.3), 0 8px 32px rgba(0, 0, 0, 0.1)",
   border: "1px solid rgba(248, 71, 180, 0.2)",
   overflow: "hidden",
   animation: "slideUp 0.4s ease-out",
@@ -313,7 +303,7 @@ const closeButtonStyle: React.CSSProperties = {
   position: "absolute",
   top: "1rem",
   right: "1rem",
-  background: "rgba(255, 255, 255, 0.2)",
+  background: "#f847b4",
   border: "none",
   borderRadius: "50%",
   width: "40px",

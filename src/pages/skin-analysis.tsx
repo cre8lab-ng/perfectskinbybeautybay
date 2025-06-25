@@ -456,18 +456,9 @@ export default function FaceDetectionComponent() {
               productRecommendations.length > 0) && (
               <div
                 style={{
-                  backgroundColor: "rgba(255, 255, 255, 0.95)",
-                  backdropFilter: "blur(20px)",
-                  padding: "3rem",
-                  maxWidth: "800px",
-                  margin: "2rem auto",
-                  borderRadius: "24px",
-                  boxShadow: `
-          0 25px 50px rgba(248, 71, 180, 0.15),
-          0 0 0 1px rgba(255, 255, 255, 0.1),
-          inset 0 1px 0 rgba(255, 255, 255, 0.6)
-        `,
-                  border: "1px solid rgba(248, 71, 180, 0.1)",
+            
+               
+             
                   position: "relative",
                   overflow: "hidden",
                 }}
