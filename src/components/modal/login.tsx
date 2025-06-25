@@ -6,6 +6,7 @@ import {
 import { triggerPaystackPopup } from "@/util/paystack";
 import { useAccessManager } from "@/stores/useAccessManager";
 import { useResultAccess } from "@/stores/useResultAccess";
+import { notifySuccess } from "@/util/utils";
 
 type Props = {
   onClose: () => void;
@@ -82,15 +83,12 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
           </div>
           <button
             type="submit"
-            disabled={loading  || error.includes("trial limit")}
+            disabled={loading || error.includes("trial limit")}
             style={{
               ...buttonStyle,
-              opacity:
-                loading  || error.includes("trial limit")
-                  ? 0.2
-                  : 1,
+              opacity: loading || error.includes("trial limit") ? 0.2 : 1,
               cursor:
-                loading  || error.includes("trial limit")
+                loading || error.includes("trial limit")
                   ? "not-allowed"
                   : "pointer",
             }}
@@ -125,9 +123,9 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
                       const created = await createWooCompletedOrder(email);
                       if (created) {
                         useResultAccess.getState().setUserEmail(email);
-useResultAccess.getState().setHasAccess(true);
-onLoginSuccess(email, true);
-                        alert(
+                        useResultAccess.getState().setHasAccess(true);
+                        onLoginSuccess(email, true);
+                        notifySuccess(
                           "Payment successful! You now have access to your results."
                         );
                         onLoginSuccess(email, true);

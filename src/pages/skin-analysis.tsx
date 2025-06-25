@@ -293,10 +293,10 @@ export default function FaceDetectionComponent() {
 
     try {
       const analysis = await analyzeSkinFeatures(fileId, accessToken, [
+        "acne",
         "wrinkle",
         "pore",
         "texture",
-        "acne",
       ]);
 
       const taskId = analysis.result.task_id;
@@ -335,6 +335,7 @@ export default function FaceDetectionComponent() {
           const { score, images } = await extractSkinAnalysisResults(zipUrl);
           if (score) setScoreInfo(score);
           if (images.length > 0) setZipContent(images);
+        
           const currentEmail = useResultAccess.getState().userEmail;
 
           console.log("📊 Results processed, now granting access...");
@@ -413,14 +414,13 @@ export default function FaceDetectionComponent() {
     throw new Error("❌ Polling timed out after max attempts");
   };
 
-  // Add this somewhere in your component to debug
-useEffect(() => {
-  console.log("🔍 Debug useResultAccess state:", {
-    userEmail,
-    hasAccess,
-    showLoginModal
-  });
-}, [userEmail, hasAccess, showLoginModal]);
+  useEffect(() => {
+    return () => {
+      console.log("👋 User left skin analysis page. Resetting access...");
+      useResultAccess.getState().resetAccess();
+    };
+  }, []);
+  
 
   return (
     <>
@@ -741,111 +741,121 @@ useEffect(() => {
                       </div>
                     )} */}
 
-                    {hasAccess && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: "10px",
-                          left: "0",
-                          right: "0",
-                          display: "flex",
-                          justifyContent: "space-around",
-                          alignItems: "center",
-                          padding: "0 1rem",
-                          gap: "0.5rem",
-                        }}
-                      >
-                        {["wrinkle", "pore", "texture", "acne"].map((key) => {
-                          // @ts-expect-error: Supabase typing is too strict here
-                          const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
-                          const percentage = Math.min(Math.max(score, 0), 100);
 
-                          return (
-                            <div
-                              key={key}
-                              style={{
-                                padding: "0.75rem",
-                                minWidth: "80px",
-                              }}
-                            >
-                              {/* Label */}
-                              <div
-                                style={{
-                                  color: "white",
-                                  fontSize: "0.75rem",
-                                  fontWeight: "600",
-                                  textTransform: "capitalize",
-                                  marginBottom: "0.5rem",
-                                  textAlign: "center",
-                                }}
-                              >
-                                {key}
-                              </div>
 
-                              {/* Circular Progress */}
-                              <div
-                                style={{
-                                  position: "relative",
-                                  width: "50px",
-                                  height: "50px",
-                                  margin: "0 auto",
-                                }}
-                              >
-                                <svg
-                                  width="50"
-                                  height="50"
-                                  style={{
-                                    transform: "rotate(-90deg)",
-                                  }}
-                                >
-                                  {/* Background circle */}
-                                  <circle
-                                    cx="25"
-                                    cy="25"
-                                    r="20"
-                                    fill="none"
-                                    stroke="#ffd9f0"
-                                    strokeWidth="4"
-                                  />
-                                  {/* Progress circle */}
-                                  <circle
-                                    cx="25"
-                                    cy="25"
-                                    r="20"
-                                    fill="none"
-                                    stroke="#f847b4"
-                                    strokeWidth="4"
-                                    strokeLinecap="round"
-                                    strokeDasharray={`${2 * Math.PI * 20}`}
-                                    strokeDashoffset={`${
-                                      2 * Math.PI * 20 * (1 - percentage / 100)
-                                    }`}
-                                    style={{
-                                      transition:
-                                        "stroke-dashoffset 0.3s ease-in-out",
-                                    }}
-                                  />
-                                </svg>
-                                {/* Score in center */}
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    top: "50%",
-                                    left: "50%",
-                                    transform: "translate(-50%, -50%)",
-                                    color: "#f847b4",
-                                    fontSize: "0.7rem",
-                                    fontWeight: "bold",
-                                  }}
-                                >
-                                  {score}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+
+{hasAccess && (
+  <div
+    style={{
+      position: "absolute",
+      bottom: "10px",
+      left: "10px",
+      right: "10px",
+      display: "flex",
+      justifyContent: "flex-start",
+      alignItems: "center",
+      padding: "0",
+      gap: "0.5rem",
+      overflowX: "auto",
+      overflowY: "hidden",
+      scrollbarWidth: "none",
+      msOverflowStyle: "none",
+    }}
+  >
+    {["acne","wrinkle", "pore", "texture"].map((key) => {
+      // @ts-expect-error: Supabase typing is too strict here
+      const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
+      const percentage = Math.min(Math.max(score, 0), 100);
+
+      return (
+        <div
+          key={key}
+          style={{
+            padding: "0.75rem",
+            minWidth: "100px", // Increased from 80px
+          }}
+        >
+          {/* Label */}
+          <div
+            style={{
+              color: "white",
+              fontSize: "0.75rem",
+              fontWeight: "600",
+              textTransform: "capitalize",
+              marginBottom: "0.5rem",
+              textAlign: "center",
+            }}
+          >
+            {key}
+          </div>
+
+          {/* Circular Progress */}
+          <div
+            style={{
+              position: "relative",
+              width: "70px", // Increased from 50px
+              height: "70px", // Increased from 50px
+              margin: "0 auto",
+            }}
+          >
+            <svg
+              width="70" // Increased from 50
+              height="70" // Increased from 50
+              style={{
+                transform: "rotate(-90deg)",
+              }}
+            >
+              {/* Background circle */}
+              <circle
+                cx="35" // Adjusted center (70/2)
+                cy="35" // Adjusted center (70/2)
+                r="28" // Increased radius from 20
+                fill="none"
+                stroke="#ffd9f0"
+                strokeWidth="6" // Increased from 4
+              />
+              {/* Progress circle */}
+              <circle
+                cx="35" // Adjusted center (70/2)
+                cy="35" // Adjusted center (70/2)
+                r="28" // Increased radius from 20
+                fill="none"
+                stroke="#f847b4"
+                strokeWidth="6" // Increased from 4
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 28}`} // Updated for new radius
+                strokeDashoffset={`${
+                  2 * Math.PI * 28 * (1 - percentage / 100)
+                }`} // Updated for new radius
+                style={{
+                  transition: "stroke-dashoffset 0.3s ease-in-out",
+                }}
+              />
+            </svg>
+            {/* Score in center */}
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                color: "#f847b4",
+                fontSize: "1rem", // Increased from 0.7rem
+                fontWeight: "bold",
+              }}
+            >
+              {score}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
+
+                 
+
+
                   </div>
                 )}
 
@@ -1204,134 +1214,7 @@ useEffect(() => {
                         )
                       )}
 
-                      {productRecommendations.map(
-                        ({ concern, level, products }) => (
-                          <div
-                            key={concern}
-                            style={{
-                              marginBottom: "3rem",
-                              padding: "2rem",
-                              background: "rgba(255, 255, 255, 0.7)",
-                              borderRadius: "16px",
-                              border: "1px solid rgba(248, 71, 180, 0.1)",
-                            }}
-                          >
-                            <h4
-                              style={{
-                                textTransform: "capitalize",
-                                color: "#f847b4",
-                                fontSize: "1.4rem",
-                                fontWeight: "700",
-                                marginBottom: "1rem",
-                                textAlign: "center",
-                              }}
-                            >
-                              {concern} Care Solutions
-                              <span
-                                style={{
-                                  fontSize: "1rem",
-                                  fontStyle: "italic",
-                                  color: "#888",
-                                  fontWeight: "400",
-                                }}
-                              >
-                                {" "}
-                                - {level.replace("_", " ")} priority
-                              </span>
-                            </h4>
-
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns:
-                                  "repeat(auto-fit, minmax(200px, 1fr))",
-                                gap: "2rem",
-                                marginTop: "1.5rem",
-                              }}
-                            >
-                              {products.map((product) => (
-                                <div key={product.id}>
-                                  <div
-                                    style={{
-                                      overflow: "hidden",
-                                      marginBottom: "1rem",
-                                    }}
-                                  >
-                                    <img
-                                      src={product.image}
-                                      alt={product.name}
-                                      style={{
-                                        width: "100%",
-                                        height: "200px",
-                                        objectFit: "cover",
-                                      }}
-                                    />
-                                  </div>
-
-                                  <h5
-                                    style={{
-                                      margin: "0 0 0.5rem",
-                                      fontWeight: "600",
-                                      color: "#333",
-                                      fontSize: "1rem",
-                                      lineHeight: "1.3",
-                                    }}
-                                  >
-                                    {product.name}
-                                  </h5>
-
-                                  <p
-                                    style={{
-                                      margin: "0 0 1rem",
-                                      color: "#f847b4",
-                                      fontWeight: "700",
-                                      fontSize: "1.1rem",
-                                    }}
-                                  >
-                                    {product.price_html}
-                                  </p>
-
-                                  <a
-                                    href={product.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                      display: "inline-block",
-                                      background:
-                                        "linear-gradient(135deg, #f847b4, #ff6bc7)",
-                                      color: "white",
-                                      textDecoration: "none",
-                                      padding: "0.8rem 1.5rem",
-                                      borderRadius: "10px",
-                                      fontSize: "0.9rem",
-                                      fontWeight: "600",
-                                      boxShadow:
-                                        "0 4px 15px rgba(248, 71, 180, 0.3)",
-                                      transition: "all 0.3s ease",
-                                      width: "100%",
-                                      textAlign: "center",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.transform =
-                                        "translateY(-2px)";
-                                      e.currentTarget.style.boxShadow =
-                                        "0 6px 20px rgba(248, 71, 180, 0.4)";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.transform =
-                                        "translateY(0)";
-                                      e.currentTarget.style.boxShadow =
-                                        "0 4px 15px rgba(248, 71, 180, 0.3)";
-                                    }}
-                                  >
-                                    ✨ Shop Now
-                                  </a>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      )}
+                   
                     </div>
                   )}
               </div>

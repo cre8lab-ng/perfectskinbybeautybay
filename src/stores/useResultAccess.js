@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
-import { notifyError } from "@/util/utils";
+import { notifyError,notifySuccess } from "@/util/utils";
+
 
 export const useResultAccess = create(
   persist(
@@ -15,10 +16,19 @@ export const useResultAccess = create(
       setHasAccess: (access) => set({ hasAccess: access }),
       setShowLoginModal: (value) => set({ showLoginModal: value }),
       setIsBlocked: (value) => set({ isBlocked: value }),
+      clearUserEmail: () => set({ userEmail: null }),
+      resetAccess: () =>
+        set({
+          userEmail: null,
+          hasAccess: false,
+          showLoginModal: false,
+          isBlocked: false,
+        }),
 
       handleLogin: async (email) => {
+        console.log(get)
         set({ userEmail: email, isBlocked: false });
-console.log(get)
+
         try {
           const res = await fetch("/api/access", {
             method: "POST",
@@ -26,7 +36,14 @@ console.log(get)
             body: JSON.stringify({ email, type: "check" }),
           });
 
-          const result = await res.json();
+          let result;
+          try {
+            result = await res.json();
+          } catch (e) {
+            console.log(e)
+            notifyError("Server error. Please try again.");
+            return;
+          }
 
           if (res.status === 429 || result.error?.includes("trial limit")) {
             set({ isBlocked: true });
@@ -39,7 +56,7 @@ console.log(get)
             return;
           }
 
-          // No access yet → Show Paystack
+          // No access → Paystack
           loadPaystackScript();
 
           setTimeout(() => {
@@ -62,13 +79,13 @@ console.log(get)
 
                   if (payRes.ok && payData.access_granted) {
                     set({ hasAccess: true });
-                    alert("Payment successful! You now have access to your results.");
+                    notifySuccess("Payment successful! You now have access to your results.");
                   } else {
-                    alert("Payment succeeded, but access setup failed. Please contact support.");
+                    notifyError("Payment succeeded, but access setup failed. Please contact support.");
                   }
                 } catch (err) {
                   console.error("Post-payment error:", err);
-                  alert("Payment verified but failed to set up access. Please contact support.");
+                  notifyError("Payment verified but failed to set up access. Please contact support.");
                 }
               },
               onClose: () => {
@@ -83,7 +100,7 @@ console.log(get)
       },
     }),
     {
-      name: "result-access-store", // localStorage key
+      name: "result-access-store",
       partialize: (state) => ({
         userEmail: state.userEmail,
         hasAccess: state.hasAccess,

@@ -111,7 +111,7 @@ export async function checkSkinAnalysisStatus(taskId: string, accessToken: strin
 export async function analyzeSkinFeatures(
   fileId: string,
   accessToken: string,
-  features: string[] = ["wrinkle", "pore", "texture", "acne"]
+  features: string[] = ["acne","wrinkle", "pore", "texture"]
 ) {
   const payload: SkinAnalysisPayload = {
     request_id: 0,

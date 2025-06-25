@@ -33,7 +33,7 @@ export default function InstructionModal({
               <div style={instructionItemStyle}>
                 <span style={instructionIconStyle}>💡</span>
                 <span style={instructionTextStyle}>
-                  Ensure you`&apos;re in a well-lit environment.
+                  Ensure you&apos;re in a well-lit environment.
                 </span>
               </div>
               
@@ -82,7 +82,7 @@ export default function InstructionModal({
   );
 }
 
-// Enhanced Styles with Beauty Hub Theme
+// Mobile-Friendly Styles
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   top: 0,
@@ -95,24 +95,26 @@ const overlayStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   zIndex: 50,
+  padding: "1rem", // Mobile padding
   animation: "fadeIn 0.3s ease-out",
 };
 
 const modalStyle: React.CSSProperties = {
   background: "linear-gradient(135deg, #ffffff 0%, #ffd9f0 100%)",
-  borderRadius: "24px",
+  borderRadius: "20px", // Slightly smaller for mobile
   width: "100%",
-  maxWidth: "400px",
+  maxWidth: "380px", // Slightly smaller max width
+  maxHeight: "90vh", // Prevent overflow on small screens
+  overflowY: "auto", // Allow scrolling if needed
   boxShadow: "0 25px 70px rgba(248, 71, 180, 0.3), 0 10px 40px rgba(0, 0, 0, 0.1)",
   border: "1px solid rgba(248, 71, 180, 0.2)",
-  overflow: "hidden",
   position: "relative",
   animation: "slideUp 0.4s ease-out",
 };
 
 const headerStyle: React.CSSProperties = {
   background: "linear-gradient(135deg, #f847b4 0%, #ff69c4 100%)",
-  padding: "2rem 2rem 1.5rem 2rem",
+  padding: "1.5rem 1rem 1rem 1rem", // Reduced padding for mobile
   textAlign: "center",
   position: "relative",
   overflow: "hidden",
@@ -121,24 +123,24 @@ const headerStyle: React.CSSProperties = {
 const iconContainerStyle: React.CSSProperties = {
   background: "rgba(255, 255, 255, 0.2)",
   borderRadius: "50%",
-  width: "50px",
-  height: "50px",
+  width: "45px", // Slightly smaller
+  height: "45px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  margin: "0 auto 1rem auto",
+  margin: "0 auto 0.75rem auto", // Reduced margin
   backdropFilter: "blur(10px)",
   border: "2px solid rgba(255, 255, 255, 0.3)",
 };
 
 const iconStyle: React.CSSProperties = {
-  fontSize: "1.8rem",
+  fontSize: "1.6rem", // Slightly smaller
   filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))",
 };
 
 const titleStyle: React.CSSProperties = {
   color: "white",
-  fontSize: "1.4rem",
+  fontSize: "1.3rem", // Slightly smaller for mobile
   fontWeight: "700",
   margin: "0 0 0.5rem 0",
   textShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
@@ -147,28 +149,30 @@ const titleStyle: React.CSSProperties = {
 
 const subtitleStyle: React.CSSProperties = {
   color: "rgba(255, 255, 255, 0.9)",
-  fontSize: "0.9rem",
+  fontSize: "0.85rem", // Slightly smaller
   margin: "0",
   fontWeight: "400",
+  lineHeight: "1.4",
+  padding: "0 0.5rem", // Add padding for better mobile spacing
 };
 
 const contentStyle: React.CSSProperties = {
-  padding: "1.5rem",
+  padding: "1rem", // Reduced padding for mobile
 };
 
 const instructionsContainerStyle: React.CSSProperties = {
   background: "rgba(255, 255, 255, 0.7)",
-  borderRadius: "20px",
-  padding: "1.25rem",
-  marginBottom: "1.5rem",
+  borderRadius: "16px", // Slightly smaller
+  padding: "1rem", // Reduced padding
+  marginBottom: "1.25rem", // Reduced margin
   border: "1px solid rgba(248, 71, 180, 0.1)",
 };
 
 const instructionsHeaderStyle: React.CSSProperties = {
   color: "#f847b4",
-  fontSize: "1rem",
+  fontSize: "0.9rem", // Smaller for mobile
   fontWeight: "700",
-  margin: "0 0 1rem 0",
+  margin: "0 0 0.75rem 0", // Reduced margin
   textAlign: "center",
   textTransform: "uppercase",
   letterSpacing: "0.5px",
@@ -177,30 +181,30 @@ const instructionsHeaderStyle: React.CSSProperties = {
 const instructionListStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "0.75rem",
+  gap: "0.6rem", // Reduced gap
 };
 
 const instructionItemStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
-  gap: "0.75rem",
-  padding: "0.6rem",
+  gap: "0.6rem", // Reduced gap
+  padding: "0.5rem", // Reduced padding
   background: "rgba(255, 255, 255, 0.8)",
-  borderRadius: "12px",
+  borderRadius: "10px", // Slightly smaller
   border: "1px solid rgba(248, 71, 180, 0.1)",
   transition: "all 0.3s ease",
 };
 
 const instructionIconStyle: React.CSSProperties = {
-  fontSize: "1.2rem",
+  fontSize: "1.1rem", // Slightly smaller
   flexShrink: 0,
-  marginTop: "2px",
+  marginTop: "1px",
 };
 
 const instructionTextStyle: React.CSSProperties = {
   color: "#555",
-  fontSize: "0.9rem",
-  lineHeight: "1.5",
+  fontSize: "0.85rem", // Smaller for mobile
+  lineHeight: "1.4", // Better line height for mobile
   fontWeight: "500",
 };
 
@@ -211,45 +215,47 @@ const actionSectionStyle: React.CSSProperties = {
 const buttonContainerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "1rem",
+  gap: "0.75rem", // Reduced gap
 };
 
 const primaryButtonStyle: React.CSSProperties = {
   background: "linear-gradient(135deg, #f847b4 0%, #ff1493 100%)",
   color: "white",
   border: "none",
-  borderRadius: "16px",
-  padding: "0.85rem 1.25rem",
-  fontSize: "1rem",
+  borderRadius: "14px", // Slightly smaller
+  padding: "0.75rem 1rem", // Better mobile padding
+  fontSize: "0.9rem", // Smaller for mobile
   fontWeight: "600",
   cursor: "pointer",
   transition: "all 0.3s ease",
   boxShadow: "0 8px 25px rgba(248, 71, 180, 0.4)",
   textTransform: "uppercase",
   letterSpacing: "0.5px",
+  minHeight: "48px", // Minimum touch target size
 };
 
 const secondaryButtonStyle: React.CSSProperties = {
   background: "linear-gradient(135deg, #ffd9f0 0%, #f8bbd9 100%)",
   color: "#f847b4",
   border: "2px solid rgba(248, 71, 180, 0.3)",
-  borderRadius: "16px",
-  padding: "0.85rem 1.25rem",
-  fontSize: "1rem",
+  borderRadius: "14px", // Slightly smaller
+  padding: "0.75rem 1rem", // Better mobile padding
+  fontSize: "0.9rem", // Smaller for mobile
   fontWeight: "600",
   cursor: "pointer",
   transition: "all 0.3s ease",
   textTransform: "uppercase",
   letterSpacing: "0.5px",
+  minHeight: "48px", // Minimum touch target size
 };
 
 const buttonContentStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: "0.75rem",
+  gap: "0.6rem", // Reduced gap
 };
 
 const buttonIconStyle: React.CSSProperties = {
-  fontSize: "1.1rem",
+  fontSize: "1rem", // Slightly smaller
 };
