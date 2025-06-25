@@ -246,15 +246,11 @@ console.log(faceValid)
           <Image
             src="/images/bh-logo.png"
             alt="BH Logo"
-            width={100}
-            height={100}
+            width={80}
+            height={80}
           />
         </div>
-
-        <h2 className="text-2xl font-semibold mb-3 bg-gradient-to-r from-pink-600 to-pink-400 bg-clip-text text-transparent">
-          Face Verification
-        </h2>
-        <p className="text-gray-600 text-lg">
+        <p className="text-gray-600 text-lg mt-4">
           Position your face within the frame for verification
         </p>
       </div>
@@ -461,7 +457,7 @@ function StatusBox({
 }) {
   return (
     <div
-      className={`group relative px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 backdrop-blur-sm border ${
+      className={`group relative p-1 rounded-xl font-semibold text-sm transition-all duration-300 backdrop-blur-sm border ${
         active
           ? "border-pink-400/50 text-pink-700 shadow-lg"
           : "bg-white/60 border-pink-300/50 text-gray-600"
