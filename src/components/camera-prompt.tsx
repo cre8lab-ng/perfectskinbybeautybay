@@ -8,7 +8,7 @@ interface Props {
 export default function CameraPrompt({ onCapture }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
+  const [captureFailed, setCaptureFailed] = useState(false);
   const [lightingOK, setLightingOK] = useState(false);
   const [facePositionOK, setFacePositionOK] = useState(false);
   const [straightOK, setStraightOK] = useState(false);
@@ -54,13 +54,16 @@ export default function CameraPrompt({ onCapture }: Props) {
         minTrackingConfidence: 0.5,
       });
   
-      // ✅ Use stable handler defined outside
+      let validationStableFor = 0;
+      let lastValid = false;
+      let countdownStarted = false;
+      
       faceMesh.onResults((results: any) => {
         if (!canvasRef.current || !videoRef.current) return;
-  
+      
         const ctx = canvasRef.current.getContext("2d")!;
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-  
+      
         if (results.multiFaceLandmarks?.length > 0) {
           const landmarks = results.multiFaceLandmarks[0];
           ctx.drawImage(
@@ -70,75 +73,93 @@ export default function CameraPrompt({ onCapture }: Props) {
             canvasRef.current.width,
             canvasRef.current.height
           );
-  
+      
           const faceBox = getBoundingBox(landmarks);
           const faceCanvasW = canvasRef.current.width;
           const faceCanvasH = canvasRef.current.height;
-  
+      
           const isBigEnough =
-            faceBox.width > 0.45 * faceCanvasW &&
-            faceBox.height > 0.45 * faceCanvasH;
+            faceBox.width > 0.45 * faceCanvasW && faceBox.height > 0.45 * faceCanvasH;
           const isTooClose =
-            faceBox.width > 0.85 * faceCanvasW ||
-            faceBox.height > 0.85 * faceCanvasH;
+            faceBox.width > 0.85 * faceCanvasW || faceBox.height > 0.85 * faceCanvasH;
           const isFullyInside =
             faceBox.x >= 0 &&
             faceBox.y >= 0 &&
             faceBox.x + faceBox.width <= faceCanvasW &&
             faceBox.y + faceBox.height <= faceCanvasH;
-  
+      
           const centerX = faceBox.x + faceBox.width / 2;
           const centerY = faceBox.y + faceBox.height / 2;
           const isCentered =
             Math.abs(centerX - faceCanvasW / 2) < 80 &&
             Math.abs(centerY - faceCanvasH / 2) < 80;
-  
+      
           const hasMargin =
-            faceBox.x > canvasRef.current.width * MARGIN_RATIO &&
-            faceBox.y > canvasRef.current.height * MARGIN_RATIO &&
-            faceBox.x + faceBox.width <
-              canvasRef.current.width * (1 - MARGIN_RATIO) &&
-            faceBox.y + faceBox.height <
-              canvasRef.current.height * (1 - MARGIN_RATIO);
-  
+            faceBox.x > faceCanvasW * MARGIN_RATIO &&
+            faceBox.y > faceCanvasH * MARGIN_RATIO &&
+            faceBox.x + faceBox.width < faceCanvasW * (1 - MARGIN_RATIO) &&
+            faceBox.y + faceBox.height < faceCanvasH * (1 - MARGIN_RATIO);
+      
           const brightness = getAverageBrightness(ctx, faceBox);
           const lighting = brightness > 60;
           const straight = isLookingStraight(landmarks);
-  
+      
+          const isValid =
+            lighting && straight && isFullyInside && isBigEnough && isCentered && hasMargin;
+      
           const feedback: string[] = [];
           if (!lighting) feedback.push("💡 Improve lighting on your face");
           if (!straight) feedback.push("🧍 Look straight into the camera");
           if (!(isCentered && isBigEnough)) feedback.push("🎯 Center your face");
           if (!hasMargin) feedback.push("↔️ Add more space around your face");
-          if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
           if (!isBigEnough) feedback.push("↩️ Move closer to fill the box");
           if (isTooClose) feedback.push("↪️ Move back a little");
           if (!isFullyInside)
             feedback.push("🎯 Keep your full face within the frame");
-  
+          if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
+      
           setTips(feedback);
-          const isValid = lighting && straight && isFullyInside && isBigEnough && isCentered && hasMargin;
           setLightingOK(lighting);
           setStraightOK(straight);
           setFacePositionOK(isCentered && isFullyInside && isBigEnough && !isTooClose);
           setFaceValid(isValid);
-  
-          if (isValid && !hasCapturedRef.current) {
-            hasCapturedRef.current = true;
-            const canvas = document.createElement("canvas");
-            canvas.width = videoRef.current.videoWidth;
-            canvas.height = videoRef.current.videoHeight;
-            const tmpCtx = canvas.getContext("2d")!;
-            tmpCtx.drawImage(
-              videoRef.current,
-              0,
-              0,
-              canvas.width,
-              canvas.height
-            );
-            const image = canvas.toDataURL("image/jpeg");
-            setCapturedImage(image);
-            startCountdown(image);
+      
+          const now = Date.now();
+      
+          if (isValid) {
+            if (!lastValid) validationStableFor = now;
+            lastValid = true;
+      
+            // Start countdown if stable for 1.5s and not already counting down
+            if (
+              now - validationStableFor > 1500 &&
+              !countdownStarted &&
+              !isCountingDown
+            ) {
+              countdownStarted = true;
+              const canvas = document.createElement("canvas");
+              canvas.width = videoRef.current!.videoWidth;
+              canvas.height = videoRef.current!.videoHeight;
+              const tmpCtx = canvas.getContext("2d")!;
+              tmpCtx.drawImage(videoRef.current!, 0, 0, canvas.width, canvas.height);
+              const image = canvas.toDataURL("image/jpeg");
+              setCapturedImage(image);
+              startCountdown(image);
+            }
+          } else {
+            lastValid = false;
+            validationStableFor = now;
+      
+            // Cancel countdown if in progress
+            if (isCountingDown || countdownStarted) {
+              setIsCountingDown(false);
+              setCountdown(3);
+              if (countdownRef.current) clearInterval(countdownRef.current);
+              countdownStarted = false;
+              setCapturedImage(null);
+              hasCapturedRef.current = false;
+              setTips(["⚠️ Hold still and meet all conditions to capture."]);
+            }
           }
         } else {
           setFaceValid(false);
@@ -146,9 +167,11 @@ export default function CameraPrompt({ onCapture }: Props) {
           setFacePositionOK(false);
           setStraightOK(false);
           setTips(["❌ No face detected"]);
+          lastValid = false;
+          validationStableFor = Date.now();
         }
       });
-  
+      
       faceMeshInstanceRef.current = faceMesh;
   
       // Wait for video before canvas sizing
@@ -181,20 +204,29 @@ export default function CameraPrompt({ onCapture }: Props) {
   
 
   const startCountdown = (image: string) => {
-    console.log(image);
     setIsCountingDown(true);
     let time = 3;
     setCountdown(time);
+  
     countdownRef.current = setInterval(() => {
       time -= 1;
       setCountdown(time);
+  
       if (time === 0) {
         clearInterval(countdownRef.current!);
         setIsCountingDown(false);
-        // Wait for user to click "Continue"
+  
+        if (!faceValid) {
+          setCaptureFailed(true); // ❗mark as failed
+          setCapturedImage(image); // still show the image
+          hasCapturedRef.current = false;
+          return;
+        }
+        
       }
     }, 1000);
   };
+  
 
   const getBoundingBox = (landmarks: any[]) => {
     const xs = landmarks.map((lm) => lm.x * canvasRef.current!.width);
@@ -226,6 +258,7 @@ export default function CameraPrompt({ onCapture }: Props) {
     setCapturedImage(null);
     setCountdown(3);
     setIsCountingDown(false);
+    setCaptureFailed(false);
 
     if (cameraRef.current) {
       cameraRef.current.stop();
@@ -245,6 +278,7 @@ export default function CameraPrompt({ onCapture }: Props) {
 
         cameraRef.current.start();
       }
+      
     }, 300);
   };
 
@@ -343,16 +377,27 @@ export default function CameraPrompt({ onCapture }: Props) {
               </>
             )}
 
-            {capturedImage && (
-              <div className="relative w-full h-full">
-                <img
-                  src={capturedImage}
-                  className="w-full h-full object-cover rounded-2xl"
-                  alt="Captured"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
-              </div>
-            )}
+{capturedImage && (
+  <div className="relative w-full h-full">
+    <img
+      src={capturedImage}
+      className="w-full h-full object-cover rounded-2xl"
+      alt="Captured"
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
+
+    {captureFailed && (
+      <div className="absolute inset-0 flex items-center justify-center text-white text-center bg-black/50 backdrop-blur-sm p-4 rounded-2xl">
+        <p className="text-lg">
+          ❌ Face moved during capture.
+          <br />
+          Please retake and try again.
+        </p>
+      </div>
+    )}
+  </div>
+)}
+
 
             {/* Countdown overlay */}
             {isCountingDown && (

@@ -52,7 +52,7 @@ export default function Home() {
             </div>
             <p className="mt-6 text-lg font-semibold">COMPLETE YOUR ANALYSIS</p>
             <p className="text-sm text-gray-600 mt-2">
-              In seconds, the AI scans your face for up to 15 skin concerns,
+              In seconds, this AI scans your face for up to 15 skin concerns,
               including texture, pores, acne, and dark spots.
             </p>
           </div>
