@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import * as faceapi from "face-api.js";
 import Image from "next/image";
 
 interface Props {
@@ -14,256 +15,242 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [straightOK, setStraightOK] = useState(false);
   const [faceValid, setFaceValid] = useState(false);
   const [tips, setTips] = useState<string[]>([]);
-  console.log(faceValid,captureFailed);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const hasCapturedRef = useRef(false);
-  const cameraRef = useRef<any>(null);
-  const faceMeshInstanceRef = useRef<any>(null);
-  const countdownRef = useRef<number | null>(null); // requestAnimationFrame returns number
-
+  const countdownRef = useRef<number | null>(null);
+  const animationRef = useRef<number | null>(null);
+console.log(captureFailed,faceValid)
   useEffect(() => {
-    let camera: any;
+    let stream: MediaStream;
 
-    const loadMediaPipe = async () => {
-      // ✅ Prevent reinitialization
-      if (faceMeshInstanceRef.current) return;
+    // Replace the loadModelsAndStart function with this version that includes proper null checks:
 
-      // ✅ Load scripts once
-      if (!(window as any).FaceMesh)
-        await loadScript(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"
-        );
-      if (!(window as any).Camera)
-        await loadScript(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"
-        );
+    const loadModelsAndStart = async () => {
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
+          faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models"),
+        ]);
 
-      // ✅ Initialize FaceMesh only once
-      const faceMesh = new (window as any).FaceMesh({
-        locateFile: (file: string) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-      });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: 640, height: 480 },
+          audio: false,
+        });
 
-      faceMesh.setOptions({
-        maxNumFaces: 1,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
+        // Add null checks before accessing the refs
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
 
-      let validationStableFor = 0;
-      let lastValid = false;
-      let countdownStarted = false;
-
-      faceMesh.onResults((results: any) => {
-        if (!canvasRef.current || !videoRef.current) return;
-
-        const ctx = canvasRef.current.getContext("2d")!;
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-
-        if (results.multiFaceLandmarks?.length > 0) {
-          const landmarks = results.multiFaceLandmarks[0];
-          ctx.drawImage(
-            videoRef.current,
-            0,
-            0,
-            canvasRef.current.width,
-            canvasRef.current.height
-          );
-
-          const faceBox = getBoundingBox(landmarks);
-          const faceCanvasW = canvasRef.current.width;
-          const faceCanvasH = canvasRef.current.height;
-
-          const isBigEnough =
-            faceBox.width > 0.5 * faceCanvasW &&
-            faceBox.height > 0.5 * faceCanvasH; // was 0.45
-
-          const isTooClose =
-            faceBox.width > 0.85 * faceCanvasW ||
-            faceBox.height > 0.85 * faceCanvasH;
-          const isFullyInside =
-            faceBox.x > 10 &&
-            faceBox.y > 10 &&
-            faceBox.x + faceBox.width < faceCanvasW - 10 &&
-            faceBox.y + faceBox.height < faceCanvasH - 10;
-
-          const centerX = faceBox.x + faceBox.width / 2;
-          const centerY = faceBox.y + faceBox.height / 2;
-          const isCentered =
-            Math.abs(centerX - faceCanvasW / 2) < 50 && // tighten from 80
-            Math.abs(centerY - faceCanvasH / 2) < 50; // tighter tolerance
-
-          const hasMargin =
-            faceBox.x > faceCanvasW * 0.1 &&
-            faceBox.y > faceCanvasH * 0.1 &&
-            faceBox.x + faceBox.width < faceCanvasW * 0.9 &&
-            faceBox.y + faceBox.height < faceCanvasH * 0.9;
-
-          const brightness = getAverageBrightness(ctx, faceBox);
-          const lighting = brightness > 80;
-          const straight = isLookingStraight(landmarks);
-
-          const isValid =
-            lighting &&
-            straight &&
-            isFullyInside &&
-            isBigEnough &&
-            isCentered &&
-            hasMargin &&
-            !isTooClose;
-
-          const feedback: string[] = [];
-          if (!lighting) feedback.push("💡 Improve lighting on your face");
-          if (!straight) feedback.push("🧍 Look straight into the camera");
-          if (!(isCentered && isBigEnough))
-            feedback.push("🎯 Center your face");
-          if (!hasMargin) feedback.push("↔️ Add more space around your face");
-          if (!isBigEnough) feedback.push("↩️ Move closer to fill the box");
-          if (isTooClose) feedback.push("↪️ Move back a little");
-          if (!isFullyInside)
-            feedback.push("🎯 Keep your full face within the frame");
-          if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
-
-          setTips(feedback);
-          setLightingOK(lighting);
-          setStraightOK(straight);
-          setFacePositionOK(
-            isCentered && isFullyInside && isBigEnough && !isTooClose
-          );
-          setFaceValid(isValid);
-
-          const now = Date.now();
-
-          if (isValid) {
-            if (!lastValid) validationStableFor = now;
-            lastValid = true;
-
-            // Start countdown if stable for 1.5s and not already counting down
-            if (
-              now - validationStableFor > 2000 && // was 1500ms
-              !countdownStarted &&
-              !isCountingDown
-            ) {
-              countdownStarted = true;
-              const canvas = document.createElement("canvas");
-              canvas.width = videoRef.current!.videoWidth;
-              canvas.height = videoRef.current!.videoHeight;
-              const tmpCtx = canvas.getContext("2d")!;
-              tmpCtx.drawImage(
-                videoRef.current!,
-                0,
-                0,
-                canvas.width,
-                canvas.height
-              );
-              const image = canvas.toDataURL("image/jpeg");
-              setCapturedImage(image);
-              startCountdown(image);
-            }
-          } else {
-            lastValid = false;
-            validationStableFor = now;
-
-            // Cancel countdown if in progress
-            if (isCountingDown || countdownStarted) {
-              setIsCountingDown(false);
-              setCountdown(3);
-              if (countdownRef.current) clearInterval(countdownRef.current);
-              countdownStarted = false;
-              setCapturedImage(null);
-              hasCapturedRef.current = false;
-              setTips(["⚠️ Hold still and meet all conditions to capture."]);
-            }
-          }
-        } else {
-          setFaceValid(false);
-          setLightingOK(false);
-          setFacePositionOK(false);
-          setStraightOK(false);
-          setTips(["❌ No face detected"]);
-          lastValid = false;
-          validationStableFor = Date.now();
+        if (!video || !canvas) {
+          console.error("Video or canvas element not found");
+          return;
         }
-      });
 
-      faceMeshInstanceRef.current = faceMesh;
+        video.srcObject = stream;
+        await video.play();
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
 
-      // Wait for video before canvas sizing
-      videoRef.current!.onloadedmetadata = () => {
-        canvasRef.current!.width = videoRef.current!.videoWidth;
-        canvasRef.current!.height = videoRef.current!.videoHeight;
-        videoRef.current!.play();
-      };
-
-      // ✅ Only create Camera once
-      camera = new (window as any).Camera(videoRef.current!, {
-        onFrame: async () => {
-          if (!videoRef.current) return;
-          await faceMesh.send({ image: videoRef.current });
-        },
-        width: 640,
-        height: 480,
-      });
-
-      cameraRef.current = camera;
-      camera.start();
+        analyze();
+      } catch (error) {
+        console.error("Failed to initialize camera:", error);
+        setTips(["❌ Failed to access camera. Please check permissions."]);
+      }
     };
 
-    loadMediaPipe().catch(console.error);
+    const analyze = async () => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+
+      if (!video || video.readyState < 2 || !canvas) {
+        animationRef.current = requestAnimationFrame(analyze);
+        return;
+      }
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        animationRef.current = requestAnimationFrame(analyze);
+        return;
+      }
+
+      const result = await faceapi
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks(true);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (result) {
+        const dims = faceapi.matchDimensions(canvas, video, true);
+        const resized = faceapi.resizeResults(result, dims);
+        faceapi.draw.drawFaceLandmarks(canvas, resized);
+
+        const box = result.detection.box;
+        const landmarks = result.landmarks;
+
+        const faceCanvasW = canvas.width;
+        const faceCanvasH = canvas.height;
+
+        const centerX = box.x + box.width / 2;
+        const centerY = box.y + box.height / 2;
+        const isBigEnough =
+          box.width > 0.5 * faceCanvasW && box.height > 0.5 * faceCanvasH;
+        const isTooClose =
+          box.width > 0.85 * faceCanvasW || box.height > 0.85 * faceCanvasH;
+        const isFullyInside =
+          box.x > 10 &&
+          box.y > 10 &&
+          box.x + box.width < faceCanvasW - 10 &&
+          box.y + box.height < faceCanvasH - 10;
+
+        const isCentered =
+          Math.abs(centerX - faceCanvasW / 2) < 50 &&
+          Math.abs(centerY - faceCanvasH / 2) < 50;
+
+        const hasMargin =
+          box.x > faceCanvasW * 0.1 &&
+          box.y > faceCanvasH * 0.1 &&
+          box.x + box.width < faceCanvasW * 0.9 &&
+          box.y + box.height < faceCanvasH * 0.9;
+
+        const brightness = getAverageBrightness(ctx, box);
+        const lighting = brightness > 80;
+        const straight = isLookingStraight(landmarks);
+
+        const isValid =
+          lighting &&
+          straight &&
+          isFullyInside &&
+          isBigEnough &&
+          isCentered &&
+          hasMargin &&
+          !isTooClose;
+
+        const feedback: string[] = [];
+        if (!lighting) feedback.push("💡 Improve lighting on your face");
+        if (!straight) feedback.push("🧍 Look straight into the camera");
+        if (!(isCentered && isBigEnough)) feedback.push("🎯 Center your face");
+        if (!hasMargin) feedback.push("↔️ Add more space around your face");
+        if (isTooClose) feedback.push("↪️ Move back a little");
+        if (!isFullyInside)
+          feedback.push("🎯 Keep your full face within the frame");
+        if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
+
+        setTips(feedback);
+        setLightingOK(lighting);
+        setStraightOK(straight);
+        setFacePositionOK(
+          isCentered && isFullyInside && isBigEnough && !isTooClose
+        );
+        setFaceValid(isValid);
+
+        if (isValid && !isCountingDown) {
+          const tmpCanvas = document.createElement("canvas");
+          tmpCanvas.width = video.videoWidth;
+          tmpCanvas.height = video.videoHeight;
+          const tmpCtx = tmpCanvas.getContext("2d");
+          if (tmpCtx) {
+            tmpCtx.drawImage(video, 0, 0);
+            const image = tmpCanvas.toDataURL("image/jpeg");
+            setCapturedImage(image);
+            startCountdown(image);
+          }
+        } else if (!isValid && isCountingDown) {
+          cancelCountdown();
+        }
+      } else {
+        setFaceValid(false);
+        setLightingOK(false);
+        setFacePositionOK(false);
+        setStraightOK(false);
+        setTips(["❌ No face detected"]);
+      }
+
+      animationRef.current = requestAnimationFrame(analyze);
+    };
+
+    loadModelsAndStart();
 
     return () => {
-      camera?.stop?.();
+      animationRef.current && cancelAnimationFrame(animationRef.current);
+      stream?.getTracks().forEach((track) => track.stop());
     };
-  }, []);
+  }, [isCountingDown]);
 
+
+  
+
+
+// Also update the handleRetake function:
+const handleRetake = async () => {
+  hasCapturedRef.current = false;
+  setCapturedImage(null);
+  setCountdown(3);
+  setIsCountingDown(false);
+  setCaptureFailed(false);
+  setTips(["📸 Reinitializing camera..."]);
+
+  // Stop all video tracks
+  const stream = videoRef.current?.srcObject as MediaStream;
+  stream?.getTracks().forEach((track) => track.stop());
+
+  // Wait briefly before restarting
+  setTimeout(async () => {
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: 640, height: 480 },
+        audio: false,
+      });
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      if (!video || !canvas) {
+        console.error("Video or canvas element not found during retake");
+        setTips(["❌ Failed to restart camera - elements not found"]);
+        return;
+      }
+
+      video.srcObject = newStream;
+      await video.play();
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      setTips(["✅ Camera ready. Hold still..."]);
+    } catch (err) {
+      console.error("Failed to restart camera:", err);
+      setTips(["❌ Failed to restart camera"]);
+    }
+  }, 300);
+};
   const startCountdown = (image: string) => {
     setIsCountingDown(true);
     setCountdown(3);
-
     let lastTime = performance.now();
-
-    const animateCountdown = (time: number) => {
-      if (time - lastTime >= 1000) {
+    const animate = (now: number) => {
+      if (now - lastTime >= 1000) {
         setCountdown((prev) => {
-          const next = prev - 1;
-          if (next === 0) {
+          if (prev <= 1) {
             setIsCountingDown(false);
-            cancelAnimationFrame(countdownRef.current!);
-
-            if (!faceValid) {
-              setCaptureFailed(true);
-              setCapturedImage(image); // still show the image
-              hasCapturedRef.current = false;
-            } else {
-              onCapture(image); // you can also trigger this here if you want auto-continue
-            }
+            onCapture(image);
+            return 3;
           }
-          return next;
+          return prev - 1;
         });
-        lastTime = time;
+        lastTime = now;
       }
-
-      countdownRef.current = requestAnimationFrame(animateCountdown);
+      countdownRef.current = requestAnimationFrame(animate);
     };
-
-    countdownRef.current = requestAnimationFrame(animateCountdown);
+    countdownRef.current = requestAnimationFrame(animate);
   };
 
-  useEffect(() => {
-    return () => {
-      if (countdownRef.current) cancelAnimationFrame(countdownRef.current);
-    };
-  }, []);
-
-  const getBoundingBox = (landmarks: any[]) => {
-    const xs = landmarks.map((lm) => lm.x * canvasRef.current!.width);
-    const ys = landmarks.map((lm) => lm.y * canvasRef.current!.height);
-    const x = Math.min(...xs);
-    const y = Math.min(...ys);
-    return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+  const cancelCountdown = () => {
+    setIsCountingDown(false);
+    setCountdown(3);
+    countdownRef.current && cancelAnimationFrame(countdownRef.current);
+    setTips(["⚠️ Hold still and meet all conditions to capture."]);
   };
 
   const getAverageBrightness = (ctx: CanvasRenderingContext2D, box: any) => {
@@ -274,42 +261,39 @@ export default function CameraPrompt({ onCapture }: Props) {
     return total / (data.length / 4);
   };
 
-  const isLookingStraight = (landmarks: any[]) => {
-    const left = landmarks[33],
-      right = landmarks[263],
-      nose = landmarks[1];
+  const isLookingStraight = (landmarks: faceapi.FaceLandmarks68) => {
+    const left = landmarks.getLeftEye()[0];
+    const right = landmarks.getRightEye()[3];
+    const nose = landmarks.getNose()[3];
     const symmetry = Math.abs(nose.x - left.x - (right.x - nose.x));
-    const verticalTilt = Math.abs(landmarks[10].y - landmarks[152].y);
-    return symmetry < 0.015 && verticalTilt > 0.27; // stricter
+    return symmetry < 5;
   };
 
-  const handleRetake = () => {
-    hasCapturedRef.current = false;
-    setCapturedImage(null);
-    setCountdown(3);
-    setIsCountingDown(false);
-    setCaptureFailed(false);
-
-    if (cameraRef.current) {
-      cameraRef.current.stop();
-    }
-
-    // Clear and restart camera after a short delay
-    setTimeout(() => {
-      if (videoRef.current && faceMeshInstanceRef.current) {
-        cameraRef.current = new (window as any).Camera(videoRef.current, {
-          onFrame: async () => {
-            if (!videoRef.current) return;
-            await faceMeshInstanceRef.current.send({ image: videoRef.current });
-          },
-          width: 640,
-          height: 480,
-        });
-
-        cameraRef.current.start();
-      }
-    }, 300);
+  const handleForceCapture = () => {
+    const video = videoRef.current;
+    if (!video) return;
+  
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+  
+    ctx.drawImage(video, 0, 0);
+    const image = canvas.toDataURL("image/jpeg");
+  
+    // Simulate all criteria passed
+    setLightingOK(true);
+    setStraightOK(true);
+    setFacePositionOK(true);
+    setFaceValid(true);
+    setTips(["✅ Force captured for testing purposes"]);
+  
+    // Trigger countdown like in analyze()
+    setCapturedImage(image); // necessary so the UI shows image preview
+    startCountdown(image);   // this starts the countdown animation + triggers onCapture
   };
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-200 via-pink-100 to-rose-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -356,50 +340,14 @@ export default function CameraPrompt({ onCapture }: Props) {
               <>
                 <video
                   ref={videoRef}
-                  className="absolute w-full h-full object-cover"
+                  className="absolute w-full h-full object-cover transform scale-x-[-1]"
                   playsInline
                   muted
                 />
-                <canvas ref={canvasRef} className="absolute w-full h-full" />
-
-                {/* Face guide overlay */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="relative w-4/5 h-4/5">
-                    {/* Animated corner guides */}
-                    <div
-                      className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 animate-pulse"
-                      style={{ borderColor: "#f847b4" }}
-                      // className="rounded-tl-lg"
-                    ></div>
-                    <div
-                      className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 animate-pulse"
-                      style={{ borderColor: "#f847b4" }}
-                      // className="rounded-tr-lg"
-                    ></div>
-                    <div
-                      className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 animate-pulse"
-                      style={{ borderColor: "#f847b4" }}
-                      // className="rounded-bl-lg"
-                    ></div>
-                    <div
-                      className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 animate-pulse"
-                      style={{ borderColor: "#f847b4" }}
-                      // className="rounded-br-lg"
-                    ></div>
-
-                    {/* Center crosshair */}
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-6">
-                      <div
-                        className="absolute top-1/2 left-0 right-0 h-0.5 opacity-60"
-                        style={{ backgroundColor: "#f847b4" }}
-                      ></div>
-                      <div
-                        className="absolute left-1/2 top-0 bottom-0 w-0.5 opacity-60"
-                        style={{ backgroundColor: "#f847b4" }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
+                <canvas
+                  ref={canvasRef}
+                  className="absolute w-full h-full transform scale-x-[-1]"
+                />
               </>
             )}
 
@@ -411,7 +359,66 @@ export default function CameraPrompt({ onCapture }: Props) {
                   alt="Captured"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
+              </div>
+            )}
 
+            {/* Action buttons - Now as overlay */}
+            {capturedImage && !isCountingDown && (
+              <div className="absolute bottom-4 left-4 right-4 flex gap-3 z-20">
+                <button
+                  onClick={() => onCapture(capturedImage)}
+                  className="group relative flex-1 px-6 py-3 bg-gradient-to-r text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105"
+                  style={{
+                    background: "linear-gradient(135deg, #f847b4, #ec4899)",
+                    boxShadow: "0 10px 15px -3px rgba(248, 71, 180, 0.4)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(135deg, #ec4899, #f847b4)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(135deg, #f847b4, #ec4899)";
+                  }}
+                >
+                  <span className="relative z-10 flex items-center justify-center space-x-2">
+                    <span>Continue</span>
+                    <svg
+                      className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 7l5 5m0 0l-5 5m5-5H6"
+                      />
+                    </svg>
+                  </span>
+                </button>
+                <button
+                  onClick={handleRetake}
+                  className="group px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
+                >
+                  <span className="flex items-center justify-center space-x-2">
+                    <svg
+                      className="w-4 h-4 group-hover:rotate-12 transition-transform"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    <span>Retake</span>
+                  </span>
+                </button>
               </div>
             )}
 
@@ -430,7 +437,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       {/* Feedback section */}
       {tips.length > 0 ? (
         <div className="mt-8 z-10 max-w-md">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-pink-200 shadow-xl">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-pink-200 shadow-xl h-40 overflow-y-auto">
             <div className="space-y-3">
               {tips.map((tip, i) => (
                 <div
@@ -510,6 +517,30 @@ export default function CameraPrompt({ onCapture }: Props) {
         </div>
       )}
 
+      {!capturedImage && !isCountingDown && (
+        <button
+          onClick={handleForceCapture}
+          className="group mt-8 px-8 py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50 z-20"
+        >
+          <span className="flex items-center space-x-2">
+            <svg
+              className="w-5 h-5 group-hover:rotate-12 transition-transform"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            <span>Force Capture</span>
+          </span>
+        </button>
+      )}
+
       <style jsx>{`
         @keyframes fadeIn {
           from {
@@ -581,12 +612,3 @@ function StatusBox({
   );
 }
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = src;
-    script.onload = () => resolve();
-    script.onerror = () => reject();
-    document.body.appendChild(script);
-  });
-}
