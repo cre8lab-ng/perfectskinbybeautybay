@@ -1,4 +1,4 @@
-import { useEffect, useState, ChangeEvent } from "react";
+import { useEffect, useState, ChangeEvent, useRef } from "react";
 import useAccessToken from "@/stores/useAccessToken";
 import {
   uploadImage,
@@ -108,10 +108,294 @@ export default function FaceDetectionComponent() {
   console.log(uploading, analysisStatus, uploadResponse);
   const { hasAccess, showLoginModal, setShowLoginModal } = useResultAccess();
   const userEmail = useResultAccess((s) => s.userEmail);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
 
   useEffect(() => {
     console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
   }, [userEmail]);
+
+  async function handleCustomDownload() {
+    if (!canvasRef.current || !originalImagePreview || !scoreInfo) return;
+
+    const overlayCanvas = canvasRef.current;
+
+    // Load the original image
+    const baseImage = new Image();
+    baseImage.crossOrigin = "anonymous";
+    baseImage.src = originalImagePreview;
+    await new Promise((res) => (baseImage.onload = res));
+
+    // Load logo image
+    const logoImage = new Image();
+    logoImage.crossOrigin = "anonymous";
+    logoImage.src = "/images/bh-logo.png"; // Ensure this is in /public
+    await new Promise((res) => (logoImage.onload = res));
+
+    // Set dimensions
+    const imgWidth = baseImage.width;
+    const imgHeight = baseImage.height;
+    const extraHeight = 200; // space for logo + text
+    const canvas = document.createElement("canvas");
+    canvas.width = imgWidth;
+    canvas.height = imgHeight + extraHeight;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Background white
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw logo at top center
+    const logoWidth = 200;
+    const logoHeight = 60;
+    const logoX = (canvas.width - logoWidth) / 2;
+    const logoY = 20;
+    ctx.drawImage(logoImage, logoX, logoY, logoWidth, logoHeight);
+
+    // Draw original image below logo
+    const imageY = logoY + logoHeight + 20;
+    ctx.drawImage(baseImage, 0, imageY, imgWidth, imgHeight);
+
+    // Draw overlay on top of image
+    ctx.drawImage(overlayCanvas, 0, imageY, imgWidth, imgHeight);
+
+    // Draw text below image
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillStyle = "#111";
+    ctx.textAlign = "center";
+    ctx.fillText(
+      `Total Skin Score: ${scoreInfo.all?.score?.toFixed(1) ?? "?"}%`,
+      canvas.width / 2,
+      imageY + imgHeight + 40
+    );
+
+    const concerns: (keyof ScoreInfo)[] = [
+      "acne",
+      "wrinkle",
+      "pore",
+      "texture",
+    ];
+    const concernText = concerns
+                              // @ts-expect-error: Supabase typing is too strict here
+      .map((key) => { const score = scoreInfo[key]?.ui_score ?? 0;
+        return `${key.charAt(0).toUpperCase() + key.slice(1)}: ${score}%`;
+      })
+      .join("  |  ");
+
+    ctx.font = "20px sans-serif";
+    ctx.fillStyle = "#555";
+    ctx.fillText(concernText, canvas.width / 2, imageY + imgHeight + 80);
+
+    // Export
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "beautyhub-skin-result.jpg";
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      "image/jpeg",
+      0.95
+    );
+  }
+
+  function drawOverlay(
+    ctx: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+    scoreInfo: ScoreInfo
+  ) {
+    const scale = window.devicePixelRatio || 1;
+    const width = canvas.width / scale;
+    const height = canvas.height / scale;
+
+    // Reset any previous transform before redrawing
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scale, scale);
+
+    // --- TEXTURE OVERLAY ---
+    if (scoreInfo.texture?.ui_score && scoreInfo.texture.ui_score > 20) {
+      ctx.strokeStyle = "#ff7bd7";
+      ctx.lineWidth = 1.5;
+
+      const textureLevel = Math.floor(scoreInfo.texture.ui_score / 10);
+      for (let i = 0; i < textureLevel; i++) {
+        const region = i % 2;
+
+        let x1, x2, y;
+        if (region === 0) {
+          // Forehead patch
+          y = height * 0.18 + i * 5;
+          x1 = width * 0.35;
+          x2 = width * 0.65;
+        } else {
+          // Cheek patch
+          y = height * 0.58 + i * 5;
+          x1 = width * 0.25;
+          x2 = width * 0.75;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y);
+        ctx.lineTo(x2, y);
+        ctx.stroke();
+      }
+    }
+
+    // --- WRINKLE OVERLAY ---
+    if (scoreInfo.wrinkle?.ui_score && scoreInfo.wrinkle.ui_score > 30) {
+      ctx.strokeStyle = "#a86cd9";
+      ctx.lineWidth = 2;
+
+      const wrinkleCount = Math.floor(scoreInfo.wrinkle.ui_score / 10);
+
+      for (let i = 0; i < wrinkleCount; i++) {
+        const region = i % 2;
+
+        if (region === 0) {
+          // Eye crow's feet (left side)
+          const startX = width * 0.28;
+          const startY = height * 0.45 + Math.random() * 10;
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.bezierCurveTo(
+            startX + 10,
+            startY + 5,
+            startX + 20,
+            startY - 5,
+            startX + 30,
+            startY
+          );
+          ctx.stroke();
+        } else {
+          // Smile line (right side)
+          const startX = width * 0.6;
+          const startY = height * 0.6 + Math.random() * 10;
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.bezierCurveTo(
+            startX - 10,
+            startY - 10,
+            startX + 10,
+            startY + 10,
+            startX + 20,
+            startY
+          );
+          ctx.stroke();
+        }
+      }
+    }
+
+    // --- PORE OVERLAY ---
+    if (scoreInfo.pore?.ui_score && scoreInfo.pore.ui_score > 20) {
+      const poreLevel = Math.floor(scoreInfo.pore.ui_score / 2);
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 1;
+
+      for (let i = 0; i < poreLevel; i++) {
+        const region = i % 2;
+
+        let x = 0,
+          y = 0;
+        if (region === 0) {
+          // Left cheek
+          x = Math.random() * width * 0.1 + width * 0.3;
+          y = Math.random() * height * 0.15 + height * 0.55;
+        } else {
+          // Right cheek
+          x = Math.random() * width * 0.1 + width * 0.6;
+          y = Math.random() * height * 0.15 + height * 0.55;
+        }
+
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // --- ACNE OVERLAY ---
+    if (scoreInfo.acne?.ui_score && scoreInfo.acne.ui_score > 20) {
+      const acneLevel = Math.floor(scoreInfo.acne.ui_score / 2);
+      ctx.fillStyle = "orange";
+
+      for (let i = 0; i < acneLevel; i++) {
+        const region = i % 3;
+
+        let x = 0,
+          y = 0;
+        if (region === 0) {
+          // Forehead
+          x = Math.random() * width * 0.4 + width * 0.3;
+          y = Math.random() * height * 0.15 + height * 0.05;
+        } else if (region === 1) {
+          // Nose
+          x = Math.random() * width * 0.1 + width * 0.45;
+          y = Math.random() * height * 0.2 + height * 0.4;
+        } else {
+          // Chin
+          x = Math.random() * width * 0.2 + width * 0.4;
+          y = Math.random() * height * 0.15 + height * 0.75;
+        }
+
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  useEffect(() => {
+    console.log("🔍 Running overlay draw effect");
+  
+    if (!scoreInfo || !originalImagePreview || !hasAccess || !showOverlays)
+      return;
+  
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+  
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = originalImagePreview;
+  
+    img.onload = () => {
+      requestAnimationFrame(() => {
+        const displayWidth = imageRef.current?.clientWidth || img.naturalWidth;
+        const displayHeight =
+          imageRef.current?.clientHeight || img.naturalHeight;
+  
+        const scale = window.devicePixelRatio || 1;
+  
+        canvas.width = displayWidth * scale;
+        canvas.height = displayHeight * scale;
+        canvas.style.width = `${displayWidth}px`;
+        canvas.style.height = `${displayHeight}px`;
+  
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.scale(scale, scale);
+  
+        console.log("🖼️ canvas size", canvas.width, canvas.height);
+        console.log(
+          "📐 imageRef size",
+          imageRef.current?.clientWidth,
+          imageRef.current?.clientHeight
+        );
+  
+        drawOverlay(ctx, canvas, scoreInfo);
+      });
+    };
+  
+    return () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+  }, [scoreInfo, originalImagePreview, hasAccess, showOverlays]);
+  
 
   function resizeImageWithOverride(
     inputFile: File,
@@ -591,6 +875,7 @@ export default function FaceDetectionComponent() {
                     }}
                   >
                     <img
+                      ref={imageRef} // 🆕 ADD THIS
                       src={originalImagePreview}
                       alt="Analyzed Face"
                       style={{
@@ -686,24 +971,21 @@ export default function FaceDetectionComponent() {
                     )}
 
                     {/* Overlays from backend masks */}
-                    {showOverlays &&
-                      zipContent.length > 0 &&
-                      zipContent.map((mask, i) => (
-                        <img
-                          key={i}
-                          src={mask.url}
-                          alt={mask.name}
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            height: "100%",
-                            opacity: 0.85,
-                            pointerEvents: "none",
-                          }}
-                        />
-                      ))}
+                    {showOverlays && scoreInfo && hasAccess && (
+                      <canvas
+                        ref={canvasRef}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: "100%",
+                          pointerEvents: "none",
+                          zIndex: 10,
+                          background: "rgba(0,255,0,0.05)", // ✅ debug: show green tint
+                        }}
+                      />
+                    )}
 
                     {/* {scoreInfo?.all?.score && hasAccess && (
                       <div
@@ -925,6 +1207,26 @@ export default function FaceDetectionComponent() {
                         : hasAccess
                         ? "✨ View Premium Results"
                         : "🔐 Log In to View Results"}
+                    </button>
+                  </div>
+                )}
+                {scoreInfo && hasAccess && (
+                  <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                    <button
+                      onClick={handleCustomDownload}
+                      style={{
+                        background: "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                        color: "white",
+                        border: "none",
+                        padding: "1rem 2rem",
+                        borderRadius: "10px",
+                        fontSize: "1rem",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        boxShadow: "0 6px 20px rgba(248, 71, 180, 0.3)",
+                      }}
+                    >
+                      Download Result
                     </button>
                   </div>
                 )}
