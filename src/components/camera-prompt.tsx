@@ -21,8 +21,29 @@ export default function CameraPrompt({ onCapture }: Props) {
   const hasCapturedRef = useRef(false);
   const countdownRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null); // Track the stream
   console.log(captureFailed, faceValid);
   const [eyesDetected, setEyesDetected] = useState(false);
+
+  // Function to stop camera completely
+  const stopCamera = () => {
+    // Stop animation loop
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    
+    // Stop video stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
+    // Clear video source
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
 
   const analyze = async () => {
     const video = videoRef.current;
@@ -86,7 +107,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       const areEyesVisible = leftEye.length > 0 && rightEye.length > 0;
       setEyesDetected(areEyesVisible);
       
-      const straight = areEyesVisible && isLookingStraight(landmarks); // require eyes to be visible
+      const straight = areEyesVisible && isLookingStraight(landmarks);
       
       const isValid =
         lighting &&
@@ -106,7 +127,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       if (!isFullyInside)
         feedback.push("🎯 Keep your full face within the frame");
       if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
-if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
+      if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
 
       setTips(feedback);
       setLightingOK(lighting);
@@ -125,6 +146,14 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
           tmpCtx.drawImage(video, 0, 0);
           const image = tmpCanvas.toDataURL("image/jpeg");
           setCapturedImage(image);
+          
+          // Set all checks to green and stop camera before countdown
+          setLightingOK(true);
+          setStraightOK(true);
+          setFacePositionOK(true);
+          setFaceValid(true);
+          stopCamera();
+          
           startCountdown(image);
         }
       } else if (!isValid && isCountingDown) {
@@ -138,14 +167,13 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
       setTips(["❌ No face detected"]);
     }
 
-    animationRef.current = requestAnimationFrame(analyze);
+    // Only continue animation if we haven't captured yet
+    if (!capturedImage && !hasCapturedRef.current) {
+      animationRef.current = requestAnimationFrame(analyze);
+    }
   };
   
   useEffect(() => {
-    let stream: MediaStream;
-
-    // Replace the loadModelsAndStart function with this version that includes proper null checks:
-
     const loadModelsAndStart = async () => {
       try {
         await Promise.all([
@@ -153,12 +181,14 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
           faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models"),
         ]);
 
-        stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: 640, height: 480 },
           audio: false,
         });
 
-        // Add null checks before accessing the refs
+        // Store stream reference
+        streamRef.current = stream;
+
         const video = videoRef.current;
         const canvas = canvasRef.current;
 
@@ -179,19 +209,13 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
       }
     };
 
-  
-
     loadModelsAndStart();
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      stream?.getTracks().forEach((track) => track.stop());
+      stopCamera();
     };
   }, [isCountingDown]);
 
-  // Also update the handleRetake function:
   const handleRetake = async () => {
     hasCapturedRef.current = false;
     setCapturedImage(null);
@@ -200,15 +224,8 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
     setCaptureFailed(false);
     setTips(["📸 Reinitializing camera..."]);
   
-    // Stop existing video stream
-    const stream = videoRef.current?.srcObject as MediaStream;
-    stream?.getTracks().forEach((track) => track.stop());
-  
-    // Cancel ongoing animation
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
+    // Stop existing camera
+    stopCamera();
   
     // Wait and restart camera
     setTimeout(async () => {
@@ -217,6 +234,9 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
           video: { facingMode: "user", width: 640, height: 480 },
           audio: false,
         });
+
+        // Store new stream reference
+        streamRef.current = newStream;
   
         const video = videoRef.current;
         const canvas = canvasRef.current;
@@ -234,8 +254,6 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
         canvas.height = video.videoHeight;
   
         setTips(["✅ Camera ready. Hold still..."]);
-  
-        // 🔁 Re-run face detection loop
         analyze();
       } catch (err) {
         console.error("Failed to restart camera:", err);
@@ -243,20 +261,20 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
       }
     }, 300);
   };
-  
 
   const startCountdown = (image: string) => {
     console.log(image, tips);
     setIsCountingDown(true);
     setCountdown(3);
+    
     let lastTime = performance.now();
+    
     const animate = (now: number) => {
       if (now - lastTime >= 1000) {
         setCountdown((prev) => {
           if (prev <= 1) {
             setIsCountingDown(false);
-            // ❌ Don't auto-call onCapture(image) here
-            // ✅ Just let buttons appear for user to proceed
+            hasCapturedRef.current = true;
             return 3;
           }
           return prev - 1;
@@ -306,16 +324,17 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
     ctx.drawImage(video, 0, 0);
     const image = canvas.toDataURL("image/jpeg");
 
-    // Simulate all criteria passed
     setLightingOK(true);
     setStraightOK(true);
     setFacePositionOK(true);
     setFaceValid(true);
     setTips(["✅ Force captured for testing purposes"]);
 
-    // Trigger countdown like in analyze()
-    setCapturedImage(image); // necessary so the UI shows image preview
-    startCountdown(image); // this starts the countdown animation + triggers onCapture
+    setCapturedImage(image);
+    
+    // Stop camera before starting countdown
+    stopCamera();
+    startCountdown(image);
   };
 
   return (
@@ -457,30 +476,7 @@ if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
         </div>
       </div>
 
-      {/* Feedback section */}
-      {/* {tips.length > 0 ? (
-        <div className="mt-8 z-10 max-w-md">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-pink-200 shadow-xl h-40 overflow-y-auto">
-            <div className="space-y-3">
-              {tips.map((tip, i) => (
-                <div
-                  key={i}
-                  className="flex items-center space-x-3 text-gray-700 animate-fadeIn"
-                  style={{ animationDelay: `${i * 100}ms` }}
-                >
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: "#f847b4" }}
-                  ></div>
-                  <p className="text-sm leading-relaxed">{tip}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null} */}
-
-{!capturedImage && !isCountingDown && eyesDetected && (
+      {!capturedImage && !isCountingDown && eyesDetected && (
         <button
           onClick={handleForceCapture}
           className="group mt-8 px-8 py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50 z-20"
