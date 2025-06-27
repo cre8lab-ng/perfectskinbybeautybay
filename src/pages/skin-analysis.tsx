@@ -13,6 +13,7 @@ import CameraPrompt from "@/components/camera-prompt";
 import {
   extractSkinAnalysisResults,
   getGranularLevel,
+  handleCustomDownload,
   notifyError,
 } from "@/util/utils";
 import { skinProductMap } from "@/data/skinProductMap";
@@ -115,95 +116,6 @@ export default function FaceDetectionComponent() {
     console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
   }, [userEmail]);
 
-  async function handleCustomDownload() {
-    if (!canvasRef.current || !originalImagePreview || !scoreInfo) return;
-
-    const overlayCanvas = canvasRef.current;
-
-    // Load the original image
-    const baseImage = new Image();
-    baseImage.crossOrigin = "anonymous";
-    baseImage.src = originalImagePreview;
-    await new Promise((res) => (baseImage.onload = res));
-
-    // Load logo image
-    const logoImage = new Image();
-    logoImage.crossOrigin = "anonymous";
-    logoImage.src = "/images/bh-logo.png"; // Ensure this is in /public
-    await new Promise((res) => (logoImage.onload = res));
-
-    // Set dimensions
-    const imgWidth = baseImage.width;
-    const imgHeight = baseImage.height;
-    const extraHeight = 200; // space for logo + text
-    const canvas = document.createElement("canvas");
-    canvas.width = imgWidth;
-    canvas.height = imgHeight + extraHeight;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Background white
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw logo at top center
-    const logoWidth = 200;
-    const logoHeight = 60;
-    const logoX = (canvas.width - logoWidth) / 2;
-    const logoY = 20;
-    ctx.drawImage(logoImage, logoX, logoY, logoWidth, logoHeight);
-
-    // Draw original image below logo
-    const imageY = logoY + logoHeight + 20;
-    ctx.drawImage(baseImage, 0, imageY, imgWidth, imgHeight);
-
-    // Draw overlay on top of image
-    ctx.drawImage(overlayCanvas, 0, imageY, imgWidth, imgHeight);
-
-    // Draw text below image
-    ctx.font = "bold 28px sans-serif";
-    ctx.fillStyle = "#111";
-    ctx.textAlign = "center";
-    ctx.fillText(
-      `Total Skin Score: ${scoreInfo.all?.score?.toFixed(1) ?? "?"}%`,
-      canvas.width / 2,
-      imageY + imgHeight + 40
-    );
-
-    const concerns: (keyof ScoreInfo)[] = [
-      "acne",
-      "wrinkle",
-      "pore",
-      "texture",
-    ];
-    const concernText = concerns
-                              // @ts-expect-error: Supabase typing is too strict here
-      .map((key) => { const score = scoreInfo[key]?.ui_score ?? 0;
-        return `${key.charAt(0).toUpperCase() + key.slice(1)}: ${score}%`;
-      })
-      .join("  |  ");
-
-    ctx.font = "20px sans-serif";
-    ctx.fillStyle = "#555";
-    ctx.fillText(concernText, canvas.width / 2, imageY + imgHeight + 80);
-
-    // Export
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "beautyhub-skin-result.jpg";
-        link.click();
-        URL.revokeObjectURL(url);
-      },
-      "image/jpeg",
-      0.95
-    );
-  }
-
   function drawOverlay(
     ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement,
@@ -248,46 +160,45 @@ export default function FaceDetectionComponent() {
     }
 
     // --- WRINKLE OVERLAY ---
-    if (scoreInfo.wrinkle?.ui_score && scoreInfo.wrinkle.ui_score > 30) {
-      ctx.strokeStyle = "#a86cd9";
-      ctx.lineWidth = 2;
+    // --- WRINKLE OVERLAY (Always show, no vertical lines) ---
+    ctx.strokeStyle = "#a86cd9";
+    ctx.lineWidth = 2;
 
-      const wrinkleCount = Math.floor(scoreInfo.wrinkle.ui_score / 10);
+    const wrinkleCount = 4;
 
-      for (let i = 0; i < wrinkleCount; i++) {
-        const region = i % 2;
+    for (let i = 0; i < wrinkleCount; i++) {
+      const region = i % 2;
 
-        if (region === 0) {
-          // Eye crow's feet (left side)
-          const startX = width * 0.28;
-          const startY = height * 0.45 + Math.random() * 10;
-          ctx.beginPath();
-          ctx.moveTo(startX, startY);
-          ctx.bezierCurveTo(
-            startX + 10,
-            startY + 5,
-            startX + 20,
-            startY - 5,
-            startX + 30,
-            startY
-          );
-          ctx.stroke();
-        } else {
-          // Smile line (right side)
-          const startX = width * 0.6;
-          const startY = height * 0.6 + Math.random() * 10;
-          ctx.beginPath();
-          ctx.moveTo(startX, startY);
-          ctx.bezierCurveTo(
-            startX - 10,
-            startY - 10,
-            startX + 10,
-            startY + 10,
-            startX + 20,
-            startY
-          );
-          ctx.stroke();
-        }
+      if (region === 0) {
+        // Eye crow’s feet – left side
+        const startX = width * 0.28;
+        const startY = height * 0.45 + i * 4;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.bezierCurveTo(
+          startX + 20,
+          startY + 10,
+          startX + 40,
+          startY - 10,
+          startX + 60,
+          startY
+        );
+        ctx.stroke();
+      } else {
+        // Smile lines – right side
+        const startX = width * 0.6;
+        const startY = height * 0.6 + i * 4;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.bezierCurveTo(
+          startX - 20,
+          startY - 20,
+          startX + 20,
+          startY + 20,
+          startX + 40,
+          startY
+        );
+        ctx.stroke();
       }
     }
 
@@ -351,51 +262,50 @@ export default function FaceDetectionComponent() {
 
   useEffect(() => {
     console.log("🔍 Running overlay draw effect");
-  
+
     if (!scoreInfo || !originalImagePreview || !hasAccess || !showOverlays)
       return;
-  
+
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-  
+
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = originalImagePreview;
-  
+
     img.onload = () => {
       requestAnimationFrame(() => {
         const displayWidth = imageRef.current?.clientWidth || img.naturalWidth;
         const displayHeight =
           imageRef.current?.clientHeight || img.naturalHeight;
-  
+
         const scale = window.devicePixelRatio || 1;
-  
+
         canvas.width = displayWidth * scale;
         canvas.height = displayHeight * scale;
         canvas.style.width = `${displayWidth}px`;
         canvas.style.height = `${displayHeight}px`;
-  
+
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.scale(scale, scale);
-  
+
         console.log("🖼️ canvas size", canvas.width, canvas.height);
         console.log(
           "📐 imageRef size",
           imageRef.current?.clientWidth,
           imageRef.current?.clientHeight
         );
-  
+
         drawOverlay(ctx, canvas, scoreInfo);
       });
     };
-  
+
     return () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
   }, [scoreInfo, originalImagePreview, hasAccess, showOverlays]);
-  
 
   function resizeImageWithOverride(
     inputFile: File,
@@ -708,6 +618,352 @@ export default function FaceDetectionComponent() {
     };
   }, []);
   console.log(analysisStatus);
+
+
+  async function handleCustomDownload() {
+    console.log("🚀 Starting download process...");
+  
+    const fallbackValues = {
+      score: "N/A",
+      concernScores: {
+        acne: "N/A",
+        wrinkle: "N/A",
+        pore: "N/A",
+        texture: "N/A",
+      },
+    };
+  
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas not supported");
+  
+      let width = 800;
+      let height = 600;
+      const extraHeight = 340; // Increased for better layout
+  
+      const loadImageSafely = (src, label = "image", timeoutMs = 10000) =>
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          const timeout = setTimeout(() => reject(new Error("Timeout")), timeoutMs);
+          img.onload = () => {
+            clearTimeout(timeout);
+            resolve(img);
+          };
+          img.onerror = () => {
+            clearTimeout(timeout);
+            reject(new Error(`Failed to load ${label}`));
+          };
+          img.src = src;
+        });
+  
+      let baseImage = null;
+      if (originalImagePreview) {
+        try {
+          baseImage = await loadImageSafely(originalImagePreview, "base");
+          width = baseImage.width;
+          height = baseImage.height;
+        } catch (err) {
+          console.warn("Fallback to default base size");
+        }
+      }
+  
+      let logoImage = null;
+      try {
+        logoImage = await loadImageSafely("/images/bh-logo.png", "logo", 5000);
+      } catch (err) {
+        console.warn("Logo failed");
+      }
+  
+      canvas.width = Math.max(width, 400);
+      canvas.height = Math.max(height + extraHeight, 400);
+
+      // 🌟 Premium gradient background
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, "#ffeef8");
+      gradient.addColorStop(0.3, "#f8e8f5");
+      gradient.addColorStop(0.7, "#f0d9eb");
+      gradient.addColorStop(1, "#e8c9e0");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 🌸 Subtle pattern overlay
+      ctx.globalAlpha = 0.03;
+      for (let i = 0; i < canvas.width; i += 40) {
+        for (let j = 0; j < canvas.height; j += 40) {
+          ctx.fillStyle = "#d946ef";
+          ctx.fillRect(i, j, 20, 20);
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // 📱 Modern card container
+      const cardPadding = 30;
+      const cardX = cardPadding;
+      const cardY = 20;
+      const cardWidth = canvas.width - (cardPadding * 2);
+      const cardHeight = canvas.height - 40;
+
+      // Card background with subtle shadow
+      ctx.shadowColor = "rgba(0, 0, 0, 0.15)";
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetY = 10;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 20);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // 🌟 Header section
+      let currentY = cardY + 40;
+
+      if (logoImage) {
+        const logoWidth = Math.min(180, cardWidth * 0.5);
+        const logoHeight = 50;
+        const logoX = cardX + (cardWidth - logoWidth) / 2;
+        
+        // Logo background circle
+        ctx.fillStyle = "rgba(248, 71, 180, 0.1)";
+        ctx.beginPath();
+        ctx.arc(logoX + logoWidth/2, currentY + logoHeight/2, logoWidth/2 + 15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.drawImage(logoImage, logoX, currentY, logoWidth, logoHeight);
+        currentY += logoHeight + 30;
+      } else {
+        // Elegant title when no logo
+        ctx.font = "bold 32px Arial, sans-serif";
+        ctx.fillStyle = "#d946ef";
+        ctx.textAlign = "center";
+        ctx.fillText("BEAUTY HUB", canvas.width / 2, currentY);
+        currentY += 50;
+      }
+
+      // ✨ Decorative divider
+      ctx.strokeStyle = "rgba(248, 71, 180, 0.3)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 5]);
+      ctx.beginPath();
+      ctx.moveTo(cardX + 40, currentY);
+      ctx.lineTo(cardX + cardWidth - 40, currentY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      currentY += 30;
+
+      // 🖼️ Image section with elegant frame
+      const imageY = currentY;
+      const imageFramePadding = 15;
+      const frameX = cardX + imageFramePadding;
+      const frameWidth = cardWidth - (imageFramePadding * 2);
+      const frameHeight = height;
+
+      // Image frame with gradient border
+      const frameGradient = ctx.createLinearGradient(frameX, imageY, frameX + frameWidth, imageY + frameHeight);
+      frameGradient.addColorStop(0, "#f472b6");
+      frameGradient.addColorStop(0.5, "#d946ef");
+      frameGradient.addColorStop(1, "#a855f7");
+      ctx.strokeStyle = frameGradient;
+      ctx.lineWidth = 4;
+      ctx.roundRect(frameX - 2, imageY - 2, frameWidth + 4, frameHeight + 4, 12);
+      ctx.stroke();
+
+      // White inner frame
+      ctx.fillStyle = "#ffffff";
+      ctx.roundRect(frameX, imageY, frameWidth, frameHeight, 8);
+      ctx.fill();
+
+      if (baseImage) {
+        ctx.save();
+        ctx.roundRect(frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10, 8);
+        ctx.clip();
+        ctx.drawImage(baseImage, frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = "#f8fafc";
+        ctx.roundRect(frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10, 8);
+        ctx.fill();
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "20px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("No Image Available", frameX + frameWidth/2, imageY + frameHeight/2);
+      }
+
+      // Apply overlays within the frame
+      if (zipContent && zipContent.length) {
+        for (const mask of zipContent) {
+          try {
+            const img = await loadImageSafely(mask.url, mask.name);
+            ctx.save();
+            ctx.roundRect(frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10, 8);
+            ctx.clip();
+            ctx.globalAlpha = 0.7;
+            ctx.globalCompositeOperation = "overlay";
+            ctx.drawImage(img, frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10);
+            ctx.restore();
+          } catch (err) {
+            console.warn("Overlay fail", mask.name);
+          }
+        }
+      }
+
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+
+      if (canvasRef?.current) {
+        try {
+          ctx.save();
+          ctx.roundRect(frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10, 8);
+          ctx.clip();
+          ctx.drawImage(canvasRef.current, frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10);
+          ctx.restore();
+        } catch (err) {
+          console.warn("Failed to draw canvas overlay");
+        }
+      }
+
+      // 📊 Results section
+      currentY = imageY + frameHeight + 40;
+
+      // 🏆 Total score with premium styling
+      let totalScore = fallbackValues.score;
+      if (scoreInfo?.all?.score !== undefined) {
+        totalScore = `${scoreInfo.all.score.toFixed(1)}%`;
+      }
+
+      // Score background
+      const scoreBoxWidth = 280;
+      const scoreBoxHeight = 60;
+      const scoreBoxX = cardX + (cardWidth - scoreBoxWidth) / 2;
+
+      const scoreGradient = ctx.createLinearGradient(scoreBoxX, currentY - 10, scoreBoxX + scoreBoxWidth, currentY + scoreBoxHeight - 10);
+      scoreGradient.addColorStop(0, "#f472b6");
+      scoreGradient.addColorStop(1, "#d946ef");
+
+      ctx.fillStyle = scoreGradient;
+      ctx.roundRect(scoreBoxX, currentY - 10, scoreBoxWidth, scoreBoxHeight, 15);
+      ctx.fill();
+
+      // Score text
+      ctx.font = "bold 28px Arial, sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.fillText(`Total Skin Score: ${totalScore}`, canvas.width / 2, currentY + 20);
+
+      currentY += 70;
+
+      // 📋 Individual scores with modern card design
+      const concerns = ["acne", "wrinkle", "pore", "texture"];
+      const concernColors = ["#ec4899", "#d946ef", "#a855f7", "#8b5cf6"];
+      const concernIcons = ["●", "◆", "▲", "■"];
+
+      ctx.font = "18px Arial, sans-serif";
+      const scoreItemWidth = (cardWidth - 60) / 2;
+      const scoreItemHeight = 45;
+
+      concerns.forEach((key, index) => {
+        let score = fallbackValues.concernScores[key];
+        if (scoreInfo?.[key]?.ui_score !== undefined) {
+          score = `${scoreInfo[key].ui_score}%`;
+        }
+        
+        const row = Math.floor(index / 2);
+        const col = index % 2;
+        const itemX = cardX + 30 + (col * (scoreItemWidth + 20));
+        const itemY = currentY + (row * (scoreItemHeight + 15));
+        
+        // Score item background
+        ctx.fillStyle = "rgba(248, 71, 180, 0.08)";
+        ctx.roundRect(itemX, itemY, scoreItemWidth, scoreItemHeight, 8);
+        ctx.fill();
+        
+        // Color accent
+        ctx.fillStyle = concernColors[index];
+        ctx.roundRect(itemX, itemY, 4, scoreItemHeight, 2);
+        ctx.fill();
+        
+        // Icon and text
+        ctx.fillStyle = concernColors[index];
+        ctx.font = "16px Arial, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(concernIcons[index], itemX + 15, itemY + 20);
+        
+        ctx.fillStyle = "#374151";
+        ctx.font = "bold 16px Arial, sans-serif";
+        ctx.fillText(key.charAt(0).toUpperCase() + key.slice(1), itemX + 35, itemY + 20);
+        
+        ctx.fillStyle = concernColors[index];
+        ctx.font = "bold 18px Arial, sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(score, itemX + scoreItemWidth - 15, itemY + 20);
+      });
+
+      currentY += 120;
+
+      // ✨ Footer section with elegant styling
+      ctx.strokeStyle = "rgba(248, 71, 180, 0.2)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.moveTo(cardX + 40, currentY);
+      ctx.lineTo(cardX + cardWidth - 40, currentY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      currentY += 25;
+
+      // 📅 Timestamp with icon
+      const timestamp = new Date().toLocaleString("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+
+      ctx.font = "16px Arial, sans-serif";
+      ctx.fillStyle = "#6b7280";
+      ctx.textAlign = "center";
+      ctx.fillText(`📅 Generated: ${timestamp}`, canvas.width / 2, currentY);
+
+      currentY += 25;
+
+      // 🏷️ Brand watermark with style
+      ctx.font = "bold 18px Arial, sans-serif";
+      const brandGradient = ctx.createLinearGradient(0, currentY - 10, canvas.width, currentY + 10);
+      brandGradient.addColorStop(0, "#f472b6");
+      brandGradient.addColorStop(1, "#d946ef");
+      ctx.fillStyle = brandGradient;
+      ctx.fillText("✨ Generated by Cre8Lab", canvas.width / 2, currentY);
+
+      // 🌟 Final decorative elements
+      ctx.fillStyle = "rgba(248, 71, 180, 0.1)";
+      for (let i = 0; i < 5; i++) {
+        const x = cardX + 20 + (i * (cardWidth - 40) / 4);
+        const y = cardY + cardHeight - 20;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 🖼️ Final download
+      const filename = `beautyhub-skin-result-${Date.now()}.jpg`;
+      canvas.toBlob((blob) => {
+        if (!blob) return alert("Download failed");
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, 100);
+      }, "image/jpeg", 0.95);
+    } catch (err) {
+      console.error("Download failed:", err);
+      alert("Something went wrong. Please try again.");
+    }
+  }
+  
+  
   return (
     <>
       {showPrivacyModal && (
@@ -971,21 +1227,51 @@ export default function FaceDetectionComponent() {
                     )}
 
                     {/* Overlays from backend masks */}
-                    {showOverlays && scoreInfo && hasAccess && (
-                      <canvas
-                        ref={canvasRef}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          height: "100%",
-                          pointerEvents: "none",
-                          zIndex: 10,
-                          background: "rgba(0,255,0,0.05)", // ✅ debug: show green tint
-                        }}
-                      />
-                    )}
+                    {showOverlays &&
+                      zipContent.length > 0 &&
+                      zipContent.map((mask, i) => {
+                        const name = mask.name.toLowerCase();
+                        let filter =
+                          "contrast(250%) brightness(120%) saturate(180%)";
+                        let blendMode = "normal"; // default unless overridden
+
+                        if (name.includes("acne_output")) {
+                          filter =
+                            "hue-rotate(0deg) contrast(250%) brightness(120%) saturate(200%)";
+                          blendMode = "overlay";
+                        } else if (name.includes("wrinkle_output")) {
+                          filter =
+                            "hue-rotate(270deg) contrast(250%) brightness(120%) saturate(200%)";
+                          blendMode = "overlay";
+                        } else if (name.includes("pore_output")) {
+                          filter =
+                            "hue-rotate(180deg) contrast(250%) brightness(120%) saturate(200%)";
+                          blendMode = "multiply";
+                        } else if (name.includes("texture_output")) {
+                          filter =
+                            "hue-rotate(60deg) contrast(250%) brightness(120%) saturate(200%)";
+                          blendMode = "overlay";
+                        }
+
+                        return (
+                          <img
+                            key={i}
+                            src={mask.url}
+                            alt={mask.name}
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: "100%",
+                              height: "100%",
+                              opacity: 1,
+                              filter,
+                              mixBlendMode: blendMode,
+                              pointerEvents: "none",
+                            }}
+                          />
+                        );
+                      })}
 
                     {/* {scoreInfo?.all?.score && hasAccess && (
                       <div
@@ -1023,7 +1309,8 @@ export default function FaceDetectionComponent() {
                       >
                         {["acne", "wrinkle", "pore", "texture"].map((key) => {
                           // @ts-expect-error: Supabase typing is too strict here
-                          const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
+                          const score =
+                            scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
                           const percentage = Math.min(Math.max(score, 0), 100);
 
                           return (
@@ -1211,7 +1498,7 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
                 {scoreInfo && hasAccess && (
-                  <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                  <div style={{ textAlign: "center", marginTop: "1rem",marginBottom:"1rem" }}>
                     <button
                       onClick={handleCustomDownload}
                       style={{
