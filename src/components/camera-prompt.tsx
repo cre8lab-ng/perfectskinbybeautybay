@@ -22,6 +22,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const countdownRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
   console.log(captureFailed, faceValid);
+  const [eyesDetected, setEyesDetected] = useState(false);
 
   const analyze = async () => {
     const video = videoRef.current;
@@ -79,8 +80,14 @@ export default function CameraPrompt({ onCapture }: Props) {
 
       const brightness = getAverageBrightness(ctx, box);
       const lighting = brightness > 80;
-      const straight = isLookingStraight(landmarks);
-
+      const leftEye = landmarks.getLeftEye();
+      const rightEye = landmarks.getRightEye();
+      
+      const areEyesVisible = leftEye.length > 0 && rightEye.length > 0;
+      setEyesDetected(areEyesVisible);
+      
+      const straight = areEyesVisible && isLookingStraight(landmarks); // require eyes to be visible
+      
       const isValid =
         lighting &&
         straight &&
@@ -99,6 +106,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       if (!isFullyInside)
         feedback.push("🎯 Keep your full face within the frame");
       if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
+if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
 
       setTips(feedback);
       setLightingOK(lighting);
@@ -472,7 +480,7 @@ export default function CameraPrompt({ onCapture }: Props) {
         </div>
       ) : null} */}
 
-      {!capturedImage && !isCountingDown && (
+{!capturedImage && !isCountingDown && eyesDetected && (
         <button
           onClick={handleForceCapture}
           className="group mt-8 px-8 py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50 z-20"
