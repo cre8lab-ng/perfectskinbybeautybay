@@ -21,7 +21,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const hasCapturedRef = useRef(false);
   const countdownRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
-console.log(captureFailed,faceValid)
+  console.log(captureFailed, faceValid);
   useEffect(() => {
     let stream: MediaStream;
 
@@ -173,59 +173,59 @@ console.log(captureFailed,faceValid)
     loadModelsAndStart();
 
     return () => {
-      animationRef.current && cancelAnimationFrame(animationRef.current);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
       stream?.getTracks().forEach((track) => track.stop());
     };
   }, [isCountingDown]);
 
+  // Also update the handleRetake function:
+  const handleRetake = async () => {
+    hasCapturedRef.current = false;
+    setCapturedImage(null);
+    setCountdown(3);
+    setIsCountingDown(false);
+    setCaptureFailed(false);
+    setTips(["📸 Reinitializing camera..."]);
 
-  
+    // Stop all video tracks
+    const stream = videoRef.current?.srcObject as MediaStream;
+    stream?.getTracks().forEach((track) => track.stop());
 
+    // Wait briefly before restarting
+    setTimeout(async () => {
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: 640, height: 480 },
+          audio: false,
+        });
 
-// Also update the handleRetake function:
-const handleRetake = async () => {
-  hasCapturedRef.current = false;
-  setCapturedImage(null);
-  setCountdown(3);
-  setIsCountingDown(false);
-  setCaptureFailed(false);
-  setTips(["📸 Reinitializing camera..."]);
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
 
-  // Stop all video tracks
-  const stream = videoRef.current?.srcObject as MediaStream;
-  stream?.getTracks().forEach((track) => track.stop());
+        if (!video || !canvas) {
+          console.error("Video or canvas element not found during retake");
+          setTips(["❌ Failed to restart camera - elements not found"]);
+          return;
+        }
 
-  // Wait briefly before restarting
-  setTimeout(async () => {
-    try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: 640, height: 480 },
-        audio: false,
-      });
+        video.srcObject = newStream;
+        await video.play();
 
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      
-      if (!video || !canvas) {
-        console.error("Video or canvas element not found during retake");
-        setTips(["❌ Failed to restart camera - elements not found"]);
-        return;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        setTips(["✅ Camera ready. Hold still..."]);
+      } catch (err) {
+        console.error("Failed to restart camera:", err);
+        setTips(["❌ Failed to restart camera"]);
       }
+    }, 300);
+  };
 
-      video.srcObject = newStream;
-      await video.play();
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      setTips(["✅ Camera ready. Hold still..."]);
-    } catch (err) {
-      console.error("Failed to restart camera:", err);
-      setTips(["❌ Failed to restart camera"]);
-    }
-  }, 300);
-};
   const startCountdown = (image: string) => {
+    console.log(image, tips);
     setIsCountingDown(true);
     setCountdown(3);
     let lastTime = performance.now();
@@ -234,7 +234,8 @@ const handleRetake = async () => {
         setCountdown((prev) => {
           if (prev <= 1) {
             setIsCountingDown(false);
-            onCapture(image);
+            // ❌ Don't auto-call onCapture(image) here
+            // ✅ Just let buttons appear for user to proceed
             return 3;
           }
           return prev - 1;
@@ -249,7 +250,9 @@ const handleRetake = async () => {
   const cancelCountdown = () => {
     setIsCountingDown(false);
     setCountdown(3);
-    countdownRef.current && cancelAnimationFrame(countdownRef.current);
+    if (countdownRef.current) {
+      cancelAnimationFrame(countdownRef.current);
+    }
     setTips(["⚠️ Hold still and meet all conditions to capture."]);
   };
 
@@ -272,28 +275,27 @@ const handleRetake = async () => {
   const handleForceCapture = () => {
     const video = videoRef.current;
     if (!video) return;
-  
+
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-  
+
     ctx.drawImage(video, 0, 0);
     const image = canvas.toDataURL("image/jpeg");
-  
+
     // Simulate all criteria passed
     setLightingOK(true);
     setStraightOK(true);
     setFacePositionOK(true);
     setFaceValid(true);
     setTips(["✅ Force captured for testing purposes"]);
-  
+
     // Trigger countdown like in analyze()
     setCapturedImage(image); // necessary so the UI shows image preview
-    startCountdown(image);   // this starts the countdown animation + triggers onCapture
+    startCountdown(image); // this starts the countdown animation + triggers onCapture
   };
-  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-200 via-pink-100 to-rose-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -435,7 +437,7 @@ const handleRetake = async () => {
       </div>
 
       {/* Feedback section */}
-      {tips.length > 0 ? (
+      {/* {tips.length > 0 ? (
         <div className="mt-8 z-10 max-w-md">
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-pink-200 shadow-xl h-40 overflow-y-auto">
             <div className="space-y-3">
@@ -455,67 +457,7 @@ const handleRetake = async () => {
             </div>
           </div>
         </div>
-      ) : null}
-
-      {/* Action buttons */}
-      {capturedImage && !isCountingDown && (
-        <div className="mt-8 flex gap-4 z-10">
-          <button
-            onClick={() => onCapture(capturedImage)}
-            className="group relative px-8 py-4 bg-gradient-to-r text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105"
-            style={{
-              background: "linear-gradient(135deg, #f847b4, #ec4899)",
-              boxShadow: "0 20px 25px -5px rgba(248, 71, 180, 0.25)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background =
-                "linear-gradient(135deg, #ec4899, #f847b4)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background =
-                "linear-gradient(135deg, #f847b4, #ec4899)";
-            }}
-          >
-            <span className="relative z-10 flex items-center space-x-2">
-              <span>Continue</span>
-              <svg
-                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 7l5 5m0 0l-5 5m5-5H6"
-                />
-              </svg>
-            </span>
-          </button>
-          <button
-            onClick={handleRetake}
-            className="group px-8 py-4 bg-pink-800/80 hover:bg-pink-700/80 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50"
-          >
-            <span className="flex items-center space-x-2">
-              <svg
-                className="w-5 h-5 group-hover:rotate-12 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              <span>Retake</span>
-            </span>
-          </button>
-        </div>
-      )}
+      ) : null} */}
 
       {!capturedImage && !isCountingDown && (
         <button
@@ -523,20 +465,7 @@ const handleRetake = async () => {
           className="group mt-8 px-8 py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50 z-20"
         >
           <span className="flex items-center space-x-2">
-            <svg
-              className="w-5 h-5 group-hover:rotate-12 transition-transform"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            <span>Force Capture</span>
+            <span>📸 Capture</span>
           </span>
         </button>
       )}
@@ -611,4 +540,3 @@ function StatusBox({
     </div>
   );
 }
-

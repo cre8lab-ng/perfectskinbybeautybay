@@ -1,3 +1,5 @@
+import { notifyError } from "./utils";
+
 /** Dynamically loads the Paystack inline.js script once */
 export function loadPaystackScript() {
   if (typeof window === "undefined") return;
@@ -53,7 +55,7 @@ export function triggerPaystackPopup({
   }
 
   if (typeof window === "undefined" || !window.PaystackPop) {
-    alert("Paystack is not ready yet. Please try again in a few seconds.");
+    notifyError("Paystack is not ready yet. Please try again in a few seconds.");
     return;
   }
   console.log(onCancel);
@@ -84,14 +86,14 @@ export function triggerPaystackPopup({
     });
 
     if (!handler || typeof handler.openIframe !== "function") {
-      alert("❌ Paystack failed to initialize.");
+      notifyError("❌ Paystack failed to initialize.");
       return;
     }
 
     handler.openIframe();
   } catch (error) {
     console.error("Paystack setup error:", error);
-    alert("❌ Failed to initialize payment. Please try again.");
+    notifyError("❌ Failed to initialize payment. Please try again.");
   }
 }
 

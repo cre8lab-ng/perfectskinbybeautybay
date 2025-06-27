@@ -105,15 +105,13 @@ export default function FaceDetectionComponent() {
   const productRecommendations = getRecommendedProducts(scoreInfo);
 
   console.log(uploading, analysisStatus, uploadResponse);
-  const {  hasAccess, showLoginModal, setShowLoginModal } =
-    useResultAccess();
-    const userEmail = useResultAccess((s) => s.userEmail);
+  const { hasAccess, showLoginModal, setShowLoginModal } = useResultAccess();
+  const userEmail = useResultAccess((s) => s.userEmail);
 
+  useEffect(() => {
+    console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
+  }, [userEmail]);
 
-    useEffect(() => {
-      console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
-    }, [userEmail]);
-    
   function resizeImageWithOverride(
     inputFile: File,
     quality = 0.6
@@ -252,7 +250,7 @@ export default function FaceDetectionComponent() {
       const height = Math.max(...ys) - Math.min(...ys);
 
       if (width < 300 || height < 300) {
-        alert(
+        notifyError(
           "Your face is too small in the image. Please move closer or upload a clearer selfie."
         );
         return;
@@ -270,7 +268,7 @@ export default function FaceDetectionComponent() {
     }
 
     if (!accessToken) {
-      alert("Access token not available yet.");
+      notifyError("Access token not available yet.");
       return;
     }
 
@@ -281,14 +279,14 @@ export default function FaceDetectionComponent() {
       if (!res?.file_id) throw new Error("Upload failed: Missing file_id.");
       setUploadResponse(res); // ✅ Store file_id for later use (delayed analysis)
     } catch (err) {
-      alert("Upload failed: " + (err as Error).message);
+      notifyError("Upload failed: " + (err as Error).message);
     } finally {
       setUploading(false);
     }
   };
 
   const runSkinAnalysis = async (fileId: string) => {
-    if (!accessToken) return alert("Access token not available");
+    if (!accessToken) return notifyError("Access token not available");
     setAnalyzing(true);
 
     try {
@@ -305,7 +303,7 @@ export default function FaceDetectionComponent() {
       const status = await pollAnalysisStatus(taskId, accessToken);
       setAnalysisStatus(status);
     } catch (err) {
-      alert("Analysis failed: " + (err as Error).message);
+      notifyError("Analysis failed: " + (err as Error).message);
     } finally {
       setAnalyzing(false);
     }
@@ -335,7 +333,7 @@ export default function FaceDetectionComponent() {
           const { score, images } = await extractSkinAnalysisResults(zipUrl);
           if (score) setScoreInfo(score);
           if (images.length > 0) setZipContent(images);
-        
+
           const currentEmail = useResultAccess.getState().userEmail;
 
           console.log("📊 Results processed, now granting access...");
@@ -420,7 +418,6 @@ export default function FaceDetectionComponent() {
       useResultAccess.getState().resetAccess();
     };
   }, []);
-  
 
   return (
     <>
@@ -741,121 +738,115 @@ export default function FaceDetectionComponent() {
                       </div>
                     )} */}
 
+                    {hasAccess && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "10px",
+                          left: "10px",
+                          right: "10px",
+                          display: "flex",
+                          justifyContent: "flex-start",
+                          alignItems: "center",
+                          padding: "0",
+                          gap: "0.5rem",
+                          overflowX: "auto",
+                          overflowY: "hidden",
+                          scrollbarWidth: "none",
+                          msOverflowStyle: "none",
+                        }}
+                      >
+                        {["acne", "wrinkle", "pore", "texture"].map((key) => {
+                          // @ts-expect-error: Supabase typing is too strict here
+                          const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
+                          const percentage = Math.min(Math.max(score, 0), 100);
 
+                          return (
+                            <div
+                              key={key}
+                              style={{
+                                padding: "0.75rem",
+                                minWidth: "100px", // Increased from 80px
+                              }}
+                            >
+                              {/* Label */}
+                              <div
+                                style={{
+                                  color: "white",
+                                  fontSize: "0.75rem",
+                                  fontWeight: "600",
+                                  textTransform: "capitalize",
+                                  marginBottom: "0.5rem",
+                                  textAlign: "center",
+                                }}
+                              >
+                                {key}
+                              </div>
 
-
-{hasAccess && (
-  <div
-    style={{
-      position: "absolute",
-      bottom: "10px",
-      left: "10px",
-      right: "10px",
-      display: "flex",
-      justifyContent: "flex-start",
-      alignItems: "center",
-      padding: "0",
-      gap: "0.5rem",
-      overflowX: "auto",
-      overflowY: "hidden",
-      scrollbarWidth: "none",
-      msOverflowStyle: "none",
-    }}
-  >
-    {["acne","wrinkle", "pore", "texture"].map((key) => {
-      // @ts-expect-error: Supabase typing is too strict here
-      const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
-      const percentage = Math.min(Math.max(score, 0), 100);
-
-      return (
-        <div
-          key={key}
-          style={{
-            padding: "0.75rem",
-            minWidth: "100px", // Increased from 80px
-          }}
-        >
-          {/* Label */}
-          <div
-            style={{
-              color: "white",
-              fontSize: "0.75rem",
-              fontWeight: "600",
-              textTransform: "capitalize",
-              marginBottom: "0.5rem",
-              textAlign: "center",
-            }}
-          >
-            {key}
-          </div>
-
-          {/* Circular Progress */}
-          <div
-            style={{
-              position: "relative",
-              width: "70px", // Increased from 50px
-              height: "70px", // Increased from 50px
-              margin: "0 auto",
-            }}
-          >
-            <svg
-              width="70" // Increased from 50
-              height="70" // Increased from 50
-              style={{
-                transform: "rotate(-90deg)",
-              }}
-            >
-              {/* Background circle */}
-              <circle
-                cx="35" // Adjusted center (70/2)
-                cy="35" // Adjusted center (70/2)
-                r="28" // Increased radius from 20
-                fill="none"
-                stroke="#ffd9f0"
-                strokeWidth="6" // Increased from 4
-              />
-              {/* Progress circle */}
-              <circle
-                cx="35" // Adjusted center (70/2)
-                cy="35" // Adjusted center (70/2)
-                r="28" // Increased radius from 20
-                fill="none"
-                stroke="#f847b4"
-                strokeWidth="6" // Increased from 4
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 28}`} // Updated for new radius
-                strokeDashoffset={`${
-                  2 * Math.PI * 28 * (1 - percentage / 100)
-                }`} // Updated for new radius
-                style={{
-                  transition: "stroke-dashoffset 0.3s ease-in-out",
-                }}
-              />
-            </svg>
-            {/* Score in center */}
-            <div
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                color: "#f847b4",
-                fontSize: "1rem", // Increased from 0.7rem
-                fontWeight: "bold",
-              }}
-            >
-              {score}
-            </div>
-          </div>
-        </div>
-      );
-    })}
-  </div>
-)}
-
-                 
-
-
+                              {/* Circular Progress */}
+                              <div
+                                style={{
+                                  position: "relative",
+                                  width: "70px", // Increased from 50px
+                                  height: "70px", // Increased from 50px
+                                  margin: "0 auto",
+                                }}
+                              >
+                                <svg
+                                  width="70" // Increased from 50
+                                  height="70" // Increased from 50
+                                  style={{
+                                    transform: "rotate(-90deg)",
+                                  }}
+                                >
+                                  {/* Background circle */}
+                                  <circle
+                                    cx="35" // Adjusted center (70/2)
+                                    cy="35" // Adjusted center (70/2)
+                                    r="28" // Increased radius from 20
+                                    fill="none"
+                                    stroke="#ffd9f0"
+                                    strokeWidth="6" // Increased from 4
+                                  />
+                                  {/* Progress circle */}
+                                  <circle
+                                    cx="35" // Adjusted center (70/2)
+                                    cy="35" // Adjusted center (70/2)
+                                    r="28" // Increased radius from 20
+                                    fill="none"
+                                    stroke="#f847b4"
+                                    strokeWidth="6" // Increased from 4
+                                    strokeLinecap="round"
+                                    strokeDasharray={`${2 * Math.PI * 28}`} // Updated for new radius
+                                    strokeDashoffset={`${
+                                      2 * Math.PI * 28 * (1 - percentage / 100)
+                                    }`} // Updated for new radius
+                                    style={{
+                                      transition:
+                                        "stroke-dashoffset 0.3s ease-in-out",
+                                    }}
+                                  />
+                                </svg>
+                                {/* Score in center */}
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: "50%",
+                                    left: "50%",
+                                    transform: "translate(-50%, -50%)",
+                                    color: "#f847b4",
+                                    fontSize: "1rem", // Increased from 0.7rem
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  {score}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -863,6 +854,7 @@ export default function FaceDetectionComponent() {
                   <div
                     style={{
                       marginTop: "1rem",
+                      marginBottom: "1rem",
                       textAlign: "center",
                       padding: "1rem",
                       background: "rgba(255, 217, 240, 0.3)",
@@ -1036,14 +1028,6 @@ export default function FaceDetectionComponent() {
                           marginBottom: "2rem",
                         }}
                       >
-                        <div
-                          style={{
-                            fontSize: "2.5rem",
-                            marginBottom: "0.5rem",
-                          }}
-                        >
-                          🧴
-                        </div>
                         <h3
                           style={{
                             fontSize: "1.8rem",
@@ -1213,8 +1197,6 @@ export default function FaceDetectionComponent() {
                           </div>
                         )
                       )}
-
-                   
                     </div>
                   )}
               </div>
