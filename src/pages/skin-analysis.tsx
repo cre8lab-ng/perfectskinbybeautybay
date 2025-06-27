@@ -86,6 +86,7 @@ export default function FaceDetectionComponent() {
   const [faceDetectionLoading, setFaceDetectionLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [retake, setRetake] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [showCameraPrompt, setShowCameraPrompt] = useState(false);
   const [showInstructionModal, setShowInstructionModal] = useState(false);
@@ -290,6 +291,8 @@ export default function FaceDetectionComponent() {
     setAnalyzing(true);
 
     try {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
       const analysis = await analyzeSkinFeatures(fileId, accessToken, [
         "acne",
         "wrinkle",
@@ -303,7 +306,9 @@ export default function FaceDetectionComponent() {
       const status = await pollAnalysisStatus(taskId, accessToken);
       setAnalysisStatus(status);
     } catch (err) {
-      notifyError("Analysis failed: " + (err as Error).message);
+      console.log(err);
+      setRetake(true);
+      console.log(err);
     } finally {
       setAnalyzing(false);
     }
@@ -418,7 +423,7 @@ export default function FaceDetectionComponent() {
       useResultAccess.getState().resetAccess();
     };
   }, []);
-
+  console.log(analysisStatus);
   return (
     <>
       {showPrivacyModal && (
@@ -529,39 +534,6 @@ export default function FaceDetectionComponent() {
                   }}
                 />
 
-                {processedImagePreview && faceDetectionLoading && (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      margin: "2rem 0",
-                      padding: "2rem",
-                      background:
-                        "linear-gradient(135deg, #ffd9f0, rgba(255, 217, 240, 0.3))",
-                      borderRadius: "16px",
-                      border: "1px solid rgba(248, 71, 180, 0.2)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "2rem",
-                        marginBottom: "1rem",
-                      }}
-                    >
-                      🔍
-                    </div>
-                    <p
-                      style={{
-                        color: "#f847b4",
-                        fontWeight: "600",
-                        fontSize: "1.1rem",
-                        margin: 0,
-                      }}
-                    >
-                      Loading face detection model...
-                    </p>
-                  </div>
-                )}
-
                 {faceDetectionLoading && (
                   <div
                     style={{
@@ -609,80 +581,6 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
 
-                {analyzing && (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      margin: "2rem 0",
-                      padding: "3rem 2rem",
-                      background:
-                        "linear-gradient(135deg, #ffd9f0, rgba(255, 217, 240, 0.5))",
-                      borderRadius: "20px",
-                      border: "1px solid rgba(248, 71, 180, 0.3)",
-                      position: "relative",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: "-100%",
-                        width: "100%",
-                        height: "100%",
-                        background:
-                          "linear-gradient(90deg, transparent, rgba(248, 71, 180, 0.1), transparent)",
-                        animation: "shimmer 2s infinite",
-                      }}
-                    />
-                    <div
-                      style={{
-                        fontSize: "3rem",
-                        marginBottom: "1rem",
-                        background: "linear-gradient(45deg, #f847b4, #ffd9f0)",
-                        backgroundClip: "text",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                      }}
-                    >
-                      🧬
-                    </div>
-                    <div
-                      style={{
-                        width: "60px",
-                        height: "60px",
-                        border: "4px solid rgba(248, 71, 180, 0.2)",
-                        borderTop: "4px solid #f847b4",
-                        borderRadius: "50%",
-                        animation:
-                          "spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite",
-                        margin: "0 auto 1.5rem",
-                        boxShadow: "0 8px 25px rgba(248, 71, 180, 0.3)",
-                      }}
-                    />
-                    <p
-                      style={{
-                        marginTop: "1rem",
-                        color: "#f847b4",
-                        fontWeight: "600",
-                        fontSize: "1.3rem",
-                        letterSpacing: "0.5px",
-                      }}
-                    >
-                      Analyzing your skin features...
-                    </p>
-                    <p
-                      style={{
-                        color: "#888",
-                        fontSize: "0.9rem",
-                        margin: "0.5rem 0 0",
-                      }}
-                    >
-                      Our AI is mapping your unique skin profile
-                    </p>
-                  </div>
-                )}
-
                 {originalImagePreview && (
                   <div
                     style={{
@@ -701,6 +599,91 @@ export default function FaceDetectionComponent() {
                         borderRadius: "8px",
                       }}
                     />
+
+                    {/* Analyzing Div */}
+
+                    {/* ✅ Overlay this block ON TOP of the image */}
+                    {analyzing && (
+                      <div
+                        style={{
+                          textAlign: "center",
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: "100%",
+                          background:
+                            "linear-gradient(135deg, #ffd9f0, rgba(255, 217, 240, 0.5))",
+                          borderRadius: "20px",
+                          border: "1px solid rgba(248, 71, 180, 0.3)",
+                          overflow: "hidden",
+                          zIndex: 10,
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          padding: "3rem 2rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: "-100%",
+                            width: "100%",
+                            height: "100%",
+                            background:
+                              "linear-gradient(90deg, transparent, rgba(248, 71, 180, 0.1), transparent)",
+                            animation: "shimmer 2s infinite",
+                          }}
+                        />
+                        <div
+                          style={{
+                            fontSize: "3rem",
+                            marginBottom: "1rem",
+                            background:
+                              "linear-gradient(45deg, #f847b4, #ffd9f0)",
+                            backgroundClip: "text",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                          }}
+                        >
+                          🧬
+                        </div>
+                        <div
+                          style={{
+                            width: "60px",
+                            height: "60px",
+                            border: "4px solid rgba(248, 71, 180, 0.2)",
+                            borderTop: "4px solid #f847b4",
+                            borderRadius: "50%",
+                            animation:
+                              "spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite",
+                            margin: "0 auto 1.5rem",
+                            boxShadow: "0 8px 25px rgba(248, 71, 180, 0.3)",
+                          }}
+                        />
+                        <p
+                          style={{
+                            marginTop: "1rem",
+                            color: "#f847b4",
+                            fontWeight: "600",
+                            fontSize: "1.3rem",
+                            letterSpacing: "0.5px",
+                          }}
+                        >
+                          Analyzing your skin features...
+                        </p>
+                        <p
+                          style={{
+                            fontSize: "0.9rem",
+                            margin: "0.5rem 0 0",
+                          }}
+                        >
+                          Our AI is mapping your unique skin profile
+                        </p>
+                      </div>
+                    )}
 
                     {/* Overlays from backend masks */}
                     {showOverlays &&
@@ -738,7 +721,7 @@ export default function FaceDetectionComponent() {
                       </div>
                     )} */}
 
-                    {hasAccess && (
+                    {hasAccess && !analyzing && (
                       <div
                         style={{
                           position: "absolute",
@@ -889,7 +872,7 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
 
-                {uploadResponse?.file_id && !scoreInfo && (
+                {uploadResponse?.file_id && !scoreInfo && !retake && (
                   <div
                     style={{
                       textAlign: "center",
@@ -945,6 +928,64 @@ export default function FaceDetectionComponent() {
                     </button>
                   </div>
                 )}
+
+                {retake ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "2rem",
+                      background:
+                        "linear-gradient(135deg, #ffd9f0, rgba(255, 217, 240, 0.5))",
+                      borderRadius: "16px",
+                      border: "1px solid rgba(248, 71, 180, 0.2)",
+                    }}
+                  >
+                    <p
+                      style={{
+                        color: "#f847b4",
+                        fontSize: "1.1rem",
+                        fontWeight: "600",
+                        marginBottom: "1.5rem",
+                      }}
+                    >
+                      We couldn’t analyze your face. Please ensure your face is
+                      clearly visible and well-centered in the photo or better
+                      still upload an image.
+                    </p>
+                    <button
+                      onClick={() => {
+                        // Reset everything and go to camera prompt
+                        setUploadResponse(null);
+                        setScoreInfo(null);
+                        setAnalysisStatus(null);
+                        setOriginalImagePreview(null);
+                        setProcessedImagePreview(null);
+                        setLastCaptureMethod("camera");
+                        setShowCameraPrompt(true);
+                        setRetake(false);
+                      }}
+                      style={{
+                        background: analyzing
+                          ? "linear-gradient(135deg, #ccc, #999)"
+                          : "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                        color: "white",
+                        border: "none",
+                        padding: "1rem 2rem",
+                        borderRadius: "12px",
+                        fontSize: "1rem",
+                        fontWeight: "600",
+                        cursor: analyzing ? "not-allowed" : "pointer",
+                        boxShadow: analyzing
+                          ? "none"
+                          : "0 8px 25px rgba(248, 71, 180, 0.4)",
+                        transition: "all 0.3s ease",
+                        transform: analyzing ? "none" : "translateY(-2px)",
+                      }}
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                ) : null}
 
                 {scoreInfo && hasAccess && (
                   <div style={{ marginBottom: "3rem" }}>

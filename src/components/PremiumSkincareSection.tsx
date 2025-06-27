@@ -30,7 +30,7 @@ const PremiumSkincareSection = () => {
 
           {/* Subheading */}
           <p className="text-xl lg:text-2xl text-gray-600 max-w-lg mx-auto lg:mx-0 leading-relaxed font-light">
-            Scan the QR to start your AI-powered skincare journey —
+            Scan the QR to start your AI-powered skincare journey 
             <span className="font-semibold text-pink-700">
               100% personalized
             </span>

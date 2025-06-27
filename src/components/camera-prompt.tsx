@@ -22,6 +22,117 @@ export default function CameraPrompt({ onCapture }: Props) {
   const countdownRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
   console.log(captureFailed, faceValid);
+
+  const analyze = async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (!video || video.readyState < 2 || !canvas) {
+      animationRef.current = requestAnimationFrame(analyze);
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      animationRef.current = requestAnimationFrame(analyze);
+      return;
+    }
+
+    const result = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks(true);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (result) {
+      const dims = faceapi.matchDimensions(canvas, video, true);
+      const resized = faceapi.resizeResults(result, dims);
+      faceapi.draw.drawFaceLandmarks(canvas, resized);
+
+      const box = result.detection.box;
+      const landmarks = result.landmarks;
+
+      const faceCanvasW = canvas.width;
+      const faceCanvasH = canvas.height;
+
+      const centerX = box.x + box.width / 2;
+      const centerY = box.y + box.height / 2;
+      const isBigEnough =
+        box.width > 0.5 * faceCanvasW && box.height > 0.5 * faceCanvasH;
+      const isTooClose =
+        box.width > 0.85 * faceCanvasW || box.height > 0.85 * faceCanvasH;
+      const isFullyInside =
+        box.x > 10 &&
+        box.y > 10 &&
+        box.x + box.width < faceCanvasW - 10 &&
+        box.y + box.height < faceCanvasH - 10;
+
+      const isCentered =
+        Math.abs(centerX - faceCanvasW / 2) < 50 &&
+        Math.abs(centerY - faceCanvasH / 2) < 50;
+
+      const hasMargin =
+        box.x > faceCanvasW * 0.1 &&
+        box.y > faceCanvasH * 0.1 &&
+        box.x + box.width < faceCanvasW * 0.9 &&
+        box.y + box.height < faceCanvasH * 0.9;
+
+      const brightness = getAverageBrightness(ctx, box);
+      const lighting = brightness > 80;
+      const straight = isLookingStraight(landmarks);
+
+      const isValid =
+        lighting &&
+        straight &&
+        isFullyInside &&
+        isBigEnough &&
+        isCentered &&
+        hasMargin &&
+        !isTooClose;
+
+      const feedback: string[] = [];
+      if (!lighting) feedback.push("💡 Improve lighting on your face");
+      if (!straight) feedback.push("🧍 Look straight into the camera");
+      if (!(isCentered && isBigEnough)) feedback.push("🎯 Center your face");
+      if (!hasMargin) feedback.push("↔️ Add more space around your face");
+      if (isTooClose) feedback.push("↪️ Move back a little");
+      if (!isFullyInside)
+        feedback.push("🎯 Keep your full face within the frame");
+      if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
+
+      setTips(feedback);
+      setLightingOK(lighting);
+      setStraightOK(straight);
+      setFacePositionOK(
+        isCentered && isFullyInside && isBigEnough && !isTooClose
+      );
+      setFaceValid(isValid);
+
+      if (isValid && !isCountingDown) {
+        const tmpCanvas = document.createElement("canvas");
+        tmpCanvas.width = video.videoWidth;
+        tmpCanvas.height = video.videoHeight;
+        const tmpCtx = tmpCanvas.getContext("2d");
+        if (tmpCtx) {
+          tmpCtx.drawImage(video, 0, 0);
+          const image = tmpCanvas.toDataURL("image/jpeg");
+          setCapturedImage(image);
+          startCountdown(image);
+        }
+      } else if (!isValid && isCountingDown) {
+        cancelCountdown();
+      }
+    } else {
+      setFaceValid(false);
+      setLightingOK(false);
+      setFacePositionOK(false);
+      setStraightOK(false);
+      setTips(["❌ No face detected"]);
+    }
+
+    animationRef.current = requestAnimationFrame(analyze);
+  };
+  
   useEffect(() => {
     let stream: MediaStream;
 
@@ -60,115 +171,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       }
     };
 
-    const analyze = async () => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-
-      if (!video || video.readyState < 2 || !canvas) {
-        animationRef.current = requestAnimationFrame(analyze);
-        return;
-      }
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        animationRef.current = requestAnimationFrame(analyze);
-        return;
-      }
-
-      const result = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks(true);
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (result) {
-        const dims = faceapi.matchDimensions(canvas, video, true);
-        const resized = faceapi.resizeResults(result, dims);
-        faceapi.draw.drawFaceLandmarks(canvas, resized);
-
-        const box = result.detection.box;
-        const landmarks = result.landmarks;
-
-        const faceCanvasW = canvas.width;
-        const faceCanvasH = canvas.height;
-
-        const centerX = box.x + box.width / 2;
-        const centerY = box.y + box.height / 2;
-        const isBigEnough =
-          box.width > 0.5 * faceCanvasW && box.height > 0.5 * faceCanvasH;
-        const isTooClose =
-          box.width > 0.85 * faceCanvasW || box.height > 0.85 * faceCanvasH;
-        const isFullyInside =
-          box.x > 10 &&
-          box.y > 10 &&
-          box.x + box.width < faceCanvasW - 10 &&
-          box.y + box.height < faceCanvasH - 10;
-
-        const isCentered =
-          Math.abs(centerX - faceCanvasW / 2) < 50 &&
-          Math.abs(centerY - faceCanvasH / 2) < 50;
-
-        const hasMargin =
-          box.x > faceCanvasW * 0.1 &&
-          box.y > faceCanvasH * 0.1 &&
-          box.x + box.width < faceCanvasW * 0.9 &&
-          box.y + box.height < faceCanvasH * 0.9;
-
-        const brightness = getAverageBrightness(ctx, box);
-        const lighting = brightness > 80;
-        const straight = isLookingStraight(landmarks);
-
-        const isValid =
-          lighting &&
-          straight &&
-          isFullyInside &&
-          isBigEnough &&
-          isCentered &&
-          hasMargin &&
-          !isTooClose;
-
-        const feedback: string[] = [];
-        if (!lighting) feedback.push("💡 Improve lighting on your face");
-        if (!straight) feedback.push("🧍 Look straight into the camera");
-        if (!(isCentered && isBigEnough)) feedback.push("🎯 Center your face");
-        if (!hasMargin) feedback.push("↔️ Add more space around your face");
-        if (isTooClose) feedback.push("↪️ Move back a little");
-        if (!isFullyInside)
-          feedback.push("🎯 Keep your full face within the frame");
-        if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
-
-        setTips(feedback);
-        setLightingOK(lighting);
-        setStraightOK(straight);
-        setFacePositionOK(
-          isCentered && isFullyInside && isBigEnough && !isTooClose
-        );
-        setFaceValid(isValid);
-
-        if (isValid && !isCountingDown) {
-          const tmpCanvas = document.createElement("canvas");
-          tmpCanvas.width = video.videoWidth;
-          tmpCanvas.height = video.videoHeight;
-          const tmpCtx = tmpCanvas.getContext("2d");
-          if (tmpCtx) {
-            tmpCtx.drawImage(video, 0, 0);
-            const image = tmpCanvas.toDataURL("image/jpeg");
-            setCapturedImage(image);
-            startCountdown(image);
-          }
-        } else if (!isValid && isCountingDown) {
-          cancelCountdown();
-        }
-      } else {
-        setFaceValid(false);
-        setLightingOK(false);
-        setFacePositionOK(false);
-        setStraightOK(false);
-        setTips(["❌ No face detected"]);
-      }
-
-      animationRef.current = requestAnimationFrame(analyze);
-    };
+  
 
     loadModelsAndStart();
 
@@ -188,41 +191,51 @@ export default function CameraPrompt({ onCapture }: Props) {
     setIsCountingDown(false);
     setCaptureFailed(false);
     setTips(["📸 Reinitializing camera..."]);
-
-    // Stop all video tracks
+  
+    // Stop existing video stream
     const stream = videoRef.current?.srcObject as MediaStream;
     stream?.getTracks().forEach((track) => track.stop());
-
-    // Wait briefly before restarting
+  
+    // Cancel ongoing animation
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  
+    // Wait and restart camera
     setTimeout(async () => {
       try {
         const newStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: 640, height: 480 },
           audio: false,
         });
-
+  
         const video = videoRef.current;
         const canvas = canvasRef.current;
-
+  
         if (!video || !canvas) {
           console.error("Video or canvas element not found during retake");
           setTips(["❌ Failed to restart camera - elements not found"]);
           return;
         }
-
+  
         video.srcObject = newStream;
         await video.play();
-
+  
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-
+  
         setTips(["✅ Camera ready. Hold still..."]);
+  
+        // 🔁 Re-run face detection loop
+        analyze();
       } catch (err) {
         console.error("Failed to restart camera:", err);
         setTips(["❌ Failed to restart camera"]);
       }
     }, 300);
   };
+  
 
   const startCountdown = (image: string) => {
     console.log(image, tips);
