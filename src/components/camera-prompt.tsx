@@ -21,12 +21,465 @@ export default function CameraPrompt({ onCapture }: Props) {
   const hasCapturedRef = useRef(false);
   const countdownRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
-  console.log(captureFailed, faceValid);
+  const streamRef = useRef<MediaStream | null>(null); // Track the stream
+  const [eyesDetected, setEyesDetected] = useState(false);
+  const [showCaptureButton, setShowCaptureButton] = useState(false);
+ console.log(captureFailed,faceValid)
   useEffect(() => {
-    let stream: MediaStream;
+    if (!hasCapturedRef.current) {
+      const timeout = setTimeout(() => {
+        setShowCaptureButton(true);
+      }, 8000);
 
-    // Replace the loadModelsAndStart function with this version that includes proper null checks:
+      return () => clearTimeout(timeout);
+    }
+  }, []);
 
+  // Replace your drawOvalFaceMesh function with this auto-detecting version
+                            // @ts-expect-error: Supabase typing is too strict here
+
+  const drawOvalFaceMesh = (ctx, landmarks, faceBox) => {
+    if (!landmarks || !faceBox) return;
+
+    let centerX, centerY, radiusX, radiusY;
+
+    // Use landmarks to get ACTUAL face bounds (more accurate than detection box)
+    if (landmarks && landmarks.positions) {
+      const landmarkPoints = landmarks.positions;
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity;
+
+      // Find actual bounds from ALL landmark points
+                                // @ts-expect-error: Supabase typing is too strict here
+
+      landmarkPoints.forEach((point) => {
+        minX = Math.min(minX, point.x);
+        maxX = Math.max(maxX, point.x);
+        minY = Math.min(minY, point.y);
+        maxY = Math.max(maxY, point.y);
+      });
+
+      // Calculate actual face dimensions from landmarks
+      const landmarkWidth = maxX - minX;
+      const landmarkHeight = maxY - minY;
+
+      // Use landmark-based center
+      centerX = minX + landmarkWidth / 2;
+      centerY = minY + landmarkHeight / 2;
+
+      // Add extra padding to cover the full face (forehead, chin, cheeks)
+      radiusX = (landmarkWidth / 2) * 1.4; // 40% extra width
+      radiusY = (landmarkHeight / 2) * 1.6; // 60% extra height (for forehead/chin)
+
+      console.log("Using landmark bounds:", {
+        landmarkWidth,
+        landmarkHeight,
+        detectionWidth: faceBox.width,
+        detectionHeight: faceBox.height,
+        finalRadiusX: radiusX,
+        finalRadiusY: radiusY,
+      });
+    } else {
+      // Fallback to detection box if no landmarks
+      centerX = faceBox.x + faceBox.width / 2;
+      centerY = faceBox.y + faceBox.height / 2;
+      radiusX = (faceBox.width / 2) * 1.8;
+      radiusY = (faceBox.height / 2) * 1.8;
+
+      console.log("Using detection box fallback");
+    }
+
+    // Additional auto-adjustment based on canvas size
+    const canvas = ctx.canvas;
+    const minRadius = Math.min(canvas.width, canvas.height) * 0.15; // Minimum 15% of canvas
+    const maxRadius = Math.min(canvas.width, canvas.height) * 0.45; // Maximum 45% of canvas
+
+    // Ensure reasonable bounds
+    radiusX = Math.max(minRadius, Math.min(maxRadius, radiusX));
+    radiusY = Math.max(minRadius, Math.min(maxRadius, radiusY));
+
+    // Set mesh style
+    ctx.strokeStyle = "#ff0000";
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.8;
+
+    // Adaptive grid density based on face size
+    const faceArea = radiusX * radiusY;
+    const horizontalLines = Math.max(
+      10,
+      Math.min(20, Math.floor(faceArea / 1000))
+    );
+    const verticalLines = Math.max(
+      8,
+      Math.min(16, Math.floor(faceArea / 1200))
+    );
+
+    // Draw horizontal curved lines following face contour
+    for (let i = 0; i <= horizontalLines; i++) {
+      const t = i / horizontalLines;
+      const y = centerY - radiusY + 2 * radiusY * t;
+
+      // Calculate the width of the oval at this height
+      const distanceFromCenter = Math.abs(y - centerY);
+      const normalizedDistance = distanceFromCenter / radiusY;
+
+      if (normalizedDistance <= 1) {
+        const widthAtHeight =
+          radiusX * Math.sqrt(1 - normalizedDistance * normalizedDistance);
+
+        ctx.beginPath();
+        ctx.moveTo(centerX - widthAtHeight, y);
+
+        // Create smooth curved line
+        const segments = 20;
+        for (let j = 0; j <= segments; j++) {
+          const segmentT = j / segments;
+          const x = centerX - widthAtHeight + 2 * widthAtHeight * segmentT;
+
+          // Subtle curve for natural face shape
+          const curve = Math.sin(segmentT * Math.PI) * 2;
+          ctx.lineTo(x, y + curve);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // Draw vertical curved lines
+    for (let i = 0; i <= verticalLines; i++) {
+      const t = i / verticalLines;
+      const angle = -Math.PI / 2 + Math.PI * t;
+
+      ctx.beginPath();
+
+      const segments = 25;
+      for (let j = 0; j <= segments; j++) {
+        const segmentT = j / segments;
+        const currentAngle = -Math.PI / 2 + Math.PI * segmentT;
+
+        // Calculate position on oval
+        let x =
+          centerX +
+          radiusX * Math.cos(angle) * Math.sin(currentAngle + Math.PI / 2);
+        const y = centerY + radiusY * Math.sin(currentAngle);
+
+        // Face shape adjustment
+        const faceAdjustment = Math.sin(currentAngle + Math.PI / 2) * 0.85;
+        x = centerX + radiusX * Math.cos(angle) * faceAdjustment;
+
+        if (j === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // Draw the main oval outline
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    // Add facial feature guides
+    drawFacialFeatureGuides(ctx, centerX, centerY, radiusX, radiusY);
+
+    ctx.globalAlpha = 1;
+  };
+
+  
+                          // @ts-expect-error: Supabase typing is too strict here
+  const drawFacialFeatureGuides = (ctx, centerX, centerY, radiusX, radiusY) => {
+    ctx.strokeStyle = "#ff0000";
+    ctx.lineWidth = 1;
+
+    // Eye guidelines
+    const eyeY = centerY - radiusY * 0.2;
+    const eyeSpacing = radiusX * 0.3;
+
+    // Left eye area
+    ctx.beginPath();
+    ctx.ellipse(
+      centerX - eyeSpacing,
+      eyeY,
+      radiusX * 0.15,
+      radiusY * 0.08,
+      0,
+      0,
+      2 * Math.PI
+    );
+    ctx.stroke();
+
+    // Right eye area
+    ctx.beginPath();
+    ctx.ellipse(
+      centerX + eyeSpacing,
+      eyeY,
+      radiusX * 0.15,
+      radiusY * 0.08,
+      0,
+      0,
+      2 * Math.PI
+    );
+    ctx.stroke();
+
+    // Nose guideline
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY - radiusY * 0.1);
+    ctx.lineTo(centerX, centerY + radiusY * 0.1);
+    ctx.stroke();
+
+    // Nose bridge curves
+    ctx.beginPath();
+    ctx.moveTo(centerX - radiusX * 0.05, centerY);
+    ctx.quadraticCurveTo(
+      centerX,
+      centerY + radiusY * 0.05,
+      centerX + radiusX * 0.05,
+      centerY
+    );
+    ctx.stroke();
+
+    // Mouth area
+    const mouthY = centerY + radiusY * 0.3;
+    ctx.beginPath();
+    ctx.ellipse(centerX, mouthY, radiusX * 0.2, radiusY * 0.06, 0, 0, Math.PI);
+    ctx.stroke();
+
+    // Jaw line enhancement
+    ctx.beginPath();
+    ctx.moveTo(centerX - radiusX * 0.8, centerY + radiusY * 0.6);
+    ctx.quadraticCurveTo(
+      centerX,
+      centerY + radiusY * 0.9,
+      centerX + radiusX * 0.8,
+      centerY + radiusY * 0.6
+    );
+    ctx.stroke();
+  };
+
+  // Function to stop camera completely
+  const stopCamera = () => {
+    // Stop animation loop
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+
+    // Stop video stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    // Clear video source
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const analyze = async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (!video || video.readyState < 2 || !canvas) {
+      animationRef.current = requestAnimationFrame(analyze);
+      return;
+    }
+
+    // CRITICAL: Check if video has valid dimensions before proceeding
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      animationRef.current = requestAnimationFrame(analyze);
+      return;
+    }
+
+    // Ensure canvas has the correct dimensions
+    if (
+      canvas.width !== video.videoWidth ||
+      canvas.height !== video.videoHeight
+    ) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      animationRef.current = requestAnimationFrame(analyze);
+      return;
+    }
+
+    const result = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks(true);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (result) {
+      // Double-check dimensions are valid before calling matchDimensions
+      const videoHasValidDimensions =
+        video.videoWidth > 0 && video.videoHeight > 0;
+      const canvasHasValidDimensions = canvas.width > 0 && canvas.height > 0;
+
+      if (!videoHasValidDimensions || !canvasHasValidDimensions) {
+        console.warn("Invalid dimensions detected:", {
+          video: { width: video.videoWidth, height: video.videoHeight },
+          canvas: { width: canvas.width, height: canvas.height },
+        });
+        animationRef.current = requestAnimationFrame(analyze);
+        return;
+      }
+
+      const dims = faceapi.matchDimensions(canvas, video, true);
+
+      // Additional safety check after matchDimensions
+      if (dims.width === 0 || dims.height === 0) {
+        console.warn("matchDimensions returned invalid dimensions:", dims);
+        animationRef.current = requestAnimationFrame(analyze);
+        return;
+      }
+
+      const resized = faceapi.resizeResults(result, dims);
+
+      // Get face bounding box
+      const box = result.detection.box;
+
+      // Draw the oval mesh
+      drawOvalFaceMesh(ctx, resized.landmarks, box);
+
+      const landmarks = result.landmarks;
+
+      const faceCanvasW = canvas.width;
+      const faceCanvasH = canvas.height;
+
+      const centerX = box.x + box.width / 2;
+      const centerY = box.y + box.height / 2;
+
+      const isCentered =
+        Math.abs(centerX - faceCanvasW / 2) < 15 && // Was 50
+        Math.abs(centerY - faceCanvasH / 2) < 30; // Was 50
+
+      const isBigEnough =
+        box.width > 0.35 * faceCanvasW && // Was 0.5
+        box.height > 0.45 * faceCanvasH; // Was 0.5
+
+      const isTooClose =
+        box.width > 0.9 * faceCanvasW || // Optional: tighten if needed
+        box.height > 0.9 * faceCanvasH;
+
+      const isFullyInside =
+        box.x > 30 &&
+        box.y > 30 &&
+        box.x + box.width < faceCanvasW - 30 &&
+        box.y + box.height < faceCanvasH - 30;
+
+      const hasMargin =
+        box.x > faceCanvasW * 0.1 &&
+        box.y > faceCanvasH * 0.1 &&
+        box.x + box.width < faceCanvasW * 0.9 &&
+        box.y + box.height < faceCanvasH * 0.9;
+
+      const getGlobalBrightness = (ctx: CanvasRenderingContext2D) => {
+        const { width, height } = ctx.canvas;
+        const data = ctx.getImageData(0, 0, width, height).data;
+        let total = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          total += (data[i] + data[i + 1] + data[i + 2]) / 3;
+        }
+        return total / (data.length / 4);
+      };
+
+      const brightness = getGlobalBrightness(ctx);
+      const lighting = brightness >= 3;
+
+      console.log(brightness, "bright");
+      const leftEye = landmarks.getLeftEye();
+      const rightEye = landmarks.getRightEye();
+
+      const areEyesVisible = leftEye.length > 0 && rightEye.length > 0;
+      setEyesDetected(areEyesVisible);
+
+      const straight = areEyesVisible && isLookingStraight(landmarks);
+
+      console.log("📏 Current Face Box Stats:");
+      console.log("Canvas size:", faceCanvasW, "x", faceCanvasH);
+      console.log("Face Box:", box);
+      console.log("Face center:", { centerX, centerY });
+      console.log("CenterX delta:", Math.abs(centerX - faceCanvasW / 2));
+      console.log("CenterY delta:", Math.abs(centerY - faceCanvasH / 2));
+      console.log("Face width %:", (box.width / faceCanvasW) * 100);
+      console.log("Face height %:", (box.height / faceCanvasH) * 100);
+      console.log("Margin left:", box.x);
+      console.log("Margin top:", box.y);
+      console.log("Margin right:", faceCanvasW - (box.x + box.width));
+      console.log("Margin bottom:", faceCanvasH - (box.y + box.height));
+
+      const isValid =
+        lighting &&
+        straight &&
+        isFullyInside &&
+        isBigEnough &&
+        isCentered &&
+        hasMargin &&
+        !isTooClose;
+
+      const feedback: string[] = [];
+      if (!lighting) feedback.push("💡 Improve lighting on your face");
+      if (!straight) feedback.push("🧍 Look straight into the camera");
+      if (!(isCentered && isBigEnough)) feedback.push("🎯 Center your face");
+      if (!hasMargin) feedback.push("↔️ Add more space around your face");
+      if (isTooClose) feedback.push("↪️ Move back a little");
+      if (!isFullyInside)
+        feedback.push("🎯 Keep your full face within the frame");
+      if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
+      if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
+
+      setTips(feedback);
+      setLightingOK(lighting);
+      setStraightOK(straight);
+      setFacePositionOK(
+        isCentered && isFullyInside && isBigEnough && !isTooClose
+      );
+      setFaceValid(isValid);
+
+      if (isValid && !isCountingDown) {
+        const tmpCanvas = document.createElement("canvas");
+        tmpCanvas.width = video.videoWidth;
+        tmpCanvas.height = video.videoHeight;
+        const tmpCtx = tmpCanvas.getContext("2d");
+        if (tmpCtx) {
+          tmpCtx.drawImage(video, 0, 0);
+          const image = tmpCanvas.toDataURL("image/jpeg");
+          setCapturedImage(image);
+
+          // Set all checks to green and stop camera before countdown
+          setLightingOK(true);
+          setStraightOK(true);
+          setFacePositionOK(true);
+          setFaceValid(true);
+          stopCamera();
+
+          startCountdown(image);
+        }
+      } else if (!isValid && isCountingDown) {
+        cancelCountdown();
+      }
+    } else {
+      setFaceValid(false);
+      setLightingOK(false);
+      setFacePositionOK(false);
+      setStraightOK(false);
+      setTips(["❌ No face detected"]);
+    }
+
+    // Only continue animation if we haven't captured yet
+    if (!capturedImage && !hasCapturedRef.current) {
+      animationRef.current = requestAnimationFrame(analyze);
+    }
+  };
+
+  // Also update the useEffect to ensure proper video loading:
+  useEffect(() => {
     const loadModelsAndStart = async () => {
       try {
         await Promise.all([
@@ -34,12 +487,14 @@ export default function CameraPrompt({ onCapture }: Props) {
           faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models"),
         ]);
 
-        stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: 640, height: 480 },
           audio: false,
         });
 
-        // Add null checks before accessing the refs
+        // Store stream reference
+        streamRef.current = stream;
+
         const video = videoRef.current;
         const canvas = canvasRef.current;
 
@@ -49,138 +504,44 @@ export default function CameraPrompt({ onCapture }: Props) {
         }
 
         video.srcObject = stream;
-        await video.play();
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
 
-        analyze();
+        // Wait for video metadata to load completely
+        await new Promise((resolve) => {
+          video.addEventListener("loadedmetadata", resolve, { once: true });
+        });
+
+        await video.play();
+
+        // Ensure video has valid dimensions before setting canvas
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          console.log("Canvas dimensions set:", {
+            width: canvas.width,
+            height: canvas.height,
+          });
+
+          // Start analysis only after everything is properly set up
+          analyze();
+        } else {
+          console.error("Video dimensions are invalid:", {
+            videoWidth: video.videoWidth,
+            videoHeight: video.videoHeight,
+          });
+        }
       } catch (error) {
         console.error("Failed to initialize camera:", error);
         setTips(["❌ Failed to access camera. Please check permissions."]);
       }
     };
 
-    const analyze = async () => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-
-      if (!video || video.readyState < 2 || !canvas) {
-        animationRef.current = requestAnimationFrame(analyze);
-        return;
-      }
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        animationRef.current = requestAnimationFrame(analyze);
-        return;
-      }
-
-      const result = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks(true);
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (result) {
-        const dims = faceapi.matchDimensions(canvas, video, true);
-        const resized = faceapi.resizeResults(result, dims);
-        faceapi.draw.drawFaceLandmarks(canvas, resized);
-
-        const box = result.detection.box;
-        const landmarks = result.landmarks;
-
-        const faceCanvasW = canvas.width;
-        const faceCanvasH = canvas.height;
-
-        const centerX = box.x + box.width / 2;
-        const centerY = box.y + box.height / 2;
-        const isBigEnough =
-          box.width > 0.5 * faceCanvasW && box.height > 0.5 * faceCanvasH;
-        const isTooClose =
-          box.width > 0.85 * faceCanvasW || box.height > 0.85 * faceCanvasH;
-        const isFullyInside =
-          box.x > 10 &&
-          box.y > 10 &&
-          box.x + box.width < faceCanvasW - 10 &&
-          box.y + box.height < faceCanvasH - 10;
-
-        const isCentered =
-          Math.abs(centerX - faceCanvasW / 2) < 50 &&
-          Math.abs(centerY - faceCanvasH / 2) < 50;
-
-        const hasMargin =
-          box.x > faceCanvasW * 0.1 &&
-          box.y > faceCanvasH * 0.1 &&
-          box.x + box.width < faceCanvasW * 0.9 &&
-          box.y + box.height < faceCanvasH * 0.9;
-
-        const brightness = getAverageBrightness(ctx, box);
-        const lighting = brightness > 80;
-        const straight = isLookingStraight(landmarks);
-
-        const isValid =
-          lighting &&
-          straight &&
-          isFullyInside &&
-          isBigEnough &&
-          isCentered &&
-          hasMargin &&
-          !isTooClose;
-
-        const feedback: string[] = [];
-        if (!lighting) feedback.push("💡 Improve lighting on your face");
-        if (!straight) feedback.push("🧍 Look straight into the camera");
-        if (!(isCentered && isBigEnough)) feedback.push("🎯 Center your face");
-        if (!hasMargin) feedback.push("↔️ Add more space around your face");
-        if (isTooClose) feedback.push("↪️ Move back a little");
-        if (!isFullyInside)
-          feedback.push("🎯 Keep your full face within the frame");
-        if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
-
-        setTips(feedback);
-        setLightingOK(lighting);
-        setStraightOK(straight);
-        setFacePositionOK(
-          isCentered && isFullyInside && isBigEnough && !isTooClose
-        );
-        setFaceValid(isValid);
-
-        if (isValid && !isCountingDown) {
-          const tmpCanvas = document.createElement("canvas");
-          tmpCanvas.width = video.videoWidth;
-          tmpCanvas.height = video.videoHeight;
-          const tmpCtx = tmpCanvas.getContext("2d");
-          if (tmpCtx) {
-            tmpCtx.drawImage(video, 0, 0);
-            const image = tmpCanvas.toDataURL("image/jpeg");
-            setCapturedImage(image);
-            startCountdown(image);
-          }
-        } else if (!isValid && isCountingDown) {
-          cancelCountdown();
-        }
-      } else {
-        setFaceValid(false);
-        setLightingOK(false);
-        setFacePositionOK(false);
-        setStraightOK(false);
-        setTips(["❌ No face detected"]);
-      }
-
-      animationRef.current = requestAnimationFrame(analyze);
-    };
-
     loadModelsAndStart();
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      stream?.getTracks().forEach((track) => track.stop());
+      stopCamera();
     };
   }, [isCountingDown]);
 
-  // Also update the handleRetake function:
   const handleRetake = async () => {
     hasCapturedRef.current = false;
     setCapturedImage(null);
@@ -189,17 +550,19 @@ export default function CameraPrompt({ onCapture }: Props) {
     setCaptureFailed(false);
     setTips(["📸 Reinitializing camera..."]);
 
-    // Stop all video tracks
-    const stream = videoRef.current?.srcObject as MediaStream;
-    stream?.getTracks().forEach((track) => track.stop());
+    // Stop existing camera
+    stopCamera();
 
-    // Wait briefly before restarting
+    // Wait and restart camera
     setTimeout(async () => {
       try {
         const newStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: 640, height: 480 },
           audio: false,
         });
+
+        // Store new stream reference
+        streamRef.current = newStream;
 
         const video = videoRef.current;
         const canvas = canvasRef.current;
@@ -217,6 +580,7 @@ export default function CameraPrompt({ onCapture }: Props) {
         canvas.height = video.videoHeight;
 
         setTips(["✅ Camera ready. Hold still..."]);
+        analyze();
       } catch (err) {
         console.error("Failed to restart camera:", err);
         setTips(["❌ Failed to restart camera"]);
@@ -228,14 +592,15 @@ export default function CameraPrompt({ onCapture }: Props) {
     console.log(image, tips);
     setIsCountingDown(true);
     setCountdown(3);
+
     let lastTime = performance.now();
+
     const animate = (now: number) => {
       if (now - lastTime >= 1000) {
         setCountdown((prev) => {
           if (prev <= 1) {
             setIsCountingDown(false);
-            // ❌ Don't auto-call onCapture(image) here
-            // ✅ Just let buttons appear for user to proceed
+            hasCapturedRef.current = true;
             return 3;
           }
           return prev - 1;
@@ -254,14 +619,6 @@ export default function CameraPrompt({ onCapture }: Props) {
       cancelAnimationFrame(countdownRef.current);
     }
     setTips(["⚠️ Hold still and meet all conditions to capture."]);
-  };
-
-  const getAverageBrightness = (ctx: CanvasRenderingContext2D, box: any) => {
-    const data = ctx.getImageData(box.x, box.y, box.width, box.height).data;
-    let total = 0;
-    for (let i = 0; i < data.length; i += 4)
-      total += (data[i] + data[i + 1] + data[i + 2]) / 3;
-    return total / (data.length / 4);
   };
 
   const isLookingStraight = (landmarks: faceapi.FaceLandmarks68) => {
@@ -285,16 +642,17 @@ export default function CameraPrompt({ onCapture }: Props) {
     ctx.drawImage(video, 0, 0);
     const image = canvas.toDataURL("image/jpeg");
 
-    // Simulate all criteria passed
     setLightingOK(true);
     setStraightOK(true);
     setFacePositionOK(true);
     setFaceValid(true);
     setTips(["✅ Force captured for testing purposes"]);
 
-    // Trigger countdown like in analyze()
-    setCapturedImage(image); // necessary so the UI shows image preview
-    startCountdown(image); // this starts the countdown animation + triggers onCapture
+    setCapturedImage(image);
+
+    // Stop camera before starting countdown
+    stopCamera();
+    startCountdown(image);
   };
 
   return (
@@ -363,6 +721,19 @@ export default function CameraPrompt({ onCapture }: Props) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
               </div>
             )}
+
+{!capturedImage && showCaptureButton && !hasCapturedRef.current && !isCountingDown && eyesDetected && (
+  <div className="absolute bottom-4 left-4 right-4 flex justify-center z-20">
+                  <button
+                    onClick={handleForceCapture}
+                    className="group px-8 py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50 backdrop-blur-sm"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <span>📸 Capture</span>
+                    </span>
+                  </button>
+                </div>
+              )}
 
             {/* Action buttons - Now as overlay */}
             {capturedImage && !isCountingDown && (
@@ -435,40 +806,6 @@ export default function CameraPrompt({ onCapture }: Props) {
           </div>
         </div>
       </div>
-
-      {/* Feedback section */}
-      {/* {tips.length > 0 ? (
-        <div className="mt-8 z-10 max-w-md">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-pink-200 shadow-xl h-40 overflow-y-auto">
-            <div className="space-y-3">
-              {tips.map((tip, i) => (
-                <div
-                  key={i}
-                  className="flex items-center space-x-3 text-gray-700 animate-fadeIn"
-                  style={{ animationDelay: `${i * 100}ms` }}
-                >
-                  <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: "#f847b4" }}
-                  ></div>
-                  <p className="text-sm leading-relaxed">{tip}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null} */}
-
-      {!capturedImage && !isCountingDown && (
-        <button
-          onClick={handleForceCapture}
-          className="group mt-8 px-8 py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50 z-20"
-        >
-          <span className="flex items-center space-x-2">
-            <span>📸 Capture</span>
-          </span>
-        </button>
-      )}
 
       <style jsx>{`
         @keyframes fadeIn {

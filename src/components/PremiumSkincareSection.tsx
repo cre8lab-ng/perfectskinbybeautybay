@@ -30,8 +30,8 @@ const PremiumSkincareSection = () => {
 
           {/* Subheading */}
           <p className="text-xl lg:text-2xl text-gray-600 max-w-lg mx-auto lg:mx-0 leading-relaxed font-light">
-            Scan the QR to start your AI-powered skincare journey —
-            <span className="font-semibold text-pink-700">
+            Scan the QR to start your AI-powered skincare journey 
+            <span className="font-semibold text-pink-700 ml-2">
               100% personalized
             </span>
             , just for you.
@@ -80,7 +80,7 @@ const PremiumSkincareSection = () => {
               <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
                 {/* Video Content */}
                 <video
-                  src="https://res.cloudinary.com/debcfaccq/video/upload/v1750716000/Untitled_design_blnmpm.mp4"
+                  src="https://res.cloudinary.com/debcfaccq/video/upload/v1751058191/Untitled_design_zgl0lx.mp4"
                   autoPlay
                   muted
                   loop
