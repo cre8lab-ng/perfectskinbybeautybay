@@ -618,10 +618,9 @@ export default function FaceDetectionComponent() {
   }, []);
   console.log(analysisStatus);
 
-
   async function handleCustomDownload() {
     console.log("🚀 Starting download process...");
-  
+
     const fallbackValues = {
       score: "N/A",
       concernScores: {
@@ -631,23 +630,26 @@ export default function FaceDetectionComponent() {
         texture: "N/A",
       },
     };
-  
+
     try {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas not supported");
-  
+
       let width = 800;
       let height = 600;
       const extraHeight = 340; // Increased for better layout
-  
-                                      // @ts-expect-error: Supabase typing is too strict here
+
+      // @ts-expect-error: Supabase typing is too strict here
 
       const loadImageSafely = (src, label = "image", timeoutMs = 10000) =>
         new Promise((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = "anonymous";
-          const timeout = setTimeout(() => reject(new Error("Timeout")), timeoutMs);
+          const timeout = setTimeout(
+            () => reject(new Error("Timeout")),
+            timeoutMs
+          );
           img.onload = () => {
             clearTimeout(timeout);
             resolve(img);
@@ -658,36 +660,41 @@ export default function FaceDetectionComponent() {
           };
           img.src = src;
         });
-  
+
       let baseImage = null;
       if (originalImagePreview) {
         try {
           baseImage = await loadImageSafely(originalImagePreview, "base");
-                                          // @ts-expect-error: Supabase typing is too strict here
+          // @ts-expect-error: Supabase typing is too strict here
 
           width = baseImage.width;
-                                          // @ts-expect-error: Supabase typing is too strict here
+          // @ts-expect-error: Supabase typing is too strict here
 
           height = baseImage.height;
         } catch (err) {
-          console.log(err)
+          console.log(err);
           console.warn("Fallback to default base size");
         }
       }
-  
+
       let logoImage = null;
       try {
         logoImage = await loadImageSafely("/images/bh-logo.png", "logo", 5000);
       } catch (err) {
-        console.log(err)
+        console.log(err);
         console.warn("Logo failed");
       }
-  
+
       canvas.width = Math.max(width, 400);
       canvas.height = Math.max(height + extraHeight, 400);
 
       // 🌟 Premium gradient background
-      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      const gradient = ctx.createLinearGradient(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
       gradient.addColorStop(0, "#ffeef8");
       gradient.addColorStop(0.3, "#f8e8f5");
       gradient.addColorStop(0.7, "#f0d9eb");
@@ -709,7 +716,7 @@ export default function FaceDetectionComponent() {
       const cardPadding = 30;
       const cardX = cardPadding;
       const cardY = 20;
-      const cardWidth = canvas.width - (cardPadding * 2);
+      const cardWidth = canvas.width - cardPadding * 2;
       const cardHeight = canvas.height - 40;
 
       // Card background with subtle shadow
@@ -728,13 +735,19 @@ export default function FaceDetectionComponent() {
         const logoWidth = Math.min(180, cardWidth * 0.5);
         const logoHeight = 50;
         const logoX = cardX + (cardWidth - logoWidth) / 2;
-        
+
         // Logo background circle
         ctx.fillStyle = "rgba(248, 71, 180, 0.1)";
         ctx.beginPath();
-        ctx.arc(logoX + logoWidth/2, currentY + logoHeight/2, logoWidth/2 + 15, 0, Math.PI * 2);
+        ctx.arc(
+          logoX + logoWidth / 2,
+          currentY + logoHeight / 2,
+          logoWidth / 2 + 15,
+          0,
+          Math.PI * 2
+        );
         ctx.fill();
-                                        // @ts-expect-error: Supabase typing is too strict here
+        // @ts-expect-error: Supabase typing is too strict here
 
         ctx.drawImage(logoImage, logoX, currentY, logoWidth, logoHeight);
         currentY += logoHeight + 30;
@@ -762,17 +775,28 @@ export default function FaceDetectionComponent() {
       const imageY = currentY;
       const imageFramePadding = 15;
       const frameX = cardX + imageFramePadding;
-      const frameWidth = cardWidth - (imageFramePadding * 2);
+      const frameWidth = cardWidth - imageFramePadding * 2;
       const frameHeight = height;
 
       // Image frame with gradient border
-      const frameGradient = ctx.createLinearGradient(frameX, imageY, frameX + frameWidth, imageY + frameHeight);
+      const frameGradient = ctx.createLinearGradient(
+        frameX,
+        imageY,
+        frameX + frameWidth,
+        imageY + frameHeight
+      );
       frameGradient.addColorStop(0, "#f472b6");
       frameGradient.addColorStop(0.5, "#d946ef");
       frameGradient.addColorStop(1, "#a855f7");
       ctx.strokeStyle = frameGradient;
       ctx.lineWidth = 4;
-      ctx.roundRect(frameX - 2, imageY - 2, frameWidth + 4, frameHeight + 4, 12);
+      ctx.roundRect(
+        frameX - 2,
+        imageY - 2,
+        frameWidth + 4,
+        frameHeight + 4,
+        12
+      );
       ctx.stroke();
 
       // White inner frame
@@ -782,20 +806,43 @@ export default function FaceDetectionComponent() {
 
       if (baseImage) {
         ctx.save();
-        ctx.roundRect(frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10, 8);
+        ctx.roundRect(
+          frameX + 5,
+          imageY + 5,
+          frameWidth - 10,
+          frameHeight - 10,
+          8
+        );
         ctx.clip();
-                                        // @ts-expect-error: Supabase typing is too strict here
 
-        ctx.drawImage(baseImage, frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10);
+        ctx.drawImage(
+                  // @ts-expect-error: Supabase typing is too strict here
+
+          baseImage,
+          frameX + 5,
+          imageY + 5,
+          frameWidth - 10,
+          frameHeight - 10
+        );
         ctx.restore();
       } else {
         ctx.fillStyle = "#f8fafc";
-        ctx.roundRect(frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10, 8);
+        ctx.roundRect(
+          frameX + 5,
+          imageY + 5,
+          frameWidth - 10,
+          frameHeight - 10,
+          8
+        );
         ctx.fill();
         ctx.fillStyle = "#94a3b8";
         ctx.font = "20px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("No Image Available", frameX + frameWidth/2, imageY + frameHeight/2);
+        ctx.fillText(
+          "No Image Available",
+          frameX + frameWidth / 2,
+          imageY + frameHeight / 2
+        );
       }
 
       // Apply overlays within the frame
@@ -804,16 +851,29 @@ export default function FaceDetectionComponent() {
           try {
             const img = await loadImageSafely(mask.url, mask.name);
             ctx.save();
-            ctx.roundRect(frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10, 8);
+            ctx.roundRect(
+              frameX + 5,
+              imageY + 5,
+              frameWidth - 10,
+              frameHeight - 10,
+              8
+            );
             ctx.clip();
             ctx.globalAlpha = 0.7;
             ctx.globalCompositeOperation = "overlay";
-                                            // @ts-expect-error: Supabase typing is too strict here
 
-            ctx.drawImage(img, frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10);
+            ctx.drawImage(
+                          // @ts-expect-error: Supabase typing is too strict here
+
+              img,
+              frameX + 5,
+              imageY + 5,
+              frameWidth - 10,
+              frameHeight - 10
+            );
             ctx.restore();
           } catch (err) {
-            console.log(err)
+            console.log(err);
             console.warn("Overlay fail", mask.name);
           }
         }
@@ -825,12 +885,24 @@ export default function FaceDetectionComponent() {
       if (canvasRef?.current) {
         try {
           ctx.save();
-          ctx.roundRect(frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10, 8);
+          ctx.roundRect(
+            frameX + 5,
+            imageY + 5,
+            frameWidth - 10,
+            frameHeight - 10,
+            8
+          );
           ctx.clip();
-          ctx.drawImage(canvasRef.current, frameX + 5, imageY + 5, frameWidth - 10, frameHeight - 10);
+          ctx.drawImage(
+            canvasRef.current,
+            frameX + 5,
+            imageY + 5,
+            frameWidth - 10,
+            frameHeight - 10
+          );
           ctx.restore();
         } catch (err) {
-          console.log(err)
+          console.log(err);
           console.warn("Failed to draw canvas overlay");
         }
       }
@@ -849,19 +921,34 @@ export default function FaceDetectionComponent() {
       const scoreBoxHeight = 60;
       const scoreBoxX = cardX + (cardWidth - scoreBoxWidth) / 2;
 
-      const scoreGradient = ctx.createLinearGradient(scoreBoxX, currentY - 10, scoreBoxX + scoreBoxWidth, currentY + scoreBoxHeight - 10);
+      const scoreGradient = ctx.createLinearGradient(
+        scoreBoxX,
+        currentY - 10,
+        scoreBoxX + scoreBoxWidth,
+        currentY + scoreBoxHeight - 10
+      );
       scoreGradient.addColorStop(0, "#f472b6");
       scoreGradient.addColorStop(1, "#d946ef");
 
       ctx.fillStyle = scoreGradient;
-      ctx.roundRect(scoreBoxX, currentY - 10, scoreBoxWidth, scoreBoxHeight, 15);
+      ctx.roundRect(
+        scoreBoxX,
+        currentY - 10,
+        scoreBoxWidth,
+        scoreBoxHeight,
+        15
+      );
       ctx.fill();
 
       // Score text
       ctx.font = "bold 28px Arial, sans-serif";
       ctx.fillStyle = "#ffffff";
       ctx.textAlign = "center";
-      ctx.fillText(`Total Skin Score: ${totalScore}`, canvas.width / 2, currentY + 20);
+      ctx.fillText(
+        `Total Skin Score: ${totalScore}`,
+        canvas.width / 2,
+        currentY + 20
+      );
 
       currentY += 70;
 
@@ -875,42 +962,46 @@ export default function FaceDetectionComponent() {
       const scoreItemHeight = 45;
 
       concerns.forEach((key, index) => {
-                                        // @ts-expect-error: Supabase typing is too strict here
+        // @ts-expect-error: Supabase typing is too strict here
 
         let score = fallbackValues.concernScores[key];
-                                        // @ts-expect-error: Supabase typing is too strict here
+        // @ts-expect-error: Supabase typing is too strict here
 
         if (scoreInfo?.[key]?.ui_score !== undefined) {
-                                          // @ts-expect-error: Supabase typing is too strict here
+          // @ts-expect-error: Supabase typing is too strict here
 
           score = `${scoreInfo[key].ui_score}%`;
         }
-        
+
         const row = Math.floor(index / 2);
         const col = index % 2;
-        const itemX = cardX + 30 + (col * (scoreItemWidth + 20));
-        const itemY = currentY + (row * (scoreItemHeight + 15));
-        
+        const itemX = cardX + 30 + col * (scoreItemWidth + 20);
+        const itemY = currentY + row * (scoreItemHeight + 15);
+
         // Score item background
         ctx.fillStyle = "rgba(248, 71, 180, 0.08)";
         ctx.roundRect(itemX, itemY, scoreItemWidth, scoreItemHeight, 8);
         ctx.fill();
-        
+
         // Color accent
         ctx.fillStyle = concernColors[index];
         ctx.roundRect(itemX, itemY, 4, scoreItemHeight, 2);
         ctx.fill();
-        
+
         // Icon and text
         ctx.fillStyle = concernColors[index];
         ctx.font = "16px Arial, sans-serif";
         ctx.textAlign = "left";
         ctx.fillText(concernIcons[index], itemX + 15, itemY + 20);
-        
+
         ctx.fillStyle = "#374151";
         ctx.font = "bold 16px Arial, sans-serif";
-        ctx.fillText(key.charAt(0).toUpperCase() + key.slice(1), itemX + 35, itemY + 20);
-        
+        ctx.fillText(
+          key.charAt(0).toUpperCase() + key.slice(1),
+          itemX + 35,
+          itemY + 20
+        );
+
         ctx.fillStyle = concernColors[index];
         ctx.font = "bold 18px Arial, sans-serif";
         ctx.textAlign = "right";
@@ -946,7 +1037,12 @@ export default function FaceDetectionComponent() {
 
       // 🏷️ Brand watermark with style
       ctx.font = "bold 18px Arial, sans-serif";
-      const brandGradient = ctx.createLinearGradient(0, currentY - 10, canvas.width, currentY + 10);
+      const brandGradient = ctx.createLinearGradient(
+        0,
+        currentY - 10,
+        canvas.width,
+        currentY + 10
+      );
       brandGradient.addColorStop(0, "#f472b6");
       brandGradient.addColorStop(1, "#d946ef");
       ctx.fillStyle = brandGradient;
@@ -955,7 +1051,7 @@ export default function FaceDetectionComponent() {
       // 🌟 Final decorative elements
       ctx.fillStyle = "rgba(248, 71, 180, 0.1)";
       for (let i = 0; i < 5; i++) {
-        const x = cardX + 20 + (i * (cardWidth - 40) / 4);
+        const x = cardX + 20 + (i * (cardWidth - 40)) / 4;
         const y = cardY + cardHeight - 20;
         ctx.beginPath();
         ctx.arc(x, y, 3, 0, Math.PI * 2);
@@ -964,26 +1060,29 @@ export default function FaceDetectionComponent() {
 
       // 🖼️ Final download
       const filename = `beautyhub-skin-result-${Date.now()}.jpg`;
-      canvas.toBlob((blob) => {
-        if (!blob) return alert("Download failed");
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }, 100);
-      }, "image/jpeg", 0.95);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return alert("Download failed");
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }, 100);
+        },
+        "image/jpeg",
+        0.95
+      );
     } catch (err) {
       console.error("Download failed:", err);
       alert("Something went wrong. Please try again.");
     }
   }
-  
-  
+
   return (
     <>
       {showPrivacyModal && (
@@ -1286,7 +1385,7 @@ export default function FaceDetectionComponent() {
                               height: "100%",
                               opacity: 1,
                               filter,
-                                                              // @ts-expect-error: Supabase typing is too strict here
+                              // @ts-expect-error: Supabase typing is too strict here
 
                               mixBlendMode: blendMode,
                               pointerEvents: "none",
@@ -1519,7 +1618,13 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
                 {scoreInfo && hasAccess && (
-                  <div style={{ textAlign: "center", marginTop: "1rem",marginBottom:"1rem" }}>
+                  <div
+                    style={{
+                      textAlign: "center",
+                      marginTop: "1rem",
+                      marginBottom: "1rem",
+                    }}
+                  >
                     <button
                       onClick={handleCustomDownload}
                       style={{
@@ -1705,148 +1810,195 @@ export default function FaceDetectionComponent() {
                       </div>
 
                       {productRecommendations.map(
-                        ({ concern, level, products }) => (
-                          <div
-                            key={concern}
-                            style={{
-                              marginBottom: "3rem",
-                              padding: "2rem",
-                              background: "rgba(255, 255, 255, 0.7)",
-                              borderRadius: "16px",
-                              border: "1px solid rgba(248, 71, 180, 0.1)",
-                              // Center the entire container horizontally
-                              margin: "0 auto 3rem auto",
-                              maxWidth: "1200px", // Optional: set max width
-                            }}
-                          >
-                            <h4
+                        ({ concern, level, products }) => {
+                          const stepOrder = [
+                            "cleanser",
+                            "toner",
+                            "treatment",
+                            "moisturizer",
+                            "sunscreen",
+                          ];
+
+                          // Group products by step
+                          const groupedByStep = stepOrder.reduce(
+                            (acc, step) => {
+                                    // @ts-expect-error: Supabase typing is too strict here
+
+                              acc[step] = products.filter(
+                                      // @ts-expect-error: Supabase typing is too strict here
+
+                                (p) => p.step === step
+                              );
+                              return acc;
+                            },
+                            {}
+                          );
+
+                          return (
+                            <div
+                              key={concern}
                               style={{
-                                textTransform: "capitalize",
-                                color: "#f847b4",
-                                fontSize: "1.4rem",
-                                fontWeight: "700",
-                                marginBottom: "1rem",
-                                textAlign: "center",
+                                marginBottom: "3rem",
+                                padding: "2rem",
+                                background: "rgba(255, 255, 255, 0.7)",
+                                borderRadius: "16px",
+                                border: "1px solid rgba(248, 71, 180, 0.1)",
+                                margin: "0 auto 3rem auto",
+                                maxWidth: "1200px",
                               }}
                             >
-                              {concern} Care Solutions
-                              <span
+                              <h4
                                 style={{
-                                  fontSize: "1rem",
-                                  fontStyle: "italic",
-                                  color: "#888",
-                                  fontWeight: "400",
+                                  textTransform: "capitalize",
+                                  color: "#f847b4",
+                                  fontSize: "1.4rem",
+                                  fontWeight: "700",
+                                  marginBottom: "1rem",
+                                  textAlign: "center",
                                 }}
                               >
-                                {" "}
-                                - {level.replace("_", " ")} priority
-                              </span>
-                            </h4>
-
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns:
-                                  "repeat(auto-fit, minmax(200px, 1fr))",
-                                gap: "2rem",
-                                marginTop: "1.5rem",
-                                // Center the grid items when there are fewer items
-                                justifyContent: "center",
-                                justifyItems: "center",
-                              }}
-                            >
-                              {products.map((product) => (
-                                <div
-                                  key={product.id}
+                                {concern} Care Solutions
+                                <span
                                   style={{
-                                    // Center each product card
-                                    width: "100%",
-                                    maxWidth: "250px", // Optional: limit card width
+                                    fontSize: "1rem",
+                                    fontStyle: "italic",
+                                    color: "#888",
+                                    fontWeight: "400",
                                   }}
                                 >
+                                  {" "}
+                                  - {level.replace("_", " ")} priority
+                                </span>
+                              </h4>
+
+                              {stepOrder.map((step) =>
+                                    // @ts-expect-error: Supabase typing is too strict here
+
+                                groupedByStep[step]?.length ? (
                                   <div
-                                    style={{
-                                      overflow: "hidden",
-                                      marginBottom: "1rem",
-                                      borderRadius: "8px", // Added for better visual
-                                    }}
+                                    key={step}
+                                    style={{ marginBottom: "2rem" }}
                                   >
-                                    <img
-                                      src={product.image}
-                                      alt={product.name}
+                                    <h5
                                       style={{
-                                        width: "100%",
-                                        height: "200px",
-                                        objectFit: "cover",
+                                        textTransform: "capitalize",
+                                        fontSize: "1.1rem",
+                                        fontWeight: "600",
+                                        margin: "1rem 0 0.5rem",
+                                        color: "#333",
                                       }}
-                                    />
+                                    >
+                                      {step}
+                                    </h5>
+
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns:
+                                          "repeat(auto-fit, minmax(200px, 1fr))",
+                                        gap: "2rem",
+                                        marginTop: "1rem",
+                                        justifyContent: "center",
+                                        justifyItems: "center",
+                                      }}
+                                    >
+                                             {/* @ts-expect-error: Supabase typing is too strict here */}
+
+                                      {groupedByStep[step].map((product:any) => (
+                                        <div
+                                          key={product.id}
+                                          style={{
+                                            width: "100%",
+                                            maxWidth: "250px",
+                                          }}
+                                        >
+                                          <div
+                                            style={{
+                                              overflow: "hidden",
+                                              marginBottom: "1rem",
+                                              borderRadius: "8px",
+                                            }}
+                                          >
+                                            <img
+                                              src={product.image}
+                                              alt={product.name}
+                                              style={{
+                                                width: "100%",
+                                                height: "200px",
+                                                objectFit: "cover",
+                                              }}
+                                            />
+                                          </div>
+
+                                          <h5
+                                            style={{
+                                              margin: "0 0 0.5rem",
+                                              fontWeight: "600",
+                                              color: "#333",
+                                              fontSize: "1rem",
+                                              lineHeight: "1.3",
+                                              textAlign: "center",
+                                            }}
+                                          >
+                                            {product.name}
+                                          </h5>
+
+                                          <p
+                                            style={{
+                                              margin: "0 0 1rem",
+                                              color: "#f847b4",
+                                              fontWeight: "700",
+                                              fontSize: "1.1rem",
+                                              textAlign: "center",
+                                            }}
+                                          >
+                                            {product.price_html}
+                                          </p>
+
+                                          <a
+                                            href={product.link}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{
+                                              display: "inline-block",
+                                              background:
+                                                "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                                              color: "white",
+                                              textDecoration: "none",
+                                              padding: "0.8rem 1.5rem",
+                                              borderRadius: "10px",
+                                              fontSize: "0.9rem",
+                                              fontWeight: "600",
+                                              boxShadow:
+                                                "0 4px 15px rgba(248, 71, 180, 0.3)",
+                                              transition: "all 0.3s ease",
+                                              width: "100%",
+                                              textAlign: "center",
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.currentTarget.style.transform =
+                                                "translateY(-2px)";
+                                              e.currentTarget.style.boxShadow =
+                                                "0 6px 20px rgba(248, 71, 180, 0.4)";
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.currentTarget.style.transform =
+                                                "translateY(0)";
+                                              e.currentTarget.style.boxShadow =
+                                                "0 4px 15px rgba(248, 71, 180, 0.3)";
+                                            }}
+                                          >
+                                            Shop Now
+                                          </a>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
-
-                                  <h5
-                                    style={{
-                                      margin: "0 0 0.5rem",
-                                      fontWeight: "600",
-                                      color: "#333",
-                                      fontSize: "1rem",
-                                      lineHeight: "1.3",
-                                      textAlign: "center", // Center product name
-                                    }}
-                                  >
-                                    {product.name}
-                                  </h5>
-
-                                  <p
-                                    style={{
-                                      margin: "0 0 1rem",
-                                      color: "#f847b4",
-                                      fontWeight: "700",
-                                      fontSize: "1.1rem",
-                                      textAlign: "center", // Center price
-                                    }}
-                                  >
-                                    {product.price_html}
-                                  </p>
-
-                                  <a
-                                    href={product.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                      display: "inline-block",
-                                      background:
-                                        "linear-gradient(135deg, #f847b4, #ff6bc7)",
-                                      color: "white",
-                                      textDecoration: "none",
-                                      padding: "0.8rem 1.5rem",
-                                      borderRadius: "10px",
-                                      fontSize: "0.9rem",
-                                      fontWeight: "600",
-                                      boxShadow:
-                                        "0 4px 15px rgba(248, 71, 180, 0.3)",
-                                      transition: "all 0.3s ease",
-                                      width: "100%",
-                                      textAlign: "center",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.transform =
-                                        "translateY(-2px)";
-                                      e.currentTarget.style.boxShadow =
-                                        "0 6px 20px rgba(248, 71, 180, 0.4)";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.transform =
-                                        "translateY(0)";
-                                      e.currentTarget.style.boxShadow =
-                                        "0 4px 15px rgba(248, 71, 180, 0.3)";
-                                    }}
-                                  >
-                                    Shop Now
-                                  </a>
-                                </div>
-                              ))}
+                                ) : null
+                              )}
                             </div>
-                          </div>
-                        )
+                          );
+                        }
                       )}
                     </div>
                   )}
