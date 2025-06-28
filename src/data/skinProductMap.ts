@@ -26,7 +26,7 @@ export const skinProductMap: {
       },
       {
         id: 141,
-        name: "CeraVe Foaming Facial Cleanser",
+        name: "Acwell Toner",
         price_html: "₦16,600",
         brand: "CeraVe",
         image: "/images/products/cerave-foaming-facial-cleanser.png",
@@ -35,7 +35,7 @@ export const skinProductMap: {
       },
       {
         id: 102,
-        name: "Simple Hydrating Light Moisturizer",
+        name: "Cosrx All In One",
         price_html: "₦9,500",
         brand: "Simple",
         image: "/images/products/simple-light-moisturizer.png",
@@ -44,7 +44,7 @@ export const skinProductMap: {
       },
       {
         id: 103,
-        name: "Black Girl Sunscreen SPF 30",
+        name: "Skin Aqua Sunscreen",
         price_html: "₦19,000",
         brand: "Black Girl Sunscreen",
         image: "/images/products/bgs-spf.png",
@@ -55,7 +55,7 @@ export const skinProductMap: {
     moderate: [
       {
         id: 104,
-        name: "Paula's Choice BHA Liquid Exfoliant",
+        name: "Cosrx Salicylic Acid Daily Gentle Cleanser",
         price_html: "₦33,000",
         brand: "Paula's Choice",
         image: "/images/products/paulas-choice-bha-liquid-exfoliant.png",
@@ -93,7 +93,7 @@ export const skinProductMap: {
     high: [
       {
         id: 107,
-        name: "La Roche-Posay Effaclar Duo+",
+        name: "Zapzyt Acne Wash Cleanser",
         price_html: "₦18,000",
         brand: "La Roche-Posay",
         image: "/images/products/laroche-posay-effaclar-duo.png",
@@ -131,7 +131,7 @@ export const skinProductMap: {
     very_high: [
       {
         id: 109,
-        name: "Differin Adapalene Gel 0.1%",
+        name: "Panoxyl Acne Creamy Wash 4% Benzoyl Peroxide Daily Control",
         price_html: "₦30,000",
         brand: "Differin",
         image: "/images/products/differin-adapalene-gel.png",
@@ -172,12 +172,12 @@ export const skinProductMap: {
     very_low: [
       {
         id: 201,
-        name: "Neutrogena Hydro Boost Water Gel",
+        name: "Ebunderma Gentle Cleanser",
         price_html: "₦35,000",
         brand: "Neutrogena",
         image: "/images/products/neutrogena.png",
         link: "https://beautyhub.ng/product/neutrogena-hydro-boost-hyaluronic-acid-water-gel/",
-        step: "moisturizer",
+        step: "cleanser",
       },
       {
         id: 448,
@@ -210,7 +210,7 @@ export const skinProductMap: {
     moderate: [
       {
         id: 8492,
-        name: "Olay Regenerist Retinol 24 Night Cream",
+        name: "Ebunderma Gentle Cleanser",
         price_html: "₦80,000",
         brand: "Olay",
         image: "/images/products/olay.png",
@@ -248,7 +248,7 @@ export const skinProductMap: {
     high: [
       {
         id: 84993,
-        name: "The Ordinary Retinol 1% in Squalane",
+        name: "Sensibio Mild Cleansing Foaming Gel",
         price_html: "₦25,000",
         brand: "The Ordinary",
         image: "/images/products/theordinary.png",
@@ -286,7 +286,7 @@ export const skinProductMap: {
     very_high: [
       {
         id: 259955,
-        name: "RoC Retinol Correxion Deep Wrinkle Night Cream",
+        name: "Regeneration Age Resisting Facial Wash",
         price_html: "₦100,000",
         brand: "RoC",
         image: "/images/products/roc.png",
@@ -327,7 +327,7 @@ export const skinProductMap: {
     very_low: [
       {
         id: 234459,
-        name: "The Ordinary Natural Moisturizing Factors + HA",
+        name: "Ebunderma Gentle Cleanser",
         price_html: "₦22,000",
         brand: "The Ordinary",
         image: "/images/products/ordinaryha.png",
@@ -365,7 +365,7 @@ export const skinProductMap: {
     moderate: [
       {
         id: 3675758,
-        name: "Pixi Glow Tonic",
+        name: "Heimish Matcha Biome Amino Acne Cleansing Foam",
         price_html: "₦9,000",
         brand: "Pixi",
         image: "/images/products/pixi.png",
@@ -403,7 +403,7 @@ export const skinProductMap: {
     high: [
       {
         id: 3958859,
-        name: "Dr. Dennis Gross Alpha Beta Universal Peel",
+        name: "M Skin Studio Glow Cure - Creamy Detoxifying Cleanser",
         price_html: "₦10,000",
         brand: "Dr. Dennis Gross",
         image: "/images/products/drdennis.png",
@@ -441,7 +441,7 @@ export const skinProductMap: {
     very_high: [
       {
         id: 635546,
-        name: "Paula's Choice Advanced Smoothing Treatment 10% AHA",
+        name: "Innisfre Blueberry Rebalancing 5.5 Cleanser",
         price_html: "₦90,000",
         brand: "Paula's Choice",
         image: "/images/products/paulaschoicetreatment",
@@ -482,7 +482,7 @@ export const skinProductMap: {
     very_low: [
       {
         id: 568859,
-        name: "The Inkey List Niacinamide Serum",
+        name: "Eucerin DermoPurifyer Oil Control Cleansing gel",
         price_html: "₦28,000",
         brand: "The Inkey List",
         image: "/images/products/inkeylistniacinamide",
@@ -520,7 +520,7 @@ export const skinProductMap: {
     moderate: [
       {
         id: 5674847,
-        name: "COSRX AHA/BHA Clarifying Treatment Toner",
+        name: "Skin1004 MADAGASCAR CENTELLA TONE BRIGHTENING CLEANSING GEL FOAM",
         price_html: "₦15,300",
         brand: "COSRX",
         image: "/images/products/cosrxahabha",
@@ -558,7 +558,7 @@ export const skinProductMap: {
     high: [
       {
         id: 5665747,
-        name: "The Ordinary Salicylic Acid 2% Solution",
+        name: "Bolden Skin Clarifying Cleanser",
         price_html: "₦23,000",
         brand: "The Ordinary",
         image: "/images/products/theordinarysalicylic",
@@ -596,7 +596,7 @@ export const skinProductMap: {
     very_high: [
       {
         id: 67575,
-        name: "Tatcha The Deep Cleanse",
+        name: "Jumiso Pore Clearing Cleansing Oil",
         price_html: "₦60,000",
         brand: "Tatcha",
         image: "/images/products/tatcha.png",
