@@ -95,7 +95,7 @@ const uniqueEmailsFromIP = [...new Set(ipAttempts.map((a) => a.email))];
       uniqueEmailsFromDevice.length >= 3
     ) {
       return res.status(429).json({
-        error: "You’ve reached the trial limit. Please try again later.",
+        error: "You’ve reached the trial limit. Please try again in the next 12 hours.",
       });
     }
 

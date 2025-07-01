@@ -11,6 +11,7 @@ import InstructionModal from "@/components/modal/instruction-modal";
 import PrivacyConsentModal from "@/components/modal/privacy-consent-modal";
 import CameraPrompt from "@/components/camera-prompt";
 import {
+  errorMessages,
   extractSkinAnalysisResults,
   getGranularLevel,
   notifyError,
@@ -90,6 +91,7 @@ export default function FaceDetectionComponent() {
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [showCameraPrompt, setShowCameraPrompt] = useState(false);
   const [showInstructionModal, setShowInstructionModal] = useState(false);
+  const [message, setMessage] = useState('');
   const [showPrivacyModal, setShowPrivacyModal] = useState(true);
   const [showOverlays, setShowOverlays] = useState(true); // 👈 toggle overlay state
   const [lastCaptureMethod, setLastCaptureMethod] = useState<
@@ -499,9 +501,8 @@ export default function FaceDetectionComponent() {
       const status = await pollAnalysisStatus(taskId, accessToken);
       setAnalysisStatus(status);
     } catch (err) {
-      console.log(err);
+      console.log(err, "err1");
       setRetake(true);
-      console.log(err);
     } finally {
       setAnalyzing(false);
     }
@@ -520,8 +521,6 @@ export default function FaceDetectionComponent() {
         const res = await checkSkinAnalysisStatus(taskId, accessToken);
         const status = res?.result?.status;
 
-        console.log(`🔄 Polling attempt ${attempts + 1}, status: ${status}`);
-
         if (status === "success") {
           console.log("✅ Analysis successful, processing results...");
 
@@ -533,10 +532,6 @@ export default function FaceDetectionComponent() {
           if (images.length > 0) setZipContent(images);
 
           const currentEmail = useResultAccess.getState().userEmail;
-
-          console.log("📊 Results processed, now granting access...");
-          console.log("👤 Current userEmail:", currentEmail);
-          console.log("🔐 Current hasAccess:", hasAccess);
 
           // ✅ Grant access only after successful analysis via secure API
           if (currentEmail) {
@@ -553,11 +548,7 @@ export default function FaceDetectionComponent() {
                 }),
               });
 
-              console.log("📡 API Response status:", apiRes.status);
-              console.log("📡 API Response ok:", apiRes.ok);
-
               const data = await apiRes.json();
-              console.log("📄 API Response data:", data);
 
               if (!apiRes.ok) {
                 console.error("❌ API request failed:", apiRes.status, data);
@@ -594,19 +585,24 @@ export default function FaceDetectionComponent() {
         }
 
         if (status === "error") {
-          console.warn("❌ Server returned error:", res.result?.error_message);
+          const errorCode = res.result.error;
+          console.log(errorCode)
+          const humanMessage =
+            errorMessages[errorCode] || "Please ensure your face is clearly visible and well-centered in the photo or better still upload an image.";
+          setMessage(humanMessage);
+
           break;
         }
 
         console.log(`⏳ Status: ${status}, retrying in 500ms...`);
       } catch (err) {
+        console.log(err, "1err");
         console.error("❌ Polling error:", err);
       }
 
       attempts++;
       await delay(500);
     }
-
     throw new Error("❌ Polling timed out after max attempts");
   };
 
@@ -816,7 +812,7 @@ export default function FaceDetectionComponent() {
         ctx.clip();
 
         ctx.drawImage(
-                  // @ts-expect-error: Supabase typing is too strict here
+          // @ts-expect-error: Supabase typing is too strict here
 
           baseImage,
           frameX + 5,
@@ -863,7 +859,7 @@ export default function FaceDetectionComponent() {
             ctx.globalCompositeOperation = "overlay";
 
             ctx.drawImage(
-                          // @ts-expect-error: Supabase typing is too strict here
+              // @ts-expect-error: Supabase typing is too strict here
 
               img,
               frameX + 5,
@@ -1663,9 +1659,8 @@ export default function FaceDetectionComponent() {
                         marginBottom: "1.5rem",
                       }}
                     >
-                      We couldn’t analyze your face. Please ensure your face is
-                      clearly visible and well-centered in the photo or better
-                      still upload an image.
+                      We couldn’t analyze your face, 
+                      {message} or better still upload an image.
                     </p>
                     <button
                       onClick={() => {
@@ -1822,10 +1817,10 @@ export default function FaceDetectionComponent() {
                           // Group products by step
                           const groupedByStep = stepOrder.reduce(
                             (acc, step) => {
-                                    // @ts-expect-error: Supabase typing is too strict here
+                              // @ts-expect-error: Supabase typing is too strict here
 
                               acc[step] = products.filter(
-                                      // @ts-expect-error: Supabase typing is too strict here
+                                // @ts-expect-error: Supabase typing is too strict here
 
                                 (p) => p.step === step
                               );
@@ -1872,7 +1867,7 @@ export default function FaceDetectionComponent() {
                               </h4>
 
                               {stepOrder.map((step) =>
-                                    // @ts-expect-error: Supabase typing is too strict here
+                                // @ts-expect-error: Supabase typing is too strict here
 
                                 groupedByStep[step]?.length ? (
                                   <div
@@ -1902,96 +1897,98 @@ export default function FaceDetectionComponent() {
                                         justifyItems: "center",
                                       }}
                                     >
-                                             {/* @ts-expect-error: Supabase typing is too strict here */}
+                                      {/* @ts-expect-error: Supabase typing is too strict here */}
 
-                                      {groupedByStep[step].map((product:any) => (
-                                        <div
-                                          key={product.id}
-                                          style={{
-                                            width: "100%",
-                                            maxWidth: "250px",
-                                          }}
-                                        >
+                                      {groupedByStep[step].map(
+                                        (product: any) => (
                                           <div
+                                            key={product.id}
                                             style={{
-                                              overflow: "hidden",
-                                              marginBottom: "1rem",
-                                              borderRadius: "8px",
-                                            }}
-                                          >
-                                            <img
-                                              src={product.image}
-                                              alt={product.name}
-                                              style={{
-                                                width: "100%",
-                                                height: "200px",
-                                                objectFit: "cover",
-                                              }}
-                                            />
-                                          </div>
-
-                                          <h5
-                                            style={{
-                                              margin: "0 0 0.5rem",
-                                              fontWeight: "600",
-                                              color: "#333",
-                                              fontSize: "1rem",
-                                              lineHeight: "1.3",
-                                              textAlign: "center",
-                                            }}
-                                          >
-                                            {product.name}
-                                          </h5>
-
-                                          <p
-                                            style={{
-                                              margin: "0 0 1rem",
-                                              color: "#f847b4",
-                                              fontWeight: "700",
-                                              fontSize: "1.1rem",
-                                              textAlign: "center",
-                                            }}
-                                          >
-                                            {product.price_html}
-                                          </p>
-
-                                          <a
-                                            href={product.link}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style={{
-                                              display: "inline-block",
-                                              background:
-                                                "linear-gradient(135deg, #f847b4, #ff6bc7)",
-                                              color: "white",
-                                              textDecoration: "none",
-                                              padding: "0.8rem 1.5rem",
-                                              borderRadius: "10px",
-                                              fontSize: "0.9rem",
-                                              fontWeight: "600",
-                                              boxShadow:
-                                                "0 4px 15px rgba(248, 71, 180, 0.3)",
-                                              transition: "all 0.3s ease",
                                               width: "100%",
-                                              textAlign: "center",
-                                            }}
-                                            onMouseEnter={(e) => {
-                                              e.currentTarget.style.transform =
-                                                "translateY(-2px)";
-                                              e.currentTarget.style.boxShadow =
-                                                "0 6px 20px rgba(248, 71, 180, 0.4)";
-                                            }}
-                                            onMouseLeave={(e) => {
-                                              e.currentTarget.style.transform =
-                                                "translateY(0)";
-                                              e.currentTarget.style.boxShadow =
-                                                "0 4px 15px rgba(248, 71, 180, 0.3)";
+                                              maxWidth: "250px",
                                             }}
                                           >
-                                            Shop Now
-                                          </a>
-                                        </div>
-                                      ))}
+                                            <div
+                                              style={{
+                                                overflow: "hidden",
+                                                marginBottom: "1rem",
+                                                borderRadius: "8px",
+                                              }}
+                                            >
+                                              <img
+                                                src={product.image}
+                                                alt={product.name}
+                                                style={{
+                                                  width: "100%",
+                                                  height: "200px",
+                                                  objectFit: "cover",
+                                                }}
+                                              />
+                                            </div>
+
+                                            <h5
+                                              style={{
+                                                margin: "0 0 0.5rem",
+                                                fontWeight: "600",
+                                                color: "#333",
+                                                fontSize: "1rem",
+                                                lineHeight: "1.3",
+                                                textAlign: "center",
+                                              }}
+                                            >
+                                              {product.name}
+                                            </h5>
+
+                                            <p
+                                              style={{
+                                                margin: "0 0 1rem",
+                                                color: "#f847b4",
+                                                fontWeight: "700",
+                                                fontSize: "1.1rem",
+                                                textAlign: "center",
+                                              }}
+                                            >
+                                              {product.price_html}
+                                            </p>
+
+                                            <a
+                                              href={product.link}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              style={{
+                                                display: "inline-block",
+                                                background:
+                                                  "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                                                color: "white",
+                                                textDecoration: "none",
+                                                padding: "0.8rem 1.5rem",
+                                                borderRadius: "10px",
+                                                fontSize: "0.9rem",
+                                                fontWeight: "600",
+                                                boxShadow:
+                                                  "0 4px 15px rgba(248, 71, 180, 0.3)",
+                                                transition: "all 0.3s ease",
+                                                width: "100%",
+                                                textAlign: "center",
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                e.currentTarget.style.transform =
+                                                  "translateY(-2px)";
+                                                e.currentTarget.style.boxShadow =
+                                                  "0 6px 20px rgba(248, 71, 180, 0.4)";
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                e.currentTarget.style.transform =
+                                                  "translateY(0)";
+                                                e.currentTarget.style.boxShadow =
+                                                  "0 4px 15px rgba(248, 71, 180, 0.3)";
+                                              }}
+                                            >
+                                              Shop Now
+                                            </a>
+                                          </div>
+                                        )
+                                      )}
                                     </div>
                                   </div>
                                 ) : null

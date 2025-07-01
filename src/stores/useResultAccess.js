@@ -47,7 +47,7 @@ export const useResultAccess = create(
 
           if (res.status === 429 || result.error?.includes("trial limit")) {
             set({ isBlocked: true });
-            notifyError("You’ve reached the trial limit. Please try again later.");
+            notifyError("You’ve reached the trial limit. Please try again in the next 12 hours.");
             return;
           }
 
