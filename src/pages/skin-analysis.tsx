@@ -98,6 +98,7 @@ export default function FaceDetectionComponent() {
     "upload" | "camera" | null
   >(null);
   const [scoreInfo, setScoreInfo] = useState<ScoreInfo | null>(null);
+  const [unitError, setUnitError] = useState(false);
   const [zipContent, setZipContent] = useState<ZipImage[]>([]);
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(
     null
@@ -481,33 +482,44 @@ export default function FaceDetectionComponent() {
     }
   };
 
+ console.log(unitError)
+  
+  
   const runSkinAnalysis = async (fileId: string) => {
     if (!accessToken) return notifyError("Access token not available");
     setAnalyzing(true);
-
+  
     try {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-
+      await new Promise((resolve) => setTimeout(resolve, 5000)); // optional delay
+  
       const analysis = await analyzeSkinFeatures(fileId, accessToken, [
         "acne",
         "wrinkle",
         "pore",
         "texture",
       ]);
-
+  
       const taskId = analysis.result.task_id;
       if (!taskId) throw new Error("No task_id returned");
-
+  
       const status = await pollAnalysisStatus(taskId, accessToken);
-      setAnalysisStatus(status);
+      setAnalysisStatus(status); // set UI status
     } catch (err) {
-      console.log(err, "err1");
-      setRetake(true);
+                                  // @ts-expect-error: Supabase typing is too strict here
+      if (err && err.response?.data.status === 400) {
+        setUnitError(true);
+        setMessage("Something went wrong. Please contact support on Instagram, WhatsApp, or email support@beautyhub.ng")
+        setRetake(true);
+      } else {
+        setUnitError(true);
+        setMessage("Something went wrong. Please contact support on Instagram, WhatsApp, or email support@beautyhub.ng")
+        setRetake(true);
+      }
     } finally {
       setAnalyzing(false);
     }
   };
-
+  
   const pollAnalysisStatus = async (
     taskId: string,
     accessToken: string
@@ -515,96 +527,78 @@ export default function FaceDetectionComponent() {
     let attempts = 0;
     const maxAttempts = 10;
     const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
+  
     while (attempts < maxAttempts) {
       try {
         const res = await checkSkinAnalysisStatus(taskId, accessToken);
         const status = res?.result?.status;
+        console.log(status,res)
 
         if (status === "success") {
-          console.log("✅ Analysis successful, processing results...");
-
+          console.log("✅ Analysis successful");
+  
           const zipUrl = res.result?.results?.[0]?.data?.[0]?.url;
           if (!zipUrl) throw new Error("No ZIP URL found in result");
-
+  
           const { score, images } = await extractSkinAnalysisResults(zipUrl);
           if (score) setScoreInfo(score);
           if (images.length > 0) setZipContent(images);
-
+  
           const currentEmail = useResultAccess.getState().userEmail;
-
-          // ✅ Grant access only after successful analysis via secure API
           if (currentEmail) {
-            console.log("🚀 Making API request to grant access...");
-
-            try {
-              const apiRes = await fetch("/api/access", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  email: currentEmail,
-                  type: "mark-analysis",
-                  source: "analysis",
-                }),
-              });
-
-              const data = await apiRes.json();
-
-              if (!apiRes.ok) {
-                console.error("❌ API request failed:", apiRes.status, data);
-                throw new Error(
-                  `API request failed: ${data.error || "Unknown error"}`
-                );
-              }
-
-              if (data.success === false) {
-                console.warn("❌ Failed to insert free access:", data.reason);
-                // Handle specific failure reasons
-                if (data.reason === "already_exists") {
-                  console.log("✅ User already has access recorded");
-                } else if (data.reason === "no_payment") {
-                  console.error("❌ No valid payment found for user");
-                  // Don't throw error for no payment - might be intentional
-                  console.log("ℹ️ Continuing without database insertion");
-                }
-              } else if (data.success === true) {
-                console.log("✅ Successfully granted free access to user!");
-              }
-            } catch (error) {
-              console.error("❌ Error granting access:", error);
-              // Don't fail the entire analysis for access issues
-              console.log("⚠️ Analysis completed but access grant failed");
-            }
-          } else {
-            console.warn("⚠️ No userEmail available - cannot grant access");
-            console.log("🔍 Check if user is logged in or email is set");
+            await grantAccess(currentEmail); // only called if success
           }
-
-          console.log("✅ Analysis flow completed");
+  
           return res;
         }
-
+  
         if (status === "error") {
           const errorCode = res.result.error;
-          console.log(errorCode)
+          console.log("❌ Analysis returned error:", errorCode);
           const humanMessage =
-            errorMessages[errorCode] || "Please ensure your face is clearly visible and well-centered in the photo or better still upload an image.";
+            errorMessages[errorCode] ||
+            "Please ensure your face is clearly visible and centered.";
           setMessage(humanMessage);
-
-          break;
+         console.log("Analysis returned error");
         }
-
-        console.log(`⏳ Status: ${status}, retrying in 500ms...`);
+  
+        console.log(`⏳ Polling status: ${status}, retrying...`);
       } catch (err) {
-        console.log(err, "1err");
-        console.error("❌ Polling error:", err);
+        console.error("❌ Polling failed:", err);
       }
-
+  
       attempts++;
       await delay(500);
     }
-    throw new Error("❌ Polling timed out after max attempts");
+  
+    throw new Error("❌ Polling timed out after maximum retries");
   };
+  
+  const grantAccess = async (email: string) => {
+    try {
+      const res = await fetch("/api/access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          type: "mark-analysis",
+          source: "analysis",
+        }),
+      });
+  
+      const data = await res.json();
+  
+      if (!res.ok || data.success === false) {
+        console.warn("⚠️ Access grant failed:", data.reason || data.error);
+        return;
+      }
+  
+      console.log("✅ Access granted successfully via mark-analysis");
+    } catch (err) {
+      console.error("❌ Failed to call mark-analysis:", err);
+    }
+  };
+  
 
   useEffect(() => {
     return () => {
@@ -1659,21 +1653,14 @@ export default function FaceDetectionComponent() {
                         marginBottom: "1.5rem",
                       }}
                     >
-                      We couldn’t analyze your face, 
-                      {message} or better still upload an image.
+
+                  {message}
+                     
                     </p>
                     <button
-                      onClick={() => {
-                        // Reset everything and go to camera prompt
-                        setUploadResponse(null);
-                        setScoreInfo(null);
-                        setAnalysisStatus(null);
-                        setOriginalImagePreview(null);
-                        setProcessedImagePreview(null);
-                        setLastCaptureMethod("camera");
-                        setShowCameraPrompt(true);
-                        setRetake(false);
-                      }}
+                  onClick={() => {
+                    window.location.reload();
+                  }}
                       style={{
                         background: analyzing
                           ? "linear-gradient(135deg, #ccc, #999)"

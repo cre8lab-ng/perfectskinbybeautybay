@@ -53,5 +53,6 @@ export async function extractSkinAnalysisResults(zipUrl: string) {
 export const errorMessages: Record<string, string> = {
   error_src_face_too_small: "your face is too far away. Please move closer to the camera",
   error_src_face_out_of_bound: "your face is partially outside the frame. Please center your face within the camera view",
+  error_large_face_angle: "your face is tilted. Please look straight at the camera with your head upright",
 };
 

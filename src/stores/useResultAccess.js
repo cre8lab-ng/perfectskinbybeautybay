@@ -63,20 +63,22 @@ export const useResultAccess = create(
             triggerPaystackPopup({
               email,
               amount: 500000,
+              reference,
               onSuccess: async (response) => {
+                console.log(response)
                 try {
                   const payRes = await fetch("/api/access", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       email,
-                      reference: response.reference,
+                      reference, // ✅ must match Paystack reference
                       type: "mark-paid",
                     }),
                   });
-
+            
                   const payData = await payRes.json();
-
+            
                   if (payRes.ok && payData.access_granted) {
                     set({ hasAccess: true });
                     notifySuccess("Payment successful! You now have access to your results.");

@@ -38,15 +38,15 @@ declare global {
 export function triggerPaystackPopup({
   email,
   amount,
+  reference = `SA-${Date.now()}`,
   onSuccess,
   onClose,
-  onCancel,
 }: {
   email: string;
   amount: number;
+  reference?: string;
   onSuccess?: (response?: any) => void;
   onClose?: () => void;
-  onCancel?: () => void;
 }) {
   const paystackKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
   if (!paystackKey) {
@@ -58,20 +58,15 @@ export function triggerPaystackPopup({
     notifyError("Paystack is not ready yet. Please try again in a few seconds.");
     return;
   }
-  console.log(onCancel);
-  // Ensure we always have valid functions, with proper fallbacks
+
   const callbackFn = (response: any) => {
-    console.log("Payment successful:", response);
-    if (onSuccess && typeof onSuccess === "function") {
-      onSuccess(response);
-    }
+    console.log("✅ Payment successful:", response);
+    if (onSuccess) onSuccess(response);
   };
 
   const onCloseFn = () => {
-    console.log("Payment popup closed");
-    if (onClose && typeof onClose === "function") {
-      onClose();
-    }
+    console.log("❌ Payment popup closed");
+    if (onClose) onClose();
   };
 
   try {
@@ -80,7 +75,7 @@ export function triggerPaystackPopup({
       email,
       amount,
       currency: "NGN",
-      ref: `SA-${Date.now()}`,
+      ref: reference, // ✅ now passed explicitly
       callback: callbackFn,
       onClose: onCloseFn,
     });

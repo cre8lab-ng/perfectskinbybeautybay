@@ -1,6 +1,6 @@
 // @/services/skinanalysis.ts
 
-import api from "@/util/api";
+import axios from "axios";
 
 export async function uploadImage(file: File, accessToken: string) {
   // Step 1: Get signed upload URL
@@ -68,19 +68,26 @@ export async function runSkinAnalysis(
   payload: SkinAnalysisPayload,
   accessToken: string
 ): Promise<SkinAnalysisResponse> {
-  const response = await api.post(
-    "https://yce-api-01.perfectcorp.com/s2s/v1.0/task/skin-analysis",
-    payload,
-    {
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${accessToken}`,
-      },
+  try {
+    const response = await axios.post(
+      "https://yce-api-01.perfectcorp.com/s2s/v1.0/task/skin-analysis",
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    if (error.response) {
+      console.error("API Error:", error.response.status, error.response.data);
+    } else {
+      console.error("Network or setup error:", error.message);
     }
-  );
-  // @ts-expect-error - available_balance is a currency-formatted string (e.g. "₦ 430.00")
-// We sanitize it before converting to number for comparison
-  return response;
+    throw error;
+  }
 }
 
 // ✅ REAL task status check using GET
@@ -93,7 +100,7 @@ export async function checkSkinAnalysisStatus(taskId: string, accessToken: strin
       Authorization: `Bearer ${accessToken}`,
     },
   });
-
+ console.log(response,'checkSkinAnalysisStatus')
   // First, check content type
   const contentType = response.headers.get("Content-Type");
 
