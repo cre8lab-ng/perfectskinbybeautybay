@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { createWooCompletedOrder } from "@/services/woocommerce";
 import { triggerPaystackPopup } from "@/util/paystack";
 import { useAccessManager } from "@/stores/useAccessManager";
 import { useResultAccess } from "@/stores/useResultAccess";
@@ -146,16 +145,23 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
                         return;
                       }
 
-                      const created = await createWooCompletedOrder(email);
+                      useResultAccess.getState().setUserEmail(email);
+                      useResultAccess.getState().setHasAccess(true);
+                      onLoginSuccess(email, true);
+                      notifySuccess(
+                        "Payment successful! You now have access to your results."
+                      );
 
-                      if (created) {
-                        useResultAccess.getState().setUserEmail(email);
-                        useResultAccess.getState().setHasAccess(true);
-                        onLoginSuccess(email, true);
-                        notifySuccess(
-                          "Payment successful! You now have access to your results."
-                        );
-                      }
+                      // const created = await createWooCompletedOrder(email);
+
+                      // if (created) {
+                      //   useResultAccess.getState().setUserEmail(email);
+                      //   useResultAccess.getState().setHasAccess(true);
+                      //   onLoginSuccess(email, true);
+                      //   notifySuccess(
+                      //     "Payment successful! You now have access to your results."
+                      //   );
+                      // }
 
                       setIsPaying(false);
                     },

@@ -23,7 +23,8 @@ async function checkWooOrder(email: string): Promise<boolean> {
     });
 
     return response.data.some(
-      (order: any) => order.billing?.email?.toLowerCase() === email.toLowerCase()
+      (order: any) =>
+        order.billing?.email?.toLowerCase() === email.toLowerCase()
     );
   } catch (err) {
     console.error("WooCommerce check failed:", err);
@@ -31,7 +32,10 @@ async function checkWooOrder(email: string): Promise<boolean> {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const ip =
     (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
     req.socket.remoteAddress ||
@@ -42,7 +46,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const current = rateLimiter.get(key) || 0;
 
   if (current >= 5) {
-    return res.status(429).json({ error: "Too many requests. Please try again later." });
+    return res
+      .status(429)
+      .json({ error: "Too many requests. Please try again later." });
   }
   rateLimiter.set(key, current + 1);
 
@@ -57,7 +63,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const emailLower = email.toLowerCase();
-  const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+  const twelveHoursAgo = new Date(
+    Date.now() - 12 * 60 * 60 * 1000
+  ).toISOString();
 
   try {
     // Log request
@@ -85,12 +93,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .gte("created_at", twelveHoursAgo),
     ]);
 
-    const uniqueEmailsFromIP = [...new Set((ipAttempts || []).map((a: any) => a.email))];
-    const uniqueEmailsFromDevice = [...new Set((deviceAttempts || []).map((a: any) => a.email))];
+    const uniqueEmailsFromIP = [
+      ...new Set((ipAttempts || []).map((a: any) => a.email)),
+    ];
+    const uniqueEmailsFromDevice = [
+      ...new Set((deviceAttempts || []).map((a: any) => a.email)),
+    ];
 
     if (uniqueEmailsFromIP.length >= 3 || uniqueEmailsFromDevice.length >= 3) {
       return res.status(429).json({
-        error: "You’ve reached the trial limit. Please try again in the next 12 hours.",
+        error:
+          "You’ve reached the trial limit. Please try again in the next 12 hours.",
       });
     }
 
@@ -116,7 +129,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const hasPaystack = !!paystackVerified;
 
       // If they've already used access but still have Paystack payment, grant access again
-      const accessGranted = (hasWoo || hasPaystack) && (!hasUsedAccess || !!paystackVerified);
+      const accessGranted =
+        (hasWoo || hasPaystack) && (!hasUsedAccess || !!paystackVerified);
 
       return res.status(200).json({
         access_granted: accessGranted,
@@ -160,7 +174,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               created_at: new Date().toISOString(),
             })
             .throwOnError();
-console.log(error)
+          console.log(error);
           return res.status(200).json({
             access_granted: true,
             source: "paystack",
@@ -172,7 +186,10 @@ console.log(error)
           reason: "payment_failed",
         });
       } catch (err: any) {
-        console.error("❌ Paystack verification error:", err?.response?.data || err);
+        console.error(
+          "❌ Paystack verification error:",
+          err?.response?.data || err
+        );
         return res.status(500).json({ error: "Payment verification failed" });
       }
     }
@@ -215,7 +232,10 @@ console.log(error)
       if (insertError) throw insertError;
 
       if (hasPaystack) {
-        await supabaseAdmin.from("paystack_verified").delete().eq("email", emailLower);
+        await supabaseAdmin
+          .from("paystack_verified")
+          .delete()
+          .eq("email", emailLower);
       }
 
       return res.status(200).json({ success: true });

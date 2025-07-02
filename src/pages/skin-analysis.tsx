@@ -512,7 +512,7 @@ export default function FaceDetectionComponent() {
         setRetake(true);
       } else {
         setUnitError(true);
-        setMessage("Something went wrong. Please contact support on Instagram, WhatsApp, or email support@beautyhub.ng")
+        setMessage("We couldn't analyze your skin.Please try again or contact support.")
         setRetake(true);
       }
     } finally {
