@@ -93,224 +93,315 @@ export function generateSkinAnalysisResult({ originalImageSrc, scoreInfo }: Gene
     new Promise<void>((res) => (productImage.onload = () => res())),
   ]).then(() => {
     canvas.width = 900;
-    canvas.height = 1900;
+    canvas.height = 2100;
 
-    // YOUR BRAND COLOR PALETTE
-    const darkPink = '#f847b4';      // Your primary brand color
-    const lightPink = '#ffd9f0';     // Your secondary brand color
-    const deeperPink = '#e239a3';    // Darker shade of your brand pink
+    // BEAUTY HUB PREMIUM COLOR PALETTE
+    const brandPink = '#f847b4';      // Primary brand color
+    const lightPink = '#ffd9f0';      // Secondary brand color
+    const deepPink = '#e239a3';       // Darker shade
+    const gradientPink = '#ff6bc7';   // Gradient variation
     const pureWhite = '#ffffff';
-    const charcoal = '#2c3e50';
-    const slate = '#34495e';
+    const softGray = '#f8f9fa';
+    const textDark = '#2c3e50';
+    const textLight = '#6c757d';
+    const shadowColor = 'rgba(248, 71, 180, 0.15)';
 
-    // Clean, minimal background - pure white
-    ctx.fillStyle = '#ffffff';
+    // PREMIUM GRADIENT BACKGROUND
+    const backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    backgroundGradient.addColorStop(0, pureWhite);
+    backgroundGradient.addColorStop(0.3, softGray);
+    backgroundGradient.addColorStop(0.7, '#fafbfc');
+    backgroundGradient.addColorStop(1, pureWhite);
+    ctx.fillStyle = backgroundGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // CLEAN HEADER SECTION - No borders, no bullshit
-    const headerY = 40;
-    const logoSize = 160;
+    // ELEGANT HEADER SECTION
+    const headerY = 60;
+    const logoSize = 120;
     const logoX = (canvas.width - logoSize) / 2;
     
-    // Just the logo - clean and simple
+    // Logo with premium shadow
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 5;
     ctx.drawImage(logo, logoX, headerY, logoSize, logoSize);
+    
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
 
-    // MAGNIFICENT TYPOGRAPHY - Modern tech-forward style with your brand colors
-    ctx.font = 'bold 52px Inconsolata, monospace';
-    const titleGradient = ctx.createLinearGradient(0, headerY + logoSize + 70, canvas.width, headerY + logoSize + 70);
-    titleGradient.addColorStop(0, darkPink);
-    titleGradient.addColorStop(0.5, deeperPink);
-    titleGradient.addColorStop(1, darkPink);
+    // MAGNIFICENT BRAND TYPOGRAPHY
+    const titleY = headerY + logoSize + 50;
+    
+    // Main title with premium gradient
+    ctx.font = 'bold 48px system-ui, -apple-system, sans-serif';
+    const titleGradient = ctx.createLinearGradient(0, titleY, canvas.width, titleY);
+    titleGradient.addColorStop(0, brandPink);
+    titleGradient.addColorStop(0.5, gradientPink);
+    titleGradient.addColorStop(1, deepPink);
     ctx.fillStyle = titleGradient;
     ctx.textAlign = 'center';
-    ctx.fillText('Perfect Skin By Beauty Hub', canvas.width / 2, headerY + logoSize + 70);
+    ctx.fillText('Beauty Hub', canvas.width / 2, titleY);
 
-    // Elegant subtitle with sophisticated styling
-    ctx.font = '28px Inconsolata, monospace';
-    ctx.fillStyle = slate;
-    ctx.fillText('AI Powered Skin Analysis', canvas.width / 2, headerY + logoSize + 110);
+    // Premium subtitle
+    ctx.font = '28px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = textDark;
+    ctx.fillText('AI-Powered Skin Analysis', canvas.width / 2, titleY + 45);
 
-    // Artistic separator - flowing wave design with your brand colors
-    const separatorY = headerY + logoSize + 140;
-    const separatorGradient = ctx.createLinearGradient(0, separatorY, canvas.width, separatorY);
-    separatorGradient.addColorStop(0, `${darkPink}00`);
-    separatorGradient.addColorStop(0.2, `${darkPink}99`);
-    separatorGradient.addColorStop(0.5, darkPink);
-    separatorGradient.addColorStop(0.8, `${darkPink}99`);
-    separatorGradient.addColorStop(1, `${darkPink}00`);
-    
-    ctx.strokeStyle = separatorGradient;
+    // Elegant tagline
+    ctx.font = '20px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = textLight;
+    ctx.fillText('Discover Your Perfect Skin Journey', canvas.width / 2, titleY + 75);
+
+    // PREMIUM DIVIDER
+    const dividerY = titleY + 110;
+    const dividerGradient = ctx.createLinearGradient(150, dividerY, 750, dividerY);
+    dividerGradient.addColorStop(0, 'rgba(248, 71, 180, 0)');
+    dividerGradient.addColorStop(0.5, brandPink);
+    dividerGradient.addColorStop(1, 'rgba(248, 71, 180, 0)');
+    ctx.strokeStyle = dividerGradient;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(100, separatorY);
-    ctx.bezierCurveTo(300, separatorY - 10, 600, separatorY + 10, 800, separatorY);
+    ctx.moveTo(150, dividerY);
+    ctx.lineTo(750, dividerY);
     ctx.stroke();
 
-    // CLEAN IMAGE PRESENTATION - No borders, no frames
-    const imageY = separatorY + 60;
-    const imageSize = 340;
+    // SPECTACULAR IMAGE SHOWCASE
+    const imageY = dividerY + 70;
+    const imageSize = 420; // Much larger image
     const imageX = (canvas.width - imageSize) / 2;
 
-    // Just the image - clean and simple
-    ctx.drawImage(productImage, imageX, imageY, imageSize, imageSize);
+    // Premium image container with gradient border
+    const borderSize = 8;
+    const borderGradient = ctx.createLinearGradient(imageX - borderSize, imageY - borderSize, 
+                                                   imageX + imageSize + borderSize, imageY + imageSize + borderSize);
+    borderGradient.addColorStop(0, brandPink);
+    borderGradient.addColorStop(0.5, gradientPink);
+    borderGradient.addColorStop(1, deepPink);
+    
+    ctx.fillStyle = borderGradient;
+    ctx.fillRect(imageX - borderSize, imageY - borderSize, imageSize + borderSize * 2, imageSize + borderSize * 2);
 
-    // SPECTACULAR OVERALL SCORE - The crown jewel with your brand colors
+    // White inner border for contrast
+    ctx.fillStyle = pureWhite;
+    ctx.fillRect(imageX - 4, imageY - 4, imageSize + 8, imageSize + 8);
+
+    // Premium shadow for image
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = 30;
+    ctx.shadowOffsetY = 10;
+    
+    // Main image
+    ctx.drawImage(productImage, imageX, imageY, imageSize, imageSize);
+    
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // SPECTACULAR OVERALL SCORE
     const overallScoreY = imageY + imageSize + 100;
     const overallScore = scoreInfo.all?.score ?? 'N/A';
 
-    // Magnificent score container - glass morphism effect with your brand colors
-    const overallBoxWidth = 520;
-    const overallBoxHeight = 140;
+    // Premium score container
+    const overallBoxWidth = 600;
+    const overallBoxHeight = 160;
     const overallBoxX = (canvas.width - overallBoxWidth) / 2;
 
-    // Ultra-premium glass effect with your brand colors
-    ctx.shadowColor = `${darkPink}40`;
-    ctx.shadowBlur = 20;
-    ctx.shadowOffsetY = 10;
+    // Premium gradient background
+    const scoreGradient = ctx.createLinearGradient(overallBoxX, overallScoreY, 
+                                                  overallBoxX + overallBoxWidth, overallScoreY + overallBoxHeight);
+    scoreGradient.addColorStop(0, brandPink);
+    scoreGradient.addColorStop(0.5, gradientPink);
+    scoreGradient.addColorStop(1, deepPink);
     
-    const glassGradient = ctx.createLinearGradient(overallBoxX, overallScoreY, overallBoxX + overallBoxWidth, overallScoreY + overallBoxHeight);
-    glassGradient.addColorStop(0, `${darkPink}e6`);
-    glassGradient.addColorStop(0.5, `${deeperPink}f2`);
-    glassGradient.addColorStop(1, `${darkPink}e6`);
-    ctx.fillStyle = glassGradient;
-    ctx.fillRect(overallBoxX, overallScoreY, overallBoxWidth, overallBoxHeight);
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = 25;
+    ctx.shadowOffsetY = 8;
+    
+    // Rounded rectangle for modern look
+    ctx.fillStyle = scoreGradient;
+    ctx.beginPath();
+    ctx.roundRect(overallBoxX, overallScoreY, overallBoxWidth, overallBoxHeight, 20);
+    ctx.fill();
 
-    // Highlight effect on top
-    const highlightGradient = ctx.createLinearGradient(overallBoxX, overallScoreY, overallBoxX + overallBoxWidth, overallScoreY + 40);
+    // Premium highlight effect
+    const highlightGradient = ctx.createLinearGradient(overallBoxX, overallScoreY, 
+                                                      overallBoxX + overallBoxWidth, overallScoreY + 60);
     highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
     highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = highlightGradient;
-    ctx.fillRect(overallBoxX, overallScoreY, overallBoxWidth, 40);
+    ctx.beginPath();
+    ctx.roundRect(overallBoxX, overallScoreY, overallBoxWidth, 60, [20, 20, 0, 0]);
+    ctx.fill();
 
     // Reset shadow
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // Gorgeous score display
-    ctx.font = 'bold 80px Inconsolata, monospace';
+    // Premium score display
+    ctx.font = 'bold 90px system-ui, -apple-system, sans-serif';
     ctx.fillStyle = pureWhite;
     ctx.textAlign = 'center';
-    ctx.fillText(String(overallScore), canvas.width / 2, overallScoreY + 60);
+    ctx.fillText(String(overallScore), canvas.width / 2, overallScoreY + 75);
 
-    ctx.font = '26px Inconsolata, monospace';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.fillText('OVERALL SKIN SCORE', canvas.width / 2, overallScoreY + 95);
+    ctx.font = '28px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fillText('OVERALL SKIN SCORE', canvas.width / 2, overallScoreY + 110);
 
-    // ELEGANT DETAILED ANALYSIS SECTION with your brand colors
-    const resultsY = overallScoreY + 200;
+    // PREMIUM DETAILED ANALYSIS SECTION
+    const resultsY = overallScoreY + 240;
     
-    ctx.font = '50px Inconsolata, monospace';
+    // Section title
+    ctx.font = 'bold 44px system-ui, -apple-system, sans-serif';
     const detailsGradient = ctx.createLinearGradient(0, resultsY, canvas.width, resultsY);
-    detailsGradient.addColorStop(0, darkPink);
-    detailsGradient.addColorStop(0.5, deeperPink);
-    detailsGradient.addColorStop(1, darkPink);
+    detailsGradient.addColorStop(0, brandPink);
+    detailsGradient.addColorStop(0.5, gradientPink);
+    detailsGradient.addColorStop(1, deepPink);
     ctx.fillStyle = detailsGradient;
     ctx.textAlign = 'center';
     ctx.fillText('Detailed Analysis', canvas.width / 2, resultsY);
 
-    // Artistic flowing divider with your brand colors
-    const resultsDividerY = resultsY + 30;
-    const flowingGradient = ctx.createLinearGradient(0, resultsDividerY, canvas.width, resultsDividerY);
-    flowingGradient.addColorStop(0, `${darkPink}00`);
-    flowingGradient.addColorStop(0.25, `${darkPink}66`);
-    flowingGradient.addColorStop(0.5, darkPink);
-    flowingGradient.addColorStop(0.75, `${darkPink}66`);
-    flowingGradient.addColorStop(1, `${darkPink}00`);
-    ctx.strokeStyle = flowingGradient;
+    // Premium section divider
+    const sectionDividerY = resultsY + 30;
+    const sectionGradient = ctx.createLinearGradient(200, sectionDividerY, 700, sectionDividerY);
+    sectionGradient.addColorStop(0, 'rgba(248, 71, 180, 0)');
+    sectionGradient.addColorStop(0.5, brandPink);
+    sectionGradient.addColorStop(1, 'rgba(248, 71, 180, 0)');
+    ctx.strokeStyle = sectionGradient;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(150, resultsDividerY);
-    ctx.bezierCurveTo(350, resultsDividerY - 8, 550, resultsDividerY + 8, 750, resultsDividerY);
+    ctx.moveTo(200, sectionDividerY);
+    ctx.lineTo(700, sectionDividerY);
     ctx.stroke();
 
-    // SPECTACULAR SCORE CARDS - Floating gems with your brand colors
-    const scoresStartY = resultsY + 120;
+    // PREMIUM SCORE CARDS
+    const scoresStartY = resultsY + 100;
     const scores = [
-      { label: 'Acne', value: scoreInfo.acne?.ui_score ?? 'N/A' },
-      { label: 'Wrinkle', value: scoreInfo.wrinkle?.ui_score ?? 'N/A' },
-      { label: 'Pore', value: scoreInfo.pore?.ui_score ?? 'N/A' },
-      { label: 'Texture', value: scoreInfo.texture?.ui_score ?? 'N/A' }
+      { label: 'Acne', value: scoreInfo.acne?.ui_score ?? 'N/A', icon: '🎯' },
+      { label: 'Wrinkles', value: scoreInfo.wrinkle?.ui_score ?? 'N/A', icon: '✨' },
+      { label: 'Pores', value: scoreInfo.pore?.ui_score ?? 'N/A', icon: '🔍' },
+      { label: 'Texture', value: scoreInfo.texture?.ui_score ?? 'N/A', icon: '💎' }
     ];
 
-    const scorePositions = [
-      { x: canvas.width / 2 - 200, y: scoresStartY },
-      { x: canvas.width / 2 + 200, y: scoresStartY },
-      { x: canvas.width / 2 - 200, y: scoresStartY + 240 },
-      { x: canvas.width / 2 + 200, y: scoresStartY + 240 }
-    ];
+    const cardWidth = 180;
+    const cardHeight = 220;
+    const cardSpacing = 20;
+    const totalWidth = (cardWidth * 4) + (cardSpacing * 3);
+    const startX = (canvas.width - totalWidth) / 2;
 
     scores.forEach((score, index) => {
-      const centerX = scorePositions[index].x;
-      const centerY = scorePositions[index].y;
-      const circleRadius = 90;
+      const cardX = startX + (index * (cardWidth + cardSpacing));
+      const cardY = scoresStartY;
       const scoreValue = typeof score.value === 'number' ? score.value : parseFloat(String(score.value)) || 0;
 
-      // Clean white circle - no borders
-      ctx.fillStyle = pureWhite;
+      // Premium card background
+      const cardGradient = ctx.createLinearGradient(cardX, cardY, cardX + cardWidth, cardY + cardHeight);
+      cardGradient.addColorStop(0, pureWhite);
+      cardGradient.addColorStop(1, softGray);
+      
+      ctx.shadowColor = shadowColor;
+      ctx.shadowBlur = 15;
+      ctx.shadowOffsetY = 5;
+      
+      ctx.fillStyle = cardGradient;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
+      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 15);
       ctx.fill();
 
-      // Clean progress track with your light pink
-      ctx.strokeStyle = `${lightPink}66`;
-      ctx.lineWidth = 8;
+      // Premium border
+      ctx.strokeStyle = lightPink;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, circleRadius - 25, 0, Math.PI * 2);
+      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 15);
       ctx.stroke();
 
-      // Clean progress arc with your dark pink
-      if (scoreValue > 0) {
-        const startAngle = -Math.PI / 2;
-        const endAngle = startAngle + (scoreValue / 100) * 2 * Math.PI;
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
 
-        ctx.strokeStyle = darkPink;
-        ctx.lineWidth = 8;
-        ctx.lineCap = 'round';
+      // Icon
+      ctx.font = '32px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = textDark;
+      ctx.textAlign = 'center';
+      ctx.fillText(score.icon, cardX + cardWidth / 2, cardY + 45);
+
+      // Score value
+      ctx.font = 'bold 48px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = brandPink;
+      ctx.fillText(String(score.value), cardX + cardWidth / 2, cardY + 105);
+
+      // Label
+      ctx.font = '20px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = textDark;
+      ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 135);
+
+      // Premium progress bar
+      const progressY = cardY + 155;
+      const progressWidth = cardWidth - 40;
+      const progressHeight = 6;
+      const progressX = cardX + 20;
+
+      // Progress background
+      ctx.fillStyle = lightPink;
+      ctx.beginPath();
+      ctx.roundRect(progressX, progressY, progressWidth, progressHeight, 3);
+      ctx.fill();
+
+      // Progress fill
+      if (scoreValue > 0) {
+        const fillWidth = (scoreValue / 100) * progressWidth;
+        const progressFillGradient = ctx.createLinearGradient(progressX, progressY, progressX + fillWidth, progressY);
+        progressFillGradient.addColorStop(0, brandPink);
+        progressFillGradient.addColorStop(1, gradientPink);
+        
+        ctx.fillStyle = progressFillGradient;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, circleRadius - 25, startAngle, endAngle);
-        ctx.stroke();
+        ctx.roundRect(progressX, progressY, fillWidth, progressHeight, 3);
+        ctx.fill();
       }
 
-      // Clean score display
-      ctx.font = 'bold 46px Inconsolata, monospace';
-      ctx.fillStyle = charcoal;
-      ctx.textAlign = 'center';
-      ctx.fillText(String(score.value), centerX, centerY + 15);
-
-      // Clean label
-      ctx.font = '24px Inconsolata, monospace';
-      ctx.fillStyle = slate;
-      ctx.fillText(score.label, centerX, centerY + circleRadius + 40);
+      // Rating text
+      ctx.font = '16px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = textLight;
+      const rating = scoreValue >= 80 ? 'Excellent' : scoreValue >= 60 ? 'Good' : scoreValue >= 40 ? 'Fair' : 'Needs Care';
+      ctx.fillText(rating, cardX + cardWidth / 2, cardY + 185);
     });
 
-    // LUXURIOUS FOOTER with your brand colors
-    const footerY = canvas.height - 160;
+    // PREMIUM FOOTER
+    const footerY = canvas.height - 180;
     
-    // Elegant separator wave with your brand colors
-    const footerWaveGradient = ctx.createLinearGradient(0, footerY - 30, canvas.width, footerY - 30);
-    footerWaveGradient.addColorStop(0, `${darkPink}00`);
-    footerWaveGradient.addColorStop(0.3, `${darkPink}4d`);
-    footerWaveGradient.addColorStop(0.7, `${darkPink}4d`);
-    footerWaveGradient.addColorStop(1, `${darkPink}00`);
-    ctx.strokeStyle = footerWaveGradient;
+    // Footer divider
+    const footerDividerGradient = ctx.createLinearGradient(100, footerY - 40, 800, footerY - 40);
+    footerDividerGradient.addColorStop(0, 'rgba(248, 71, 180, 0)');
+    footerDividerGradient.addColorStop(0.5, brandPink);
+    footerDividerGradient.addColorStop(1, 'rgba(248, 71, 180, 0)');
+    ctx.strokeStyle = footerDividerGradient;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(100, footerY - 30);
-    ctx.bezierCurveTo(300, footerY - 40, 600, footerY - 20, 800, footerY - 30);
+    ctx.moveTo(100, footerY - 40);
+    ctx.lineTo(800, footerY - 40);
     ctx.stroke();
 
-    // Sophisticated branding with your brand colors
-    ctx.font = '36px Inconsolata, monospace';
+    // Premium branding
+    ctx.font = 'bold 32px system-ui, -apple-system, sans-serif';
     const brandGradient = ctx.createLinearGradient(0, footerY, canvas.width, footerY);
-    brandGradient.addColorStop(0, darkPink);
-    brandGradient.addColorStop(0.5, deeperPink);
-    brandGradient.addColorStop(1, darkPink);
+    brandGradient.addColorStop(0, brandPink);
+    brandGradient.addColorStop(0.5, gradientPink);
+    brandGradient.addColorStop(1, deepPink);
     ctx.fillStyle = brandGradient;
     ctx.textAlign = 'center';
     ctx.fillText('Powered by CRE8LAB', canvas.width / 2, footerY);
 
-    // Elegant timestamp
+    // Website
+    ctx.font = '24px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = textDark;
+    ctx.fillText('www.beautyhub.ng', canvas.width / 2, footerY + 40);
+
+    // Timestamp
     const now = new Date();
     const timestamp = now.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -320,98 +411,94 @@ export function generateSkinAnalysisResult({ originalImageSrc, scoreInfo }: Gene
       minute: '2-digit'
     });
     
-    ctx.font = '22px Inconsolata, monospace';
-    ctx.fillStyle = slate;
-    ctx.fillText(`Generated on ${timestamp}`, canvas.width / 2, footerY + 45);
+    ctx.font = '18px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = textLight;
+    ctx.fillText(`Generated on ${timestamp}`, canvas.width / 2, footerY + 70);
 
-    ctx.font = '20px Inconsolata, monospace';
-    ctx.fillStyle = charcoal;
-    ctx.fillText('www.beautyhub.ng', canvas.width / 2, footerY + 75);
+    // Premium tagline
+    ctx.font = 'italic 16px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = textLight;
+    ctx.fillText('Your journey to perfect skin starts here', canvas.width / 2, footerY + 95);
 
-    // Export with pristine quality - Mobile-optimized
+    // Export with pristine quality
     const resultImage: string = canvas.toDataURL("image/png", 1.0);
     
-    // Mobile-friendly download approach
+    // Enhanced mobile-friendly download
     if (navigator.userAgent.match(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile/i)) {
-      // For mobile devices - try to trigger native sharing/saving
       if (navigator.share) {
-        // Convert data URL to blob for native sharing
         fetch(resultImage)
           .then(res => res.blob())
           .then(blob => {
-            const file = new File([blob], 'psbbh-skinanalysis-result.png', { type: 'image/png' });
+            const file = new File([blob], 'beautyhub-skin-analysis.png', { type: 'image/png' });
             navigator.share({
-              title: 'Perfect Skin Analysis Result',
-              text: 'My skin analysis result from Beauty Hub',
+              title: 'Beauty Hub - Skin Analysis Result',
+              text: 'My personalized skin analysis from Beauty Hub',
               files: [file]
             }).catch(err => {
-              console.log('Native sharing failed, falling back to download',err);
+              console.log('Native sharing failed, falling back to download', err);
               fallbackDownload(resultImage);
             });
           })
           .catch(() => fallbackDownload(resultImage));
       } else {
-        // Fallback for mobile browsers without native sharing
         fallbackDownload(resultImage);
       }
     } else {
-      // Desktop download
       fallbackDownload(resultImage);
     }
     
     function fallbackDownload(imageData: string) {
       const link: HTMLAnchorElement = document.createElement("a");
       link.href = imageData;
-      link.download = `psbbh-skinanalysis-result-${Date.now()}.png`;
+      link.download = `beautyhub-skin-analysis-${Date.now()}.png`;
       
-      // Better mobile support
       link.style.display = 'none';
       document.body.appendChild(link);
-      
-      // Trigger download
       link.click();
       
-      // Clean up
       setTimeout(() => {
         document.body.removeChild(link);
       }, 100);
       
-      // Additional mobile-specific handling
+      // Enhanced mobile instruction with Beauty Hub branding
       if (navigator.userAgent.match(/Android|iPhone|iPad|iPod/i)) {
-        // Show user instruction for mobile with your brand colors
         const instruction = document.createElement('div');
         instruction.style.cssText = `
           position: fixed;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          background: rgba(0,0,0,0.9);
+          background: linear-gradient(135deg, ${brandPink}, ${gradientPink});
           color: white;
-          padding: 20px;
-          border-radius: 10px;
+          padding: 25px;
+          border-radius: 15px;
           text-align: center;
           z-index: 10000;
-          font-family: Arial, sans-serif;
-          max-width: 300px;
+          font-family: system-ui, -apple-system, sans-serif;
+          max-width: 320px;
+          box-shadow: 0 10px 30px rgba(248, 71, 180, 0.3);
         `;
         instruction.innerHTML = `
-          <h3>📱 Save to Gallery</h3>
-          <p>Image downloaded! To save to your gallery:</p>
-          <p><strong>Android:</strong> Check Downloads folder, then move to Gallery</p>
-          <p><strong>iOS:</strong> Long-press the image and select "Save to Photos"</p>
+          <h3 style="margin: 0 0 15px 0; font-size: 20px;">✨ Beauty Hub</h3>
+          <p style="margin: 0 0 10px 0;">Your skin analysis is ready!</p>
+          <p style="margin: 0 0 15px 0; font-size: 14px; opacity: 0.9;">
+            <strong>Android:</strong> Check Downloads → Move to Gallery<br>
+            <strong>iOS:</strong> Long-press image → Save to Photos
+          </p>
           <button onclick="this.parentElement.remove()" style="
-            background: ${darkPink};
-            color: white;
+            background: white;
+            color: ${brandPink};
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            margin-top: 10px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin-top: 5px;
             cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
           ">Got it!</button>
         `;
         document.body.appendChild(instruction);
         
-        // Auto-remove after 8 seconds
         setTimeout(() => {
           if (instruction.parentElement) {
             instruction.remove();
@@ -424,4 +511,3 @@ export function generateSkinAnalysisResult({ originalImageSrc, scoreInfo }: Gene
   logo.onerror = () => console.error("Logo failed to load:", logo.src);
   productImage.onerror = () => console.error("Product image failed to load:", productImage.src);
 }
-
