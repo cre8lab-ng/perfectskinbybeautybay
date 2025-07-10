@@ -98,7 +98,7 @@ export function generateSkinAnalysisResult({
     new Promise<void>((res) => (productImage.onload = () => res())),
   ]).then(() => {
     canvas.width = 900;
-    canvas.height = 1600;
+    canvas.height = 1700; // Increased height to accommodate proper spacing
 
     // BEAUTY HUB ENHANCED COLOR PALETTE
     const brandPink = "#f847b4"; // Primary brand color
@@ -143,6 +143,7 @@ export function generateSkinAnalysisResult({
     // Premium subtitle - Bigger and more visible
     ctx.font = "bold 36px Inconsolata, monospace";
     ctx.fillStyle = textDark;
+    ctx.textAlign = "center";
     ctx.fillText("AI-Powered Skin Analysis", canvas.width / 2, titleY + 55);
 
     // PREMIUM DIVIDER
@@ -312,7 +313,7 @@ export function generateSkinAnalysisResult({
     ctx.lineTo(700, sectionDividerY);
     ctx.stroke();
 
-    // PREMIUM SCORE CARDS - Enhanced visibility
+    // PREMIUM SCORE CARDS WITH CIRCULAR PROGRESS
     const scoresStartY = resultsY + 100;
     const scores = [
       { label: "Acne", value: scoreInfo.acne?.ui_score ?? "N/A", icon: "🎯" },
@@ -330,10 +331,35 @@ export function generateSkinAnalysisResult({
     ];
 
     const cardWidth = 190;
-    const cardHeight = 240;
+    const cardHeight = 220; // Reduced height since we removed progress bar and rating text
     const cardSpacing = 20;
     const totalWidth = cardWidth * 4 + cardSpacing * 3;
     const startX = (canvas.width - totalWidth) / 2;
+
+    // Function to draw circular progress
+    function drawCircularProgress(x: number, y: number, radius: number, percentage: number) {
+      const centerX = x;
+      const centerY = y;
+      const startAngle = -Math.PI / 2; // Start from top
+      const endAngle = startAngle + (percentage / 100) * 2 * Math.PI;
+
+      // Background circle
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.strokeStyle = lightPink;
+      ctx.lineWidth = 8;
+      ctx.stroke();
+
+      // Progress circle
+      if (percentage > 0) {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.strokeStyle = brandPink;
+        ctx.lineWidth = 8;
+        ctx.lineCap = "round";
+        ctx.stroke();
+      }
+    }
 
     scores.forEach((score, index) => {
       const cardX = startX + index * (cardWidth + cardSpacing);
@@ -378,64 +404,29 @@ export function generateSkinAnalysisResult({
       ctx.font = "40px Inconsolata, monospace";
       ctx.fillStyle = textDark;
       ctx.textAlign = "center";
-      ctx.fillText(score.icon, cardX + cardWidth / 2, cardY + 50);
+      ctx.fillText(score.icon, cardX + cardWidth / 2, cardY + 45);
 
-      // Score value - Much bigger
-      ctx.font = "bold 56px Inconsolata, monospace";
+      // Circular progress
+      const progressCenterX = cardX + cardWidth / 2;
+      const progressCenterY = cardY + 100;
+      const progressRadius = 30;
+      
+      drawCircularProgress(progressCenterX, progressCenterY, progressRadius, scoreValue);
+
+      // Score value in center of circle
+      ctx.font = "bold 24px Inconsolata, monospace";
       ctx.fillStyle = brandPink;
-      ctx.fillText(String(score.value), cardX + cardWidth / 2, cardY + 115);
+      ctx.textAlign = "center";
+      ctx.fillText(String(score.value), progressCenterX, progressCenterY + 8);
 
       // Label - Bigger
       ctx.font = "bold 24px Inconsolata, monospace";
       ctx.fillStyle = textDark;
-      ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 145);
-
-      // Premium progress bar
-      const progressY = cardY + 165;
-      const progressWidth = cardWidth - 40;
-      const progressHeight = 8;
-      const progressX = cardX + 20;
-
-      // Progress background
-      ctx.fillStyle = lightPink;
-      ctx.beginPath();
-      ctx.roundRect(progressX, progressY, progressWidth, progressHeight, 4);
-      ctx.fill();
-
-      // Progress fill
-      if (scoreValue > 0) {
-        const fillWidth = (scoreValue / 100) * progressWidth;
-        const progressFillGradient = ctx.createLinearGradient(
-          progressX,
-          progressY,
-          progressX + fillWidth,
-          progressY
-        );
-        progressFillGradient.addColorStop(0, brandPink);
-        progressFillGradient.addColorStop(1, gradientPink);
-
-        ctx.fillStyle = progressFillGradient;
-        ctx.beginPath();
-        ctx.roundRect(progressX, progressY, fillWidth, progressHeight, 4);
-        ctx.fill();
-      }
-
-      // Rating text - Bigger
-      ctx.font = "bold 20px Inconsolata, monospace";
-      ctx.fillStyle = textDark;
-      const rating =
-        scoreValue >= 80
-          ? "Excellent"
-          : scoreValue >= 60
-          ? "Good"
-          : scoreValue >= 40
-          ? "Fair"
-          : "Needs Care";
-      ctx.fillText(rating, cardX + cardWidth / 2, cardY + 200);
+      ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 160);
     });
 
-    // PREMIUM FOOTER
-    const footerY = canvas.height - 180;
+    // PREMIUM FOOTER - Moved to extreme bottom
+    const footerY = canvas.height - 120; // Moved much further down
 
     // Footer divider
     const footerDividerGradient = ctx.createLinearGradient(
@@ -472,7 +463,7 @@ export function generateSkinAnalysisResult({
     // Website - Bigger and more visible
     ctx.font = "bold 28px Inconsolata, monospace";
     ctx.fillStyle = textDark;
-    ctx.fillText("www.beautyhub.ng", canvas.width / 2, footerY + 45);
+    ctx.fillText("www.beautyhub.ng", canvas.width / 2, footerY + 35);
 
     // Timestamp - Bigger
     const now = new Date();
@@ -486,7 +477,7 @@ export function generateSkinAnalysisResult({
 
     ctx.font = "22px Inconsolata, monospace";
     ctx.fillStyle = textLight;
-    ctx.fillText(`Generated on ${timestamp}`, canvas.width / 2, footerY + 75);
+    ctx.fillText(`Generated on ${timestamp}`, canvas.width / 2, footerY + 65);
 
     // Export with pristine quality
     const resultImage: string = canvas.toDataURL("image/png", 1.0);
