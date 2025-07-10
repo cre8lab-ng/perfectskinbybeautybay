@@ -1,6 +1,19 @@
 import { toast } from "sonner";
 import JSZip from "jszip";
 
+interface ScoreInfo {
+  all?: { score: string | number };
+  acne?: { ui_score: string | number };
+  wrinkle?: { ui_score: string | number };
+  pore?: { ui_score: string | number };
+  texture?: { ui_score: string | number };
+}
+
+interface GenerateSkinAnalysisParams {
+  originalImageSrc: string;
+  scoreInfo: ScoreInfo;
+}
+
 export const notifySuccess = (successMessage: string) => {
   return toast.success(successMessage);
 };
@@ -50,18 +63,12 @@ export async function extractSkinAnalysisResults(zipUrl: string) {
   return { score: parsedScoreJson, images };
 }
 
-interface ScoreInfo {
-  all?: { score: string | number };
-  acne?: { ui_score: string | number };
-  wrinkle?: { ui_score: string | number };
-  pore?: { ui_score: string | number };
-  texture?: { ui_score: string | number };
-}
+export const errorMessages: Record<string, string> = {
+  error_src_face_too_small: "your face is too far away. Please move closer to the camera",
+  error_src_face_out_of_bound: "your face is partially outside the frame. Please center your face within the camera view",
+  error_large_face_angle: "your face is tilted. Please look straight at the camera with your head upright",
+};
 
-interface GenerateSkinAnalysisParams {
-  originalImageSrc: string;
-  scoreInfo: ScoreInfo;
-}
 
 export function generateSkinAnalysisResult({ originalImageSrc, scoreInfo }: GenerateSkinAnalysisParams): void {
   const canvas: HTMLCanvasElement = document.createElement("canvas");

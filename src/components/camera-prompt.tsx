@@ -9,7 +9,7 @@ interface Props {
 export default function CameraPrompt({ onCapture }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [captureFailed, setCaptureFailed] = useState(false);
+  // const [captureFailed, setCaptureFailed] = useState(false);
   const [lightingOK, setLightingOK] = useState(false);
   const [facePositionOK, setFacePositionOK] = useState(false);
   const [straightOK, setStraightOK] = useState(false);
@@ -24,7 +24,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const streamRef = useRef<MediaStream | null>(null); // Track the stream
   const [eyesDetected, setEyesDetected] = useState(false);
   const [showCaptureButton, setShowCaptureButton] = useState(false);
- console.log(captureFailed,faceValid)
+ console.log(faceValid)
   useEffect(() => {
     if (!hasCapturedRef.current) {
       const timeout = setTimeout(() => {
@@ -542,98 +542,98 @@ export default function CameraPrompt({ onCapture }: Props) {
     };
   }, [isCountingDown]);
 
-  const handleRetake = async () => {
-    // COMPLETE state reset - like starting fresh
-    hasCapturedRef.current = false;
-    setCapturedImage(null);
-    setCountdown(3);
-    setIsCountingDown(false);
-    setCaptureFailed(false);
+  // const handleRetake = async () => {
+  //   // COMPLETE state reset - like starting fresh
+  //   hasCapturedRef.current = false;
+  //   setCapturedImage(null);
+  //   setCountdown(3);
+  //   setIsCountingDown(false);
+  //   setCaptureFailed(false);
     
-    // Reset ALL validation states to false (fresh start)
-    setLightingOK(false);
-    setStraightOK(false);
-    setFacePositionOK(false);
-    setFaceValid(false);
-    setEyesDetected(false);
-    setShowCaptureButton(false); // Reset capture button visibility
+  //   // Reset ALL validation states to false (fresh start)
+  //   setLightingOK(false);
+  //   setStraightOK(false);
+  //   setFacePositionOK(false);
+  //   setFaceValid(false);
+  //   setEyesDetected(false);
+  //   setShowCaptureButton(false); // Reset capture button visibility
     
-    // Clear tips
-    setTips(["📸 Reinitializing camera..."]);
+  //   // Clear tips
+  //   setTips(["📸 Reinitializing camera..."]);
   
-    // Ensure complete camera stop
-    stopCamera();
+  //   // Ensure complete camera stop
+  //   stopCamera();
   
-    // Cancel any ongoing countdown
-    if (countdownRef.current) {
-      cancelAnimationFrame(countdownRef.current);
-      countdownRef.current = null;
-    }
+  //   // Cancel any ongoing countdown
+  //   if (countdownRef.current) {
+  //     cancelAnimationFrame(countdownRef.current);
+  //     countdownRef.current = null;
+  //   }
   
-    // Wait longer for complete cleanup before restart (increased from 300ms)
-    setTimeout(async () => {
-      try {
-        // Request fresh camera stream
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: 640, height: 480 },
-          audio: false,
-        });
+  //   // Wait longer for complete cleanup before restart (increased from 300ms)
+  //   setTimeout(async () => {
+  //     try {
+  //       // Request fresh camera stream
+  //       const newStream = await navigator.mediaDevices.getUserMedia({
+  //         video: { facingMode: "user", width: 640, height: 480 },
+  //         audio: false,
+  //       });
   
-        // Store new stream reference
-        streamRef.current = newStream;
+  //       // Store new stream reference
+  //       streamRef.current = newStream;
   
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
+  //       const video = videoRef.current;
+  //       const canvas = canvasRef.current;
   
-        if (!video || !canvas) {
-          console.error("Video or canvas element not found during retake");
-          setTips(["❌ Failed to restart camera - elements not found"]);
-          return;
-        }
+  //       if (!video || !canvas) {
+  //         console.error("Video or canvas element not found during retake");
+  //         setTips(["❌ Failed to restart camera - elements not found"]);
+  //         return;
+  //       }
   
-        video.srcObject = newStream;
+  //       video.srcObject = newStream;
         
-        // Wait for video to be ready (important for fresh start)
-        await new Promise((resolve) => {
-          video.addEventListener("loadedmetadata", resolve, { once: true });
-        });
+  //       // Wait for video to be ready (important for fresh start)
+  //       await new Promise((resolve) => {
+  //         video.addEventListener("loadedmetadata", resolve, { once: true });
+  //       });
         
-        await video.play();
+  //       await video.play();
   
-        // Ensure canvas dimensions are properly set
-        if (video.videoWidth > 0 && video.videoHeight > 0) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+  //       // Ensure canvas dimensions are properly set
+  //       if (video.videoWidth > 0 && video.videoHeight > 0) {
+  //         canvas.width = video.videoWidth;
+  //         canvas.height = video.videoHeight;
           
-          // Clear any previous canvas content
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-          }
+  //         // Clear any previous canvas content
+  //         const ctx = canvas.getContext("2d");
+  //         if (ctx) {
+  //           ctx.clearRect(0, 0, canvas.width, canvas.height);
+  //         }
   
-          setTips(["✅ Camera ready. Position your face..."]);
+  //         setTips(["✅ Camera ready. Position your face..."]);
           
-          // Start fresh analysis
-          analyze();
+  //         // Start fresh analysis
+  //         analyze();
           
-          // Reset capture button timer (fresh 8-second wait)
-          setTimeout(() => {
-            if (!hasCapturedRef.current) {
-              setShowCaptureButton(true);
-            }
-          }, 8000);
+  //         // Reset capture button timer (fresh 8-second wait)
+  //         setTimeout(() => {
+  //           if (!hasCapturedRef.current) {
+  //             setShowCaptureButton(true);
+  //           }
+  //         }, 8000);
           
-        } else {
-          console.error("Invalid video dimensions after retake");
-          setTips(["❌ Failed to get valid video dimensions"]);
-        }
+  //       } else {
+  //         console.error("Invalid video dimensions after retake");
+  //         setTips(["❌ Failed to get valid video dimensions"]);
+  //       }
         
-      } catch (err) {
-        console.error("Failed to restart camera:", err);
-        setTips(["❌ Failed to restart camera. Please check permissions."]);
-      }
-    }, 500); // Increased timeout for better cleanup
-  };
+  //     } catch (err) {
+  //       console.error("Failed to restart camera:", err);
+  //       setTips(["❌ Failed to restart camera. Please check permissions."]);
+  //     }
+  //   }, 500); // Increased timeout for better cleanup
+  // };
 
   const startCountdown = (image: string) => {
     console.log(image, tips);
@@ -819,7 +819,7 @@ export default function CameraPrompt({ onCapture }: Props) {
                   </span>
                 </button>
                 <button
-                  onClick={handleRetake}
+                  onClick={() => window.location.reload()}
                   className="group px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
                 >
                   <span className="flex items-center justify-center space-x-2">

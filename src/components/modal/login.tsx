@@ -1,12 +1,8 @@
 import { useState } from "react";
-import {
-  hasUserCompletedOrder,
-  createWooCompletedOrder,
-} from "@/services/woocommerce";
 import { triggerPaystackPopup } from "@/util/paystack";
 import { useAccessManager } from "@/stores/useAccessManager";
 import { useResultAccess } from "@/stores/useResultAccess";
-import { notifySuccess } from "@/util/utils";
+import { notifyError, notifySuccess } from "@/util/utils";
 
 type Props = {
   onClose: () => void;
@@ -14,17 +10,13 @@ type Props = {
 };
 
 export default function LoginModal({ onClose, onLoginSuccess }: Props) {
-  console.log(hasUserCompletedOrder);
   const [showPayButton, setShowPayButton] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
+
+  const reference = `PSK_${Date.now()}`;
   const [email, setEmail] = useState("");
-  const {
-    checkAccess,
-    markAsPaid,
-    loading,
-    error: accessError,
-  } = useAccessManager();
+  const { checkAccess, loading, error: accessError } = useAccessManager();
   const [error, setError] = useState("");
-  console.log(markAsPaid);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -32,7 +24,9 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
     const result = await checkAccess(email);
 
     if (result.error?.toLowerCase().includes("trial limit")) {
-      setError("You’ve reached the trial limit. Please try again later.");
+      setError(
+        "You’ve reached the trial limit. Please try again in the next 12 hours."
+      );
       setShowPayButton(false);
       return;
     }
@@ -42,7 +36,9 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
       useResultAccess.getState().setHasAccess(true);
       onLoginSuccess(email, true);
     } else if (result.reason === "requires_payment") {
-      setError("You need to pay ₦5,000 to access your results.");
+      setError(
+        "You're not yet a customer, so you'll need to pay ₦5,000 to access your results. A refund will be issued when you complete an order with us."
+      );
       setShowPayButton(true);
     } else if (result.reason === "already_used") {
       setError("You've already used your free access. Please pay to continue.");
@@ -102,7 +98,10 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
           {(error || accessError) && (
             <div style={errorStyle}>
               <span style={errorIconStyle}>⚠️</span>
-              {error || accessError}
+              {error === "Internal Server Error" ||
+              accessError === "Internal Server Error"
+                ? "Something went wrong. Please contact support on Instagram, WhatsApp, or email support@beautyhub.ng"
+                : error || accessError}
             </div>
           )}
 
@@ -113,32 +112,75 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
               </div>
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  setIsPaying(true);
                   triggerPaystackPopup({
                     email,
                     amount: 500000,
+                    reference,
                     onSuccess: async (response) => {
-                      console.log(response);
+                      console.log("✅ Paystack payment success:", response);
 
-                      const created = await createWooCompletedOrder(email);
-                      if (created) {
-                        useResultAccess.getState().setUserEmail(email);
-                        useResultAccess.getState().setHasAccess(true);
-                        onLoginSuccess(email, true);
-                        notifySuccess(
-                          "Payment successful! You now have access to your results."
+                      const payRes = await fetch("/api/access", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          email,
+                          reference: response.reference,
+                          type: "mark-paid",
+                        }),
+                      });
+
+                      const payData = await payRes.json();
+
+                      if (!payRes.ok || !payData.access_granted) {
+                        console.error(
+                          "❌ Payment verified but access setup failed:",
+                          payData
                         );
-                        onLoginSuccess(email, true);
+                        notifyError(
+                          "Payment was verified but access setup failed. Please contact support."
+                        );
+                        setIsPaying(false);
+                        return;
                       }
+
+                      useResultAccess.getState().setUserEmail(email);
+                      useResultAccess.getState().setHasAccess(true);
+                      onLoginSuccess(email, true);
+                      notifySuccess(
+                        "Payment successful! You now have access to your results."
+                      );
+
+                      // const created = await createWooCompletedOrder(email);
+
+                      // if (created) {
+                      //   useResultAccess.getState().setUserEmail(email);
+                      //   useResultAccess.getState().setHasAccess(true);
+                      //   onLoginSuccess(email, true);
+                      //   notifySuccess(
+                      //     "Payment successful! You now have access to your results."
+                      //   );
+                      // }
+
+                      setIsPaying(false);
                     },
-                    onCancel: () => {
+                    onClose: () => {
                       setError("Payment was cancelled. Please try again.");
+                      setIsPaying(false);
                     },
-                  })
-                }
-                style={payButtonStyle}
+                  });
+                }}
+                disabled={isPaying}
+                style={{
+                  ...payButtonStyle,
+                  opacity: isPaying ? 0.5 : 1,
+                  cursor: isPaying ? "not-allowed" : "pointer",
+                }}
               >
-                <span style={payButtonTextStyle}>Pay ₦5,000 to Continue</span>
+                <span style={payButtonTextStyle}>
+                  {isPaying ? "Processing..." : "Pay ₦5,000 to Continue"}
+                </span>
               </button>
             </div>
           )}

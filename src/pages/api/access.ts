@@ -23,7 +23,8 @@ async function checkWooOrder(email: string): Promise<boolean> {
     });
 
     return response.data.some(
-      (order: any) => order.billing?.email?.toLowerCase() === email.toLowerCase()
+      (order: any) =>
+        order.billing?.email?.toLowerCase() === email.toLowerCase()
     );
   } catch (err) {
     console.error("WooCommerce check failed:", err);
@@ -31,7 +32,10 @@ async function checkWooOrder(email: string): Promise<boolean> {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const ip =
     (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
     req.socket.remoteAddress ||
@@ -42,7 +46,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const current = rateLimiter.get(key) || 0;
 
   if (current >= 5) {
-    return res.status(429).json({ error: "Too many requests. Please try again later." });
+    return res
+      .status(429)
+      .json({ error: "Too many requests. Please try again later." });
   }
   rateLimiter.set(key, current + 1);
 
@@ -57,10 +63,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const emailLower = email.toLowerCase();
-  const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+  const twelveHoursAgo = new Date(
+    Date.now() - 12 * 60 * 60 * 1000
+  ).toISOString();
 
   try {
-    // Log the request
+    // Log request
     await supabaseAdmin.from("access_log").insert({
       email: emailLower,
       ip,
@@ -68,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       action: type,
     });
 
-    // Check how many unique emails have been used per IP/device
+    // Trial limit logic
     const [{ data: ipAttempts }, { data: deviceAttempts }] = await Promise.all([
       supabaseAdmin
         .from("access_log")
@@ -84,81 +92,111 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq("action", "check")
         .gte("created_at", twelveHoursAgo),
     ]);
-// @ts-expect-error: Supabase typing is too strict here
-const uniqueEmailsFromIP = [...new Set(ipAttempts.map((a) => a.email))];
-// @ts-expect-error: Supabase typing is too strict here
 
-    const uniqueEmailsFromDevice = [...new Set(deviceAttempts.map((a) => a.email))];
+    const uniqueEmailsFromIP = [
+      ...new Set((ipAttempts || []).map((a: any) => a.email)),
+    ];
+    const uniqueEmailsFromDevice = [
+      ...new Set((deviceAttempts || []).map((a: any) => a.email)),
+    ];
 
-    if (
-      uniqueEmailsFromIP.length >= 3 || 
-      uniqueEmailsFromDevice.length >= 3
-    ) {
+    if (uniqueEmailsFromIP.length >= 3 || uniqueEmailsFromDevice.length >= 3) {
       return res.status(429).json({
-        error: "You’ve reached the trial limit. Please try again later.",
+        error:
+          "You’ve reached the trial limit. Please try again in the next 12 hours.",
       });
     }
 
-    const { data: existing } = await supabaseAdmin
+    // Check if they've already accessed
+    const { data: alreadyUsed } = await supabaseAdmin
       .from("free_access_once")
       .select("email")
       .eq("email", emailLower)
       .maybeSingle();
 
-    if (existing && type !== "mark-analysis") {
-      return res.status(200).json({
-        access_granted: false,
-        reason: "already_used",
-      });
-    }
+    const hasUsedAccess = !!alreadyUsed;
 
-    // 🔍 Check access type
+    // 🔍 Handle "check"
     if (type === "check") {
       const hasWoo = await checkWooOrder(emailLower);
+
+      const { data: paystackVerified } = await supabaseAdmin
+        .from("paystack_verified")
+        .select("email")
+        .eq("email", emailLower)
+        .maybeSingle();
+
+      const hasPaystack = !!paystackVerified;
+
+      // If they've already used access but still have Paystack payment, grant access again
+      const accessGranted =
+        (hasWoo || hasPaystack) && (!hasUsedAccess || !!paystackVerified);
+
       return res.status(200).json({
-        access_granted: hasWoo,
-        source: hasWoo ? "woocommerce" : undefined,
-        reason: hasWoo ? undefined : "requires_payment",
+        access_granted: accessGranted,
+        source: hasWoo ? "woocommerce" : hasPaystack ? "paystack" : undefined,
+        reason: !accessGranted
+          ? hasUsedAccess
+            ? "already_used"
+            : "requires_payment"
+          : undefined,
       });
     }
 
+    // ✅ Handle "mark-paid"
     if (type === "mark-paid") {
       if (!reference) {
         return res.status(400).json({ error: "Missing payment reference" });
       }
 
-      const verifyRes = await axios.get(
-        `https://api.paystack.co/transaction/verify/${reference}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-          },
+      try {
+        const verifyRes = await axios.get(
+          `https://api.paystack.co/transaction/verify/${reference}`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            },
+          }
+        );
+
+        console.log("🔍 Paystack verify response:", verifyRes.data);
+
+        const isSuccessful =
+          verifyRes.data?.status === true &&
+          verifyRes.data?.data?.status === "success";
+
+        if (isSuccessful) {
+          const { error } = await supabaseAdmin
+            .from("paystack_verified")
+            .upsert({
+              email: emailLower,
+              reference,
+              created_at: new Date().toISOString(),
+            })
+            .throwOnError();
+          console.log(error);
+          return res.status(200).json({
+            access_granted: true,
+            source: "paystack",
+          });
         }
-      );
-
-      const isSuccessful =
-        verifyRes.data?.status === true &&
-        verifyRes.data?.data?.status === "success";
-
-      if (isSuccessful) {
-        await supabaseAdmin
-          .from("paystack_verified")
-          .upsert({ email: emailLower, reference });
 
         return res.status(200).json({
-          access_granted: true,
-          source: "paystack",
+          access_granted: false,
+          reason: "payment_failed",
         });
+      } catch (err: any) {
+        console.error(
+          "❌ Paystack verification error:",
+          err?.response?.data || err
+        );
+        return res.status(500).json({ error: "Payment verification failed" });
       }
-
-      return res.status(200).json({
-        access_granted: false,
-        reason: "payment_failed",
-      });
     }
 
+    // ✅ Handle "mark-analysis"
     if (type === "mark-analysis") {
-      if (existing) {
+      if (hasUsedAccess) {
         return res.status(200).json({
           success: false,
           reason: "already_exists",
@@ -188,9 +226,17 @@ const uniqueEmailsFromIP = [...new Set(ipAttempts.map((a) => a.email))];
           email: emailLower,
           source,
           payment_verified: hasPaystack,
+          created_at: new Date().toISOString(),
         });
 
       if (insertError) throw insertError;
+
+      if (hasPaystack) {
+        await supabaseAdmin
+          .from("paystack_verified")
+          .delete()
+          .eq("email", emailLower);
+      }
 
       return res.status(200).json({ success: true });
     }
