@@ -94,6 +94,7 @@ const overlayStyle: React.CSSProperties = {
   zIndex: 50,
   padding: "1rem", // Mobile padding
   animation: "fadeIn 0.3s ease-out",
+  minHeight: "100vh",
 };
 
 const modalStyle: React.CSSProperties = {
