@@ -92,7 +92,7 @@ export default function FaceDetectionComponent() {
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [showCameraPrompt, setShowCameraPrompt] = useState(false);
   const [showInstructionModal, setShowInstructionModal] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [showPrivacyModal, setShowPrivacyModal] = useState(true);
   const [showOverlays, setShowOverlays] = useState(true); // 👈 toggle overlay state
   const [lastCaptureMethod, setLastCaptureMethod] = useState<
@@ -483,44 +483,47 @@ export default function FaceDetectionComponent() {
     }
   };
 
- console.log(unitError)
-  
-  
+  console.log(unitError);
+
   const runSkinAnalysis = async (fileId: string) => {
     if (!accessToken) return notifyError("Access token not available");
     setAnalyzing(true);
-  
+
     try {
       await new Promise((resolve) => setTimeout(resolve, 5000)); // optional delay
-  
+
       const analysis = await analyzeSkinFeatures(fileId, accessToken, [
         "acne",
         "wrinkle",
         "pore",
         "texture",
       ]);
-  
+
       const taskId = analysis.result.task_id;
       if (!taskId) throw new Error("No task_id returned");
-  
+
       const status = await pollAnalysisStatus(taskId, accessToken);
       setAnalysisStatus(status); // set UI status
     } catch (err) {
-                                  // @ts-expect-error: Supabase typing is too strict here
+      // @ts-expect-error: Supabase typing is too strict here
       if (err && err.response?.data.status === 400) {
         setUnitError(true);
-        setMessage("Something went wrong. Please contact support on Instagram, WhatsApp, or email support@beautyhub.ng")
+        setMessage(
+          "Something went wrong. Please contact support on Instagram, WhatsApp, or email support@beautyhub.ng"
+        );
         setRetake(true);
       } else {
         setUnitError(true);
-        setMessage("We couldn't analyze your skin.Please try again or contact support.")
+        setMessage(
+          "We couldn't analyze your skin.Please try again or contact support."
+        );
         setRetake(true);
       }
     } finally {
       setAnalyzing(false);
     }
   };
-  
+
   const pollAnalysisStatus = async (
     taskId: string,
     accessToken: string
@@ -528,31 +531,31 @@ export default function FaceDetectionComponent() {
     let attempts = 0;
     const maxAttempts = 10;
     const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-  
+
     while (attempts < maxAttempts) {
       try {
         const res = await checkSkinAnalysisStatus(taskId, accessToken);
         const status = res?.result?.status;
-        console.log(status,res)
+        console.log(status, res);
 
         if (status === "success") {
           console.log("✅ Analysis successful");
-  
+
           const zipUrl = res.result?.results?.[0]?.data?.[0]?.url;
           if (!zipUrl) throw new Error("No ZIP URL found in result");
-  
+
           const { score, images } = await extractSkinAnalysisResults(zipUrl);
           if (score) setScoreInfo(score);
           if (images.length > 0) setZipContent(images);
-  
+
           const currentEmail = useResultAccess.getState().userEmail;
           if (currentEmail) {
             await grantAccess(currentEmail); // only called if success
           }
-  
+
           return res;
         }
-  
+
         if (status === "error") {
           const errorCode = res.result.error;
           console.log("❌ Analysis returned error:", errorCode);
@@ -560,21 +563,21 @@ export default function FaceDetectionComponent() {
             errorMessages[errorCode] ||
             "Please ensure your face is clearly visible and centered.";
           setMessage(humanMessage);
-         console.log("Analysis returned error");
+          console.log("Analysis returned error");
         }
-  
+
         console.log(`⏳ Polling status: ${status}, retrying...`);
       } catch (err) {
         console.error("❌ Polling failed:", err);
       }
-  
+
       attempts++;
       await delay(500);
     }
-  
+
     throw new Error("❌ Polling timed out after maximum retries");
   };
-  
+
   const grantAccess = async (email: string) => {
     try {
       const res = await fetch("/api/access", {
@@ -586,20 +589,19 @@ export default function FaceDetectionComponent() {
           source: "analysis",
         }),
       });
-  
+
       const data = await res.json();
-  
+
       if (!res.ok || data.success === false) {
         console.warn("⚠️ Access grant failed:", data.reason || data.error);
         return;
       }
-  
+
       console.log("✅ Access granted successfully via mark-analysis");
     } catch (err) {
       console.error("❌ Failed to call mark-analysis:", err);
     }
   };
-  
 
   useEffect(() => {
     return () => {
@@ -718,430 +720,418 @@ export default function FaceDetectionComponent() {
                   }}
                 />
 
-                {faceDetectionLoading && (
-                  <div
+{originalImagePreview && (
+  <div
+    style={{
+      position: "relative",
+      width: "100%",
+      maxWidth: "100%",
+      marginBottom: "2rem",
+    }}
+  >
+    <img
+      ref={imageRef}
+      src={originalImagePreview}
+      alt="Analyzed Face"
+      style={{
+        width: "100%",
+        display: "block",
+        borderRadius: "8px",
+      }}
+    />
+
+    {/* Mask Overlays - Background layer */}
+    {showOverlays &&
+      zipContent.length > 0 &&
+      zipContent.map((mask, i) => {
+        const name = mask.name.toLowerCase();
+        let filter = "contrast(250%) brightness(120%) saturate(180%)";
+        let blendMode = "normal";
+
+        if (name.includes("acne_output")) {
+          filter = "hue-rotate(0deg) contrast(250%) brightness(120%) saturate(200%)";
+          blendMode = "overlay";
+        } else if (name.includes("wrinkle_output")) {
+          filter = "hue-rotate(270deg) contrast(250%) brightness(120%) saturate(200%)";
+          blendMode = "overlay";
+        } else if (name.includes("pore_output")) {
+          filter = "hue-rotate(180deg) contrast(250%) brightness(120%) saturate(200%)";
+          blendMode = "multiply";
+        } else if (name.includes("texture_output")) {
+          filter = "hue-rotate(60deg) contrast(250%) brightness(120%) saturate(200%)";
+          blendMode = "overlay";
+        }
+
+        return (
+          <img
+            key={i}
+            src={mask.url}
+            alt={mask.name}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              opacity: 1,
+              filter,
+                    // @ts-expect-error: Supabase typing is too strict here
+              mixBlendMode: blendMode,
+              pointerEvents: "none",
+              zIndex: 5,
+            }}
+          />
+        );
+      })}
+
+    {/* Score Overlays - UI layer */}
+    {hasAccess && !analyzing && !faceDetectionLoading && scoreInfo && (
+      <div
+        style={{
+          position: "absolute",
+          bottom: "10px",
+          left: "10px",
+          right: "10px",
+          display: "flex",
+          justifyContent: "flex-start",
+          alignItems: "center",
+          padding: "0",
+          gap: "0.5rem",
+          overflowX: "auto",
+          overflowY: "hidden",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          zIndex: 8,
+        }}
+      >
+        {["acne", "wrinkle", "pore", "texture"].map((key) => {
+                // @ts-expect-error: Supabase typing is too strict here
+          const score = scoreInfo?.[key]?.ui_score ?? 0;
+          const percentage = Math.min(Math.max(score, 0), 100);
+
+          return (
+            <div
+              key={key}
+              style={{
+                padding: "0.75rem",
+                minWidth: "100px",
+              }}
+            >
+              <div
+                style={{
+                  color: "white",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  textTransform: "capitalize",
+                  marginBottom: "0.5rem",
+                  textAlign: "center",
+                }}
+              >
+                {key}
+              </div>
+              <div
+                style={{
+                  position: "relative",
+                  width: "70px",
+                  height: "70px",
+                  margin: "0 auto",
+                }}
+              >
+                <svg
+                  width="70"
+                  height="70"
+                  style={{
+                    transform: "rotate(-90deg)",
+                  }}
+                >
+                  <circle
+                    cx="35"
+                    cy="35"
+                    r="28"
+                    fill="none"
+                    stroke="#ffd9f0"
+                    strokeWidth="6"
+                  />
+                  <circle
+                    cx="35"
+                    cy="35"
+                    r="28"
+                    fill="none"
+                    stroke="#f847b4"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray={`${2 * Math.PI * 28}`}
+                    strokeDashoffset={`${2 * Math.PI * 28 * (1 - percentage / 100)}`}
                     style={{
-                      textAlign: "center",
-                      margin: "2rem 0",
-                      padding: "2rem",
-                      background:
-                        "linear-gradient(135deg, #ffd9f0, rgba(255, 217, 240, 0.3))",
-                      borderRadius: "16px",
-                      border: "1px solid rgba(248, 71, 180, 0.2)",
+                      transition: "stroke-dashoffset 0.3s ease-in-out",
                     }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "2rem",
-                        marginBottom: "1rem",
-                      }}
-                    >
-                      ✨
-                    </div>
-                    <p
-                      style={{
-                        fontWeight: "700",
-                        color: "#f847b4",
-                        fontSize: "1.2rem",
-                        marginBottom: "1.5rem",
-                      }}
-                    >
-                      Detecting your beautiful face...
-                    </p>
-                    <div
-                      className="premium-spinner"
-                      style={{
-                        width: "50px",
-                        height: "50px",
-                        border: "3px solid rgba(248, 71, 180, 0.2)",
-                        borderTop: "3px solid #f847b4",
-                        borderRadius: "50%",
-                        animation:
-                          "spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite",
-                        margin: "0 auto",
-                        boxShadow: "0 4px 15px rgba(248, 71, 180, 0.3)",
-                      }}
-                    />
-                  </div>
-                )}
+                  />
+                </svg>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    color: "#f847b4",
+                    fontSize: "1rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {score}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
 
-                {originalImagePreview && (
-                  <div
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      maxWidth: "100%",
-                      marginBottom: "2rem",
-                    }}
-                  >
-                    <img
-                      ref={imageRef} // 🆕 ADD THIS
-                      src={originalImagePreview}
-                      alt="Analyzed Face"
-                      style={{
-                        width: "100%",
-                        display: "block",
-                        borderRadius: "8px",
-                      }}
-                    />
+    {/* Analyzing Overlay - Higher priority */}
+    {analyzing && (
+      <div
+        style={{
+          textAlign: "center",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(135deg, rgba(255, 217, 240, 0.7), rgba(255, 217, 240, 0.3))",
+          borderRadius: "8px",
+          border: "1px solid rgba(248, 71, 180, 0.15)",
+          overflow: "hidden",
+          zIndex: 10,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "3rem 2rem",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: "-100%",
+            width: "100%",
+            height: "100%",
+            background: "linear-gradient(90deg, transparent, rgba(248, 71, 180, 0.05), transparent)",
+            animation: "shimmer 2s infinite",
+          }}
+        />
+        <div
+          style={{
+            fontSize: "3rem",
+            marginBottom: "1rem",
+            background: "linear-gradient(45deg, #f847b4, #ffd9f0)",
+            backgroundClip: "text",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          🧬
+        </div>
+        <div
+          style={{
+            width: "60px",
+            height: "60px",
+            border: "4px solid rgba(248, 71, 180, 0.2)",
+            borderTop: "4px solid #f847b4",
+            borderRadius: "50%",
+            animation: "spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite",
+            margin: "0 auto 1.5rem",
+            boxShadow: "0 8px 25px rgba(248, 71, 180, 0.3)",
+          }}
+        />
+        <p
+          style={{
+            marginTop: "1rem",
+            color: "#f847b4",
+            fontWeight: "600",
+            fontSize: "1.3rem",
+            letterSpacing: "0.5px",
+          }}
+        >
+          Analyzing your skin features...
+        </p>
+        <p
+          style={{
+            fontSize: "0.9rem",
+            margin: "0.5rem 0 0",
+            color: "#666",
+          }}
+        >
+          Our AI is mapping your unique skin profile
+        </p>
+      </div>
+    )}
 
-                    {/* Analyzing Div */}
+    {/* Login/Premium Results Overlay - Medium priority */}
+    {uploadResponse?.file_id && !scoreInfo && !retake && !analyzing && (
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(135deg, rgba(255, 217, 240, 0.8), rgba(255, 217, 240, 0.4))",
+          borderRadius: "8px",
+          border: "1px solid rgba(248, 71, 180, 0.15)",
+          zIndex: 12,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "2rem",
+        }}
+      >
+        <p
+          style={{
+            color: "#f847b4",
+            fontSize: "1.1rem",
+            fontWeight: "600",
+            marginBottom: "1.5rem",
+            textAlign: "center",
+          }}
+        >
+          Your image is ready for premium analysis
+        </p>
+        <button
+          disabled={analyzing}
+          onClick={() => {
+            if (!hasAccess) {
+              setShowLoginModal(true);
+            } else if (!analyzing && uploadResponse?.file_id) {
+              runSkinAnalysis(uploadResponse.file_id);
+            }
+          }}
+          aria-label={hasAccess ? "View Premium Results" : "Log In to View Results"}
+          style={{
+            background: analyzing
+              ? "linear-gradient(135deg, #ccc, #999)"
+              : "linear-gradient(135deg, #f847b4, #ff6bc7)",
+            color: "white",
+            border: "none",
+            padding: "1rem 2rem",
+            borderRadius: "12px",
+            fontSize: "1rem",
+            fontWeight: "600",
+            cursor: analyzing ? "not-allowed" : "pointer",
+            boxShadow: analyzing
+              ? "none"
+              : "0 8px 25px rgba(248, 71, 180, 0.4)",
+            transition: "all 0.3s ease",
+            transform: analyzing ? "none" : "translateY(-2px)",
+          }}
+        >
+          {analyzing
+            ? "Analyzing..."
+            : hasAccess
+            ? "✨ View Premium Results"
+            : "🔐 Log In to View Results"}
+        </button>
+      </div>
+    )}
 
-                    {/* ✅ Overlay this block ON TOP of the image */}
-                    {analyzing && (
-                      <div
-                        style={{
-                          textAlign: "center",
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          height: "100%",
-                          background:
-                            "linear-gradient(135deg, #ffd9f0, rgba(255, 217, 240, 0.5))",
-                          borderRadius: "20px",
-                          border: "1px solid rgba(248, 71, 180, 0.3)",
-                          overflow: "hidden",
-                          zIndex: 10,
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          padding: "3rem 2rem",
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: "-100%",
-                            width: "100%",
-                            height: "100%",
-                            background:
-                              "linear-gradient(90deg, transparent, rgba(248, 71, 180, 0.1), transparent)",
-                            animation: "shimmer 2s infinite",
-                          }}
-                        />
-                        <div
-                          style={{
-                            fontSize: "3rem",
-                            marginBottom: "1rem",
-                            background:
-                              "linear-gradient(45deg, #f847b4, #ffd9f0)",
-                            backgroundClip: "text",
-                            WebkitBackgroundClip: "text",
-                            WebkitTextFillColor: "transparent",
-                          }}
-                        >
-                          🧬
-                        </div>
-                        <div
-                          style={{
-                            width: "60px",
-                            height: "60px",
-                            border: "4px solid rgba(248, 71, 180, 0.2)",
-                            borderTop: "4px solid #f847b4",
-                            borderRadius: "50%",
-                            animation:
-                              "spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite",
-                            margin: "0 auto 1.5rem",
-                            boxShadow: "0 8px 25px rgba(248, 71, 180, 0.3)",
-                          }}
-                        />
-                        <p
-                          style={{
-                            marginTop: "1rem",
-                            color: "#f847b4",
-                            fontWeight: "600",
-                            fontSize: "1.3rem",
-                            letterSpacing: "0.5px",
-                          }}
-                        >
-                          Analyzing your skin features...
-                        </p>
-                        <p
-                          style={{
-                            fontSize: "0.9rem",
-                            margin: "0.5rem 0 0",
-                          }}
-                        >
-                          Our AI is mapping your unique skin profile
-                        </p>
-                      </div>
-                    )}
+    {/* Face Detection Loading Overlay - Highest priority */}
+    {faceDetectionLoading && (
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(135deg, rgba(255, 217, 240, 0.8), rgba(255, 217, 240, 0.4))",
+          borderRadius: "8px",
+          border: "1px solid rgba(248, 71, 180, 0.15)",
+          zIndex: 15,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "2rem",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "2rem",
+            marginBottom: "1rem",
+          }}
+        >
+          ✨
+        </div>
+        <p
+          style={{
+            fontWeight: "700",
+            color: "#f847b4",
+            fontSize: "1.2rem",
+            marginBottom: "1.5rem",
+            textAlign: "center",
+          }}
+        >
+          Detecting your beautiful face...
+        </p>
+        <div
+          className="premium-spinner"
+          style={{
+            width: "50px",
+            height: "50px",
+            border: "3px solid rgba(248, 71, 180, 0.2)",
+            borderTop: "3px solid #f847b4",
+            borderRadius: "50%",
+            animation: "spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite",
+            margin: "0 auto",
+            boxShadow: "0 4px 15px rgba(248, 71, 180, 0.3)",
+          }}
+        />
+      </div>
+    )}
+  </div>
+)}
 
-                    {/* Overlays from backend masks */}
-                    {showOverlays &&
-                      zipContent.length > 0 &&
-                      zipContent.map((mask, i) => {
-                        const name = mask.name.toLowerCase();
-                        let filter =
-                          "contrast(250%) brightness(120%) saturate(180%)";
-                        let blendMode = "normal"; // default unless overridden
+{/* Overlay Controls - Outside image container */}
+{zipContent.length > 0 && (
+  <div
+    style={{
+      marginTop: "1rem",
+      marginBottom: "1rem",
+      textAlign: "center",
+      padding: "1rem",
+      background: "rgba(255, 217, 240, 0.3)",
+      borderRadius: "12px",
+      border: "1px solid rgba(248, 71, 180, 0.2)",
+    }}
+  >
+    <label
+      style={{
+        fontSize: "1rem",
+        color: "#f847b4",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "0.5rem",
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={showOverlays}
+        onChange={() => setShowOverlays(!showOverlays)}
+        style={{
+          width: "18px",
+          height: "18px",
+          accentColor: "#f847b4",
+        }}
+      />
+      <span>✨ Show skin concern overlays</span>
+    </label>
+  </div>
+)}
 
-                        if (name.includes("acne_output")) {
-                          filter =
-                            "hue-rotate(0deg) contrast(250%) brightness(120%) saturate(200%)";
-                          blendMode = "overlay";
-                        } else if (name.includes("wrinkle_output")) {
-                          filter =
-                            "hue-rotate(270deg) contrast(250%) brightness(120%) saturate(200%)";
-                          blendMode = "overlay";
-                        } else if (name.includes("pore_output")) {
-                          filter =
-                            "hue-rotate(180deg) contrast(250%) brightness(120%) saturate(200%)";
-                          blendMode = "multiply";
-                        } else if (name.includes("texture_output")) {
-                          filter =
-                            "hue-rotate(60deg) contrast(250%) brightness(120%) saturate(200%)";
-                          blendMode = "overlay";
-                        }
-
-                        return (
-                          <img
-                            key={i}
-                            src={mask.url}
-                            alt={mask.name}
-                            style={{
-                              position: "absolute",
-                              top: 0,
-                              left: 0,
-                              width: "100%",
-                              height: "100%",
-                              opacity: 1,
-                              filter,
-                              // @ts-expect-error: Supabase typing is too strict here
-
-                              mixBlendMode: blendMode,
-                              pointerEvents: "none",
-                            }}
-                          />
-                        );
-                      })}
-
-                    {/* {scoreInfo?.all?.score && hasAccess && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: "10%",
-                          top: "65%",
-                          fontSize: "2.2rem",
-                          color: "white",
-                          fontWeight: "bold",
-                          textShadow: "0 2px 4px rgba(0,0,0,0.6)",
-                        }}
-                      >
-                        Skin Age {Math.round(scoreInfo.all.score)}
-                      </div>
-                    )} */}
-
-                    {hasAccess && !analyzing && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: "10px",
-                          left: "10px",
-                          right: "10px",
-                          display: "flex",
-                          justifyContent: "flex-start",
-                          alignItems: "center",
-                          padding: "0",
-                          gap: "0.5rem",
-                          overflowX: "auto",
-                          overflowY: "hidden",
-                          scrollbarWidth: "none",
-                          msOverflowStyle: "none",
-                        }}
-                      >
-                        {["acne", "wrinkle", "pore", "texture"].map((key) => {
-                          // @ts-expect-error: Supabase typing is too strict here
-                          const score = scoreInfo?.[key as keyof ScoreInfo]?.ui_score ?? 0;
-                          const percentage = Math.min(Math.max(score, 0), 100);
-
-                          return (
-                            <div
-                              key={key}
-                              style={{
-                                padding: "0.75rem",
-                                minWidth: "100px", // Increased from 80px
-                              }}
-                            >
-                              {/* Label */}
-                              <div
-                                style={{
-                                  color: "white",
-                                  fontSize: "0.75rem",
-                                  fontWeight: "600",
-                                  textTransform: "capitalize",
-                                  marginBottom: "0.5rem",
-                                  textAlign: "center",
-                                }}
-                              >
-                                {key}
-                              </div>
-
-                              {/* Circular Progress */}
-                              <div
-                                style={{
-                                  position: "relative",
-                                  width: "70px", // Increased from 50px
-                                  height: "70px", // Increased from 50px
-                                  margin: "0 auto",
-                                }}
-                              >
-                                <svg
-                                  width="70" // Increased from 50
-                                  height="70" // Increased from 50
-                                  style={{
-                                    transform: "rotate(-90deg)",
-                                  }}
-                                >
-                                  {/* Background circle */}
-                                  <circle
-                                    cx="35" // Adjusted center (70/2)
-                                    cy="35" // Adjusted center (70/2)
-                                    r="28" // Increased radius from 20
-                                    fill="none"
-                                    stroke="#ffd9f0"
-                                    strokeWidth="6" // Increased from 4
-                                  />
-                                  {/* Progress circle */}
-                                  <circle
-                                    cx="35" // Adjusted center (70/2)
-                                    cy="35" // Adjusted center (70/2)
-                                    r="28" // Increased radius from 20
-                                    fill="none"
-                                    stroke="#f847b4"
-                                    strokeWidth="6" // Increased from 4
-                                    strokeLinecap="round"
-                                    strokeDasharray={`${2 * Math.PI * 28}`} // Updated for new radius
-                                    strokeDashoffset={`${
-                                      2 * Math.PI * 28 * (1 - percentage / 100)
-                                    }`} // Updated for new radius
-                                    style={{
-                                      transition:
-                                        "stroke-dashoffset 0.3s ease-in-out",
-                                    }}
-                                  />
-                                </svg>
-                                {/* Score in center */}
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    top: "50%",
-                                    left: "50%",
-                                    transform: "translate(-50%, -50%)",
-                                    color: "#f847b4",
-                                    fontSize: "1rem", // Increased from 0.7rem
-                                    fontWeight: "bold",
-                                  }}
-                                >
-                                  {score}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {zipContent.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: "1rem",
-                      marginBottom: "1rem",
-                      textAlign: "center",
-                      padding: "1rem",
-                      background: "rgba(255, 217, 240, 0.3)",
-                      borderRadius: "12px",
-                      border: "1px solid rgba(248, 71, 180, 0.2)",
-                    }}
-                  >
-                    <label
-                      style={{
-                        fontSize: "1rem",
-                        color: "#f847b4",
-                        fontWeight: "600",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.5rem",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={showOverlays}
-                        onChange={() => setShowOverlays(!showOverlays)}
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          accentColor: "#f847b4",
-                        }}
-                      />
-                      <span>✨ Show skin concern overlays</span>
-                    </label>
-                  </div>
-                )}
-
-                {uploadResponse?.file_id && !scoreInfo && !retake && (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: "2rem",
-                      background:
-                        "linear-gradient(135deg, #ffd9f0, rgba(255, 217, 240, 0.5))",
-                      borderRadius: "16px",
-                      border: "1px solid rgba(248, 71, 180, 0.2)",
-                    }}
-                  >
-                    <p
-                      style={{
-                        color: "#f847b4",
-                        fontSize: "1.1rem",
-                        fontWeight: "600",
-                        marginBottom: "1.5rem",
-                      }}
-                    >
-                      Your image is ready for premium analysis
-                    </p>
-                    <button
-                      disabled={analyzing}
-                      onClick={() => {
-                        if (!hasAccess) {
-                          setShowLoginModal(true);
-                        } else if (!analyzing && uploadResponse?.file_id) {
-                          runSkinAnalysis(uploadResponse.file_id);
-                        }
-                      }}
-                      style={{
-                        background: analyzing
-                          ? "linear-gradient(135deg, #ccc, #999)"
-                          : "linear-gradient(135deg, #f847b4, #ff6bc7)",
-                        color: "white",
-                        border: "none",
-                        padding: "1rem 2rem",
-                        borderRadius: "12px",
-                        fontSize: "1rem",
-                        fontWeight: "600",
-                        cursor: analyzing ? "not-allowed" : "pointer",
-                        boxShadow: analyzing
-                          ? "none"
-                          : "0 8px 25px rgba(248, 71, 180, 0.4)",
-                        transition: "all 0.3s ease",
-                        transform: analyzing ? "none" : "translateY(-2px)",
-                      }}
-                    >
-                      {analyzing
-                        ? "Analyzing..."
-                        : hasAccess
-                        ? "✨ View Premium Results"
-                        : "🔐 Log In to View Results"}
-                    </button>
-                  </div>
-                )}
                 {scoreInfo && hasAccess && (
                   <div
                     style={{
@@ -1153,24 +1143,24 @@ export default function FaceDetectionComponent() {
                     <button
                       onClick={async () => {
                         generateSkinAnalysisResult({
-                                                      // @ts-expect-error: Supabase typing is too strict here
-                          originalImageSrc: {originalImagePreview},
+                          // @ts-expect-error: Supabase typing is too strict here
+                          originalImageSrc: { originalImagePreview },
                           scoreInfo: {
-                                                        // @ts-expect-error: Supabase typing is too strict here
+                            // @ts-expect-error: Supabase typing is too strict here
 
                             all: { score: scoreInfo.all?.score },
-                                                        // @ts-expect-error: Supabase typing is too strict here
+                            // @ts-expect-error: Supabase typing is too strict here
 
                             acne: { ui_score: scoreInfo.acne?.ui_score },
-                                                        // @ts-expect-error: Supabase typing is too strict here
+                            // @ts-expect-error: Supabase typing is too strict here
 
-                            wrinkle: { ui_score:scoreInfo.wrinkle?.ui_score },
-                                                        // @ts-expect-error: Supabase typing is too strict here
+                            wrinkle: { ui_score: scoreInfo.wrinkle?.ui_score },
+                            // @ts-expect-error: Supabase typing is too strict here
 
                             pore: { ui_score: scoreInfo.pore?.ui_score },
-                                                        // @ts-expect-error: Supabase typing is too strict here
+                            // @ts-expect-error: Supabase typing is too strict here
 
-                            texture: { ui_score: scoreInfo.texture?.ui_score},
+                            texture: { ui_score: scoreInfo.texture?.ui_score },
                           },
                         });
                       }}
@@ -1210,14 +1200,12 @@ export default function FaceDetectionComponent() {
                         marginBottom: "1.5rem",
                       }}
                     >
-
-                  {message}
-                     
+                      {message}
                     </p>
                     <button
-                  onClick={() => {
-                    window.location.reload();
-                  }}
+                      onClick={() => {
+                        window.location.reload();
+                      }}
                       style={{
                         background: analyzing
                           ? "linear-gradient(135deg, #ccc, #999)"
