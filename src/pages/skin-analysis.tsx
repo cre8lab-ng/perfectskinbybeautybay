@@ -1598,7 +1598,7 @@ export default function FaceDetectionComponent() {
                                                 alt={product.name}
                                                 style={{
                                                   width: "100%",
-                                                  height: "200px",
+                                                  height: "100%",
                                                   objectFit: "cover",
                                                 }}
                                               />
