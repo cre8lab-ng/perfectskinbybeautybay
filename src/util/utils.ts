@@ -102,31 +102,28 @@ export function generateSkinAnalysisResult({
 
     // BEAUTY HUB VIBRANT COLOR PALETTE - Instagram Ready
     const brandPink = "#f847b4"; // Primary brand color
-    const lightPink = "#ffd9f0"; // Secondary brand color
     const deepPink = "#e239a3"; // Darker shade
     const gradientPink = "#ff6bc7"; // Gradient variation
     const pureWhite = "#ffffff";
-    const brightBackground = "#fff5fc"; // Bright pink-tinted background
     const vibrantAccent = "#ff4da6"; // More vibrant accent
     const textDark = "#2c3e50";
     const textLight = "#6c757d";
     const shadowColor = "rgba(248, 71, 180, 0.2)";
 
-    // VIBRANT GRADIENT BACKGROUND - Instagram Worthy
-    const backgroundGradient = ctx.createRadialGradient(
-      canvas.width / 2, canvas.height / 3, 0,
-      canvas.width / 2, canvas.height / 3, canvas.height
-    );
-    backgroundGradient.addColorStop(0, pureWhite);
-    backgroundGradient.addColorStop(0.4, brightBackground);
-    backgroundGradient.addColorStop(0.8, lightPink);
-    backgroundGradient.addColorStop(1, "#ffe8f7");
+    // SUPER BRIGHT GRADIENT BACKGROUND - All parts bright
+    const backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    backgroundGradient.addColorStop(0, "#ffb8e3"); // Bright vibrant pink at top
+    backgroundGradient.addColorStop(0.2, "#ffcceb"); // Bright throughout
+    backgroundGradient.addColorStop(0.4, "#ffd9f0"); // Your light pink
+    backgroundGradient.addColorStop(0.6, "#ffe0f3"); // Bright middle
+    backgroundGradient.addColorStop(0.8, "#ffebf7"); // Bright towards bottom
+    backgroundGradient.addColorStop(1, "#ffb8e3"); // Bright footer
     ctx.fillStyle = backgroundGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // ELEGANT HEADER SECTION - Fixed Logo Size
+    // ELEGANT HEADER SECTION - Bigger Logo
     const headerY = 40;
-    const logoSize = 120; // Increased logo size to prevent shrinking
+    const logoSize = 180; // Much bigger logo
     const logoX = (canvas.width - logoSize) / 2;
 
     // Logo with premium shadow - Fixed size preservation
@@ -155,57 +152,13 @@ export function generateSkinAnalysisResult({
     ctx.textAlign = "center";
     ctx.fillText("AI-Powered Skin Analysis", canvas.width / 2, titleY + 55);
 
-    // PREMIUM DIVIDER
-    const dividerY = titleY + 130;
-    const dividerGradient = ctx.createLinearGradient(
-      150,
-      dividerY,
-      750,
-      dividerY
-    );
-    dividerGradient.addColorStop(0, "rgba(248, 71, 180, 0)");
-    dividerGradient.addColorStop(0.5, brandPink);
-    dividerGradient.addColorStop(1, "rgba(248, 71, 180, 0)");
-    ctx.strokeStyle = dividerGradient;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(150, dividerY);
-    ctx.lineTo(750, dividerY);
-    ctx.stroke();
+ 
 
     // SPECTACULAR IMAGE SHOWCASE - Larger for better visual impact
-    const imageY = dividerY + 60;
-    const imageSize = 450;
+    const imageY = titleY + 100;
+    const imageSize = 600;
     const imageX = (canvas.width - imageSize) / 2;
 
-    // Premium image container with gradient border
-    const borderSize = 6;
-    const borderGradient = ctx.createLinearGradient(
-      imageX - borderSize,
-      imageY - borderSize,
-      imageX + imageSize + borderSize,
-      imageY + imageSize + borderSize
-    );
-    borderGradient.addColorStop(0, brandPink);
-    borderGradient.addColorStop(0.5, gradientPink);
-    borderGradient.addColorStop(1, deepPink);
-
-    ctx.fillStyle = borderGradient;
-    ctx.fillRect(
-      imageX - borderSize,
-      imageY - borderSize,
-      imageSize + borderSize * 2,
-      imageSize + borderSize * 2
-    );
-
-    // White inner border for contrast
-    ctx.fillStyle = pureWhite;
-    ctx.fillRect(imageX - 3, imageY - 3, imageSize + 6, imageSize + 6);
-
-    // Premium shadow for image
-    ctx.shadowColor = shadowColor;
-    ctx.shadowBlur = 35;
-    ctx.shadowOffsetY = 12;
 
     // Main image
     ctx.drawImage(productImage, imageX, imageY, imageSize, imageSize);
@@ -215,7 +168,7 @@ export function generateSkinAnalysisResult({
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // SPECTACULAR OVERALL SCORE
+    // SPECTACULAR OVERALL SCORE - Centered properly
     const overallScoreY = imageY + imageSize + 80;
     const overallScore = scoreInfo.all?.score ?? "N/A";
 
@@ -276,54 +229,26 @@ export function generateSkinAnalysisResult({
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // Premium score display - Bigger font
+    // Premium score display - Properly centered in the container
+    const overallScoreCenterX = overallBoxX + overallBoxWidth / 2;
+    const overallScoreCenterY = overallScoreY + overallBoxHeight / 2;
+    
     ctx.font = "bold 110px Inconsolata, monospace";
     ctx.fillStyle = pureWhite;
     ctx.textAlign = "center";
-    ctx.fillText(String(overallScore), canvas.width / 2, overallScoreY + 85);
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(overallScore), overallScoreCenterX, overallScoreCenterY - 15);
 
     ctx.font = "bold 32px Inconsolata, monospace";
     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-    ctx.fillText("OVERALL SKIN SCORE", canvas.width / 2, overallScoreY + 125);
+    ctx.textBaseline = "middle";
+    ctx.fillText("OVERALL SKIN SCORE", overallScoreCenterX, overallScoreCenterY + 45);
 
-    // PREMIUM DETAILED ANALYSIS SECTION
-    const resultsY = overallScoreY + 260;
+    // Reset text baseline
+    ctx.textBaseline = "alphabetic";
 
-    // Section title - Bigger
-    ctx.font = "bold 52px Inconsolata, monospace";
-    const detailsGradient = ctx.createLinearGradient(
-      0,
-      resultsY,
-      canvas.width,
-      resultsY
-    );
-    detailsGradient.addColorStop(0, brandPink);
-    detailsGradient.addColorStop(0.5, gradientPink);
-    detailsGradient.addColorStop(1, deepPink);
-    ctx.fillStyle = detailsGradient;
-    ctx.textAlign = "center";
-    ctx.fillText("Detailed Analysis", canvas.width / 2, resultsY);
-
-    // Premium section divider
-    const sectionDividerY = resultsY + 35;
-    const sectionGradient = ctx.createLinearGradient(
-      200,
-      sectionDividerY,
-      700,
-      sectionDividerY
-    );
-    sectionGradient.addColorStop(0, "rgba(248, 71, 180, 0)");
-    sectionGradient.addColorStop(0.5, brandPink);
-    sectionGradient.addColorStop(1, "rgba(248, 71, 180, 0)");
-    ctx.strokeStyle = sectionGradient;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(200, sectionDividerY);
-    ctx.lineTo(700, sectionDividerY);
-    ctx.stroke();
-
-    // ENHANCED SCORE CARDS - No borders, bigger text and progress
-    const scoresStartY = resultsY + 100;
+    // CLEAN SCORE CARDS - No background, no "Score" text, no detailed analysis title
+    const scoresStartY = overallScoreY + 280;
     const scores = [
       { label: "Acne", value: scoreInfo.acne?.ui_score ?? "N/A" },
       { label: "Wrinkles", value: scoreInfo.wrinkle?.ui_score ?? "N/A" },
@@ -332,23 +257,22 @@ export function generateSkinAnalysisResult({
     ];
 
     const cardWidth = 200;
-    const cardHeight = 280; // Increased height for bigger elements
     const cardSpacing = 15;
     const totalWidth = cardWidth * 4 + cardSpacing * 3;
     const startX = (canvas.width - totalWidth) / 2;
 
-    // Function to draw enhanced circular progress
+    // Function to draw enhanced circular progress - Bigger and lighter background
     function drawCircularProgress(x: number, y: number, radius: number, percentage: number) {
       const centerX = x;
       const centerY = y;
       const startAngle = -Math.PI / 2;
       const endAngle = startAngle + (percentage / 100) * 2 * Math.PI;
 
-      // Background circle - thicker
+      // Background circle - thicker and much lighter
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-      ctx.strokeStyle = "rgba(255, 217, 240, 0.4)";
-      ctx.lineWidth = 12;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"; // Much lighter background
+      ctx.lineWidth = 14; // Thicker
       ctx.stroke();
 
       // Progress circle - thicker and more vibrant
@@ -362,7 +286,7 @@ export function generateSkinAnalysisResult({
         progressGradient.addColorStop(0, brandPink);
         progressGradient.addColorStop(1, vibrantAccent);
         ctx.strokeStyle = progressGradient;
-        ctx.lineWidth = 12;
+        ctx.lineWidth = 14; // Thicker
         ctx.lineCap = "round";
         ctx.stroke();
       }
@@ -376,64 +300,27 @@ export function generateSkinAnalysisResult({
           ? score.value
           : parseFloat(String(score.value)) || 0;
 
-      // Clean card background - no borders
-      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-      ctx.shadowColor = "rgba(248, 71, 180, 0.1)";
-      ctx.shadowBlur = 20;
-      ctx.shadowOffsetY = 5;
-      
-      ctx.beginPath();
-      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 20);
-      ctx.fill();
-
-      // Reset shadow
-      ctx.shadowColor = "transparent";
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetY = 0;
-
-      // Enhanced circular progress - bigger
+      // Enhanced circular progress - Much bigger
       const progressCenterX = cardX + cardWidth / 2;
       const progressCenterY = cardY + 80;
-      const progressRadius = 45; // Increased radius
+      const progressRadius = 60; // Increased from 45 to 60
       
       drawCircularProgress(progressCenterX, progressCenterY, progressRadius, scoreValue);
 
       // Score value in center of circle - bigger
-      ctx.font = "bold 36px Inconsolata, monospace";
+      ctx.font = "bold 42px Inconsolata, monospace"; // Increased font size
       ctx.fillStyle = brandPink;
       ctx.textAlign = "center";
-      ctx.fillText(String(score.value), progressCenterX, progressCenterY + 12);
+      ctx.fillText(String(score.value), progressCenterX, progressCenterY + 14);
 
       // Label - bigger and more prominent
       ctx.font = "bold 32px Inconsolata, monospace";
       ctx.fillStyle = textDark;
-      ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 180);
-
-      // Add subtle score description
-      ctx.font = "18px Inconsolata, monospace";
-      ctx.fillStyle = textLight;
-      ctx.fillText("Score", cardX + cardWidth / 2, cardY + 210);
+      ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 180); // Adjusted position
     });
 
     // PREMIUM FOOTER - Moved to extreme bottom
     const footerY = canvas.height - 120;
-
-    // Footer divider
-    const footerDividerGradient = ctx.createLinearGradient(
-      100,
-      footerY - 40,
-      800,
-      footerY - 40
-    );
-    footerDividerGradient.addColorStop(0, "rgba(248, 71, 180, 0)");
-    footerDividerGradient.addColorStop(0.5, brandPink);
-    footerDividerGradient.addColorStop(1, "rgba(248, 71, 180, 0)");
-    ctx.strokeStyle = footerDividerGradient;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(100, footerY - 40);
-    ctx.lineTo(800, footerY - 40);
-    ctx.stroke();
 
     // Premium branding - Bigger
     ctx.font = "bold 38px Inconsolata, monospace";
@@ -508,7 +395,7 @@ export function generateSkinAnalysisResult({
     function fallbackDownload(imageData: string) {
       const link: HTMLAnchorElement = document.createElement("a");
       link.href = imageData;
-      link.download = `beautyhub-skin-analysis-${Date.now()}.png`;
+      link.download = `perfectskinbeautyhub-skin-analysis.png`;
 
       link.style.display = "none";
       document.body.appendChild(link);
