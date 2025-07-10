@@ -610,6 +610,74 @@ export default function FaceDetectionComponent() {
     };
   }, []);
 
+        // @ts-expect-error: Supabase typing is too strict here
+
+  const getImageWithOverlays = async (baseSrc, overlays) => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+  
+    const baseImg = new Image();
+    baseImg.crossOrigin = "anonymous";
+    baseImg.src = baseSrc;
+  
+    await new Promise((res) => {
+      baseImg.onload = () => {
+        canvas.width = baseImg.width;
+        canvas.height = baseImg.height;
+        ctx.drawImage(baseImg, 0, 0);
+        res(null);
+      };
+    });
+  
+    for (const mask of overlays) {
+      const overlay = new Image();
+      overlay.crossOrigin = "anonymous";
+      overlay.src = mask.url;
+  
+      const name = mask.name.toLowerCase();
+  
+      let filter = "contrast(250%) brightness(120%) saturate(180%)";
+      let blendMode = "normal";
+  
+      if (name.includes("acne_output")) {
+        filter = "hue-rotate(0deg) contrast(250%) brightness(120%) saturate(200%)";
+        blendMode = "overlay";
+      } else if (name.includes("wrinkle_output")) {
+        filter = "hue-rotate(270deg) contrast(250%) brightness(120%) saturate(200%)";
+        blendMode = "overlay";
+      } else if (name.includes("pore_output")) {
+        filter = "hue-rotate(180deg) contrast(250%) brightness(120%) saturate(200%)";
+        blendMode = "multiply";
+      } else if (name.includes("texture_output")) {
+        filter = "hue-rotate(60deg) contrast(250%) brightness(120%) saturate(200%)";
+        blendMode = "overlay";
+      }
+  
+      await new Promise((res) => {
+        overlay.onload = () => {
+          ctx.save(); // Save canvas state
+  
+          // Apply filter and blend mode
+          ctx.filter = filter;
+                // @ts-expect-error: Supabase typing is too strict here
+          ctx.globalCompositeOperation = blendMode;
+  
+          ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+  
+          ctx.restore(); // Restore to previous state (important!)
+          res(null);
+        };
+      });
+    }
+  
+    // Clear any residual filter/blend mode
+    ctx.globalCompositeOperation = "source-over";
+    ctx.filter = "none";
+  
+    return canvas.toDataURL("image/png");
+  };
+  
   return (
     <>
       {showPrivacyModal && (
@@ -825,14 +893,14 @@ export default function FaceDetectionComponent() {
                                 key={key}
                                 style={{
                                   padding: "0.75rem",
-                                  minWidth: "100px",
+                                  minWidth: "130px", // Increased from 100px
                                 }}
                               >
                                 <div
                                   style={{
-                                    color: "white",
-                                    fontSize: "0.75rem",
-                                    fontWeight: "600",
+                                    color: "#f847b4",
+                                    fontSize: "1.5rem",
+                                    fontWeight: "800",
                                     textTransform: "capitalize",
                                     marginBottom: "0.5rem",
                                     textAlign: "center",
@@ -843,39 +911,39 @@ export default function FaceDetectionComponent() {
                                 <div
                                   style={{
                                     position: "relative",
-                                    width: "70px",
-                                    height: "70px",
+                                    width: "100px", // Increased from 70px
+                                    height: "100px", // Increased from 70px
                                     margin: "0 auto",
                                   }}
                                 >
                                   <svg
-                                    width="70"
-                                    height="70"
+                                    width="100" // Increased from 70
+                                    height="100" // Increased from 70
                                     style={{
                                       transform: "rotate(-90deg)",
                                     }}
                                   >
                                     <circle
-                                      cx="35"
-                                      cy="35"
-                                      r="28"
+                                      cx="50" // Increased from 35
+                                      cy="50" // Increased from 35
+                                      r="40" // Increased from 28
                                       fill="none"
                                       stroke="#ffd9f0"
-                                      strokeWidth="6"
+                                      strokeWidth="8" // Increased from 6
                                     />
                                     <circle
-                                      cx="35"
-                                      cy="35"
-                                      r="28"
+                                      cx="50" // Increased from 35
+                                      cy="50" // Increased from 35
+                                      r="40" // Increased from 28
                                       fill="none"
                                       stroke="#f847b4"
-                                      strokeWidth="6"
+                                      strokeWidth="8" // Increased from 6
                                       strokeLinecap="round"
-                                      strokeDasharray={`${2 * Math.PI * 28}`}
+                                      strokeDasharray={`${2 * Math.PI * 40}`} // Updated radius
                                       strokeDashoffset={`${
                                         2 *
                                         Math.PI *
-                                        28 *
+                                        40 * // Updated radius
                                         (1 - percentage / 100)
                                       }`}
                                       style={{
@@ -891,7 +959,7 @@ export default function FaceDetectionComponent() {
                                       left: "50%",
                                       transform: "translate(-50%, -50%)",
                                       color: "#f847b4",
-                                      fontSize: "1rem",
+                                      fontSize: "1.5rem", // Increased from 1rem
                                       fontWeight: "bold",
                                     }}
                                   >
@@ -978,9 +1046,9 @@ export default function FaceDetectionComponent() {
                         </p>
                         <p
                           style={{
-                            fontSize: "0.9rem",
+                            fontSize: "1.4rem",
                             margin: "0.5rem 0 0",
-                            color: "#666",
+                            color: "#f847b4",
                           }}
                         >
                           Our AI is mapping your unique skin profile
@@ -1181,31 +1249,34 @@ export default function FaceDetectionComponent() {
                         const fallbackImageSrc =
                           "https://t4.ftcdn.net/jpg/02/79/66/93/360_F_279669366_Lk12QalYQKMczLEa4ySjhaLtx1M2u7e6.jpg";
 
-                        // Use the original image preview or fallback
-                        const imageSrc =
-                          originalImagePreview || fallbackImageSrc;
+                    
+                        const compositeImageSrc = await getImageWithOverlays(
+                          originalImagePreview || fallbackImageSrc,
+                          zipContent
+                        );
 
                         try {
                           await generateSkinAnalysisResult({
-                            originalImageSrc: imageSrc, // Pass the actual image source, not an object
+                                  // @ts-expect-error: Supabase typing is too strict here
+                            originalImageSrc: compositeImageSrc, // Pass the actual image source, not an object
                             scoreInfo: {
                               all: {
                                 score: `${scoreInfo.all?.score?.toFixed(1)}%`,
                               },
-                                                          // @ts-expect-error: Supabase typing is too strict here
+                              // @ts-expect-error: Supabase typing is too strict here
 
                               acne: { ui_score: scoreInfo.acne?.ui_score },
-                              
+
                               wrinkle: {
-                                                            // @ts-expect-error: Supabase typing is too strict here
+                                // @ts-expect-error: Supabase typing is too strict here
 
                                 ui_score: scoreInfo.wrinkle?.ui_score,
                               },
-                                                          // @ts-expect-error: Supabase typing is too strict here
+                              // @ts-expect-error: Supabase typing is too strict here
 
                               pore: { ui_score: scoreInfo.pore?.ui_score },
                               texture: {
-                                                            // @ts-expect-error: Supabase typing is too strict here
+                                // @ts-expect-error: Supabase typing is too strict here
 
                                 ui_score: scoreInfo.texture?.ui_score,
                               },
@@ -1233,25 +1304,25 @@ export default function FaceDetectionComponent() {
                         transition: "all 0.3s ease",
                       }}
                       onMouseEnter={(e) => {
-                                                    // @ts-expect-error: Supabase typing is too strict here
+                        // @ts-expect-error: Supabase typing is too strict here
 
                         e.target.style.transform = "translateY(-2px)";
-                                                    // @ts-expect-error: Supabase typing is too strict here
+                        // @ts-expect-error: Supabase typing is too strict here
 
                         e.target.style.boxShadow =
                           "0 8px 25px rgba(248, 71, 180, 0.4)";
                       }}
                       onMouseLeave={(e) => {
-                                                    // @ts-expect-error: Supabase typing is too strict here
+                        // @ts-expect-error: Supabase typing is too strict here
 
                         e.target.style.transform = "translateY(0)";
-                                                    // @ts-expect-error: Supabase typing is too strict here
+                        // @ts-expect-error: Supabase typing is too strict here
 
                         e.target.style.boxShadow =
                           "0 6px 20px rgba(248, 71, 180, 0.3)";
                       }}
                     >
-                      📥 Download Result
+                      Download Result
                     </button>
                   </div>
                 )}
