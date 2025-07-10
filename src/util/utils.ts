@@ -98,47 +98,56 @@ export function generateSkinAnalysisResult({
     new Promise<void>((res) => (productImage.onload = () => res())),
   ]).then(() => {
     canvas.width = 900;
-    canvas.height = 1700; // Increased height to accommodate proper spacing
+    canvas.height = 1700;
 
-    // BEAUTY HUB ENHANCED COLOR PALETTE
+    // BEAUTY HUB VIBRANT COLOR PALETTE - Instagram Ready
     const brandPink = "#f847b4"; // Primary brand color
     const lightPink = "#ffd9f0"; // Secondary brand color
     const deepPink = "#e239a3"; // Darker shade
     const gradientPink = "#ff6bc7"; // Gradient variation
     const pureWhite = "#ffffff";
-    const softGray = "#f8f9fa"; // Light background
-    const lightGray = "#f0f4f8"; // Even lighter shade
+    const brightBackground = "#fff5fc"; // Bright pink-tinted background
+    const vibrantAccent = "#ff4da6"; // More vibrant accent
     const textDark = "#2c3e50";
     const textLight = "#6c757d";
-    const shadowColor = "rgba(248, 71, 180, 0.15)";
+    const shadowColor = "rgba(248, 71, 180, 0.2)";
 
-    // PREMIUM GRADIENT BACKGROUND - Beautiful light colors
-    const backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    // VIBRANT GRADIENT BACKGROUND - Instagram Worthy
+    const backgroundGradient = ctx.createRadialGradient(
+      canvas.width / 2, canvas.height / 3, 0,
+      canvas.width / 2, canvas.height / 3, canvas.height
+    );
     backgroundGradient.addColorStop(0, pureWhite);
-    backgroundGradient.addColorStop(0.3, softGray);
-    backgroundGradient.addColorStop(0.7, "#fafbfc");
-    backgroundGradient.addColorStop(1, pureWhite);
+    backgroundGradient.addColorStop(0.4, brightBackground);
+    backgroundGradient.addColorStop(0.8, lightPink);
+    backgroundGradient.addColorStop(1, "#ffe8f7");
     ctx.fillStyle = backgroundGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // ELEGANT HEADER SECTION
+    // ELEGANT HEADER SECTION - Fixed Logo Size
     const headerY = 40;
-    const logoSize = 100; // Slightly smaller logo
+    const logoSize = 120; // Increased logo size to prevent shrinking
     const logoX = (canvas.width - logoSize) / 2;
 
-    // Logo with premium shadow
+    // Logo with premium shadow - Fixed size preservation
     ctx.shadowColor = shadowColor;
     ctx.shadowBlur = 25;
     ctx.shadowOffsetY = 8;
-    ctx.drawImage(logo, logoX, headerY, logoSize, logoSize);
+    
+    // Ensure logo maintains aspect ratio
+    const logoAspectRatio = logo.width / logo.height;
+    const logoWidth = logoSize;
+    const logoHeight = logoSize / logoAspectRatio;
+    
+    ctx.drawImage(logo, logoX, headerY, logoWidth, logoHeight);
 
     // Reset shadow
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // MAGNIFICENT BRAND TYPOGRAPHY - Inconsolata font, bigger sizes
-    const titleY = headerY + logoSize + 40;
+    // MAGNIFICENT BRAND TYPOGRAPHY
+    const titleY = headerY + logoHeight + 40;
 
     // Premium subtitle - Bigger and more visible
     ctx.font = "bold 36px Inconsolata, monospace";
@@ -166,7 +175,7 @@ export function generateSkinAnalysisResult({
 
     // SPECTACULAR IMAGE SHOWCASE - Larger for better visual impact
     const imageY = dividerY + 60;
-    const imageSize = 450; // Increased from 280 to 450 for better visibility
+    const imageSize = 450;
     const imageX = (canvas.width - imageSize) / 2;
 
     // Premium image container with gradient border
@@ -198,7 +207,7 @@ export function generateSkinAnalysisResult({
     ctx.shadowBlur = 35;
     ctx.shadowOffsetY = 12;
 
-    // Main image - now larger and more prominent
+    // Main image
     ctx.drawImage(productImage, imageX, imageY, imageSize, imageSize);
 
     // Reset shadow
@@ -313,49 +322,47 @@ export function generateSkinAnalysisResult({
     ctx.lineTo(700, sectionDividerY);
     ctx.stroke();
 
-    // PREMIUM SCORE CARDS WITH CIRCULAR PROGRESS
+    // ENHANCED SCORE CARDS - No borders, bigger text and progress
     const scoresStartY = resultsY + 100;
     const scores = [
-      { label: "Acne", value: scoreInfo.acne?.ui_score ?? "N/A", icon: "🎯" },
-      {
-        label: "Wrinkles",
-        value: scoreInfo.wrinkle?.ui_score ?? "N/A",
-        icon: "✨",
-      },
-      { label: "Pores", value: scoreInfo.pore?.ui_score ?? "N/A", icon: "🔍" },
-      {
-        label: "Texture",
-        value: scoreInfo.texture?.ui_score ?? "N/A",
-        icon: "💎",
-      },
+      { label: "Acne", value: scoreInfo.acne?.ui_score ?? "N/A" },
+      { label: "Wrinkles", value: scoreInfo.wrinkle?.ui_score ?? "N/A" },
+      { label: "Pores", value: scoreInfo.pore?.ui_score ?? "N/A" },
+      { label: "Texture", value: scoreInfo.texture?.ui_score ?? "N/A" },
     ];
 
-    const cardWidth = 190;
-    const cardHeight = 220; // Reduced height since we removed progress bar and rating text
-    const cardSpacing = 20;
+    const cardWidth = 200;
+    const cardHeight = 280; // Increased height for bigger elements
+    const cardSpacing = 15;
     const totalWidth = cardWidth * 4 + cardSpacing * 3;
     const startX = (canvas.width - totalWidth) / 2;
 
-    // Function to draw circular progress
+    // Function to draw enhanced circular progress
     function drawCircularProgress(x: number, y: number, radius: number, percentage: number) {
       const centerX = x;
       const centerY = y;
-      const startAngle = -Math.PI / 2; // Start from top
+      const startAngle = -Math.PI / 2;
       const endAngle = startAngle + (percentage / 100) * 2 * Math.PI;
 
-      // Background circle
+      // Background circle - thicker
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-      ctx.strokeStyle = lightPink;
-      ctx.lineWidth = 8;
+      ctx.strokeStyle = "rgba(255, 217, 240, 0.4)";
+      ctx.lineWidth = 12;
       ctx.stroke();
 
-      // Progress circle
+      // Progress circle - thicker and more vibrant
       if (percentage > 0) {
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-        ctx.strokeStyle = brandPink;
-        ctx.lineWidth = 8;
+        const progressGradient = ctx.createLinearGradient(
+          centerX - radius, centerY - radius,
+          centerX + radius, centerY + radius
+        );
+        progressGradient.addColorStop(0, brandPink);
+        progressGradient.addColorStop(1, vibrantAccent);
+        ctx.strokeStyle = progressGradient;
+        ctx.lineWidth = 12;
         ctx.lineCap = "round";
         ctx.stroke();
       }
@@ -369,64 +376,47 @@ export function generateSkinAnalysisResult({
           ? score.value
           : parseFloat(String(score.value)) || 0;
 
-      // Premium card background - More contrast
-      const cardGradient = ctx.createLinearGradient(
-        cardX,
-        cardY,
-        cardX + cardWidth,
-        cardY + cardHeight
-      );
-      cardGradient.addColorStop(0, pureWhite);
-      cardGradient.addColorStop(1, lightGray);
-
-      ctx.shadowColor = shadowColor;
+      // Clean card background - no borders
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.shadowColor = "rgba(248, 71, 180, 0.1)";
       ctx.shadowBlur = 20;
-      ctx.shadowOffsetY = 8;
-
-      ctx.fillStyle = cardGradient;
+      ctx.shadowOffsetY = 5;
+      
       ctx.beginPath();
-      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 18);
+      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 20);
       ctx.fill();
-
-      // Premium border - Thicker
-      ctx.strokeStyle = brandPink;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.roundRect(cardX, cardY, cardWidth, cardHeight, 18);
-      ctx.stroke();
 
       // Reset shadow
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
 
-      // Icon - Bigger
-      ctx.font = "40px Inconsolata, monospace";
-      ctx.fillStyle = textDark;
-      ctx.textAlign = "center";
-      ctx.fillText(score.icon, cardX + cardWidth / 2, cardY + 45);
-
-      // Circular progress
+      // Enhanced circular progress - bigger
       const progressCenterX = cardX + cardWidth / 2;
-      const progressCenterY = cardY + 100;
-      const progressRadius = 30;
+      const progressCenterY = cardY + 80;
+      const progressRadius = 45; // Increased radius
       
       drawCircularProgress(progressCenterX, progressCenterY, progressRadius, scoreValue);
 
-      // Score value in center of circle
-      ctx.font = "bold 24px Inconsolata, monospace";
+      // Score value in center of circle - bigger
+      ctx.font = "bold 36px Inconsolata, monospace";
       ctx.fillStyle = brandPink;
       ctx.textAlign = "center";
-      ctx.fillText(String(score.value), progressCenterX, progressCenterY + 8);
+      ctx.fillText(String(score.value), progressCenterX, progressCenterY + 12);
 
-      // Label - Bigger
-      ctx.font = "bold 24px Inconsolata, monospace";
+      // Label - bigger and more prominent
+      ctx.font = "bold 32px Inconsolata, monospace";
       ctx.fillStyle = textDark;
-      ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 160);
+      ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 180);
+
+      // Add subtle score description
+      ctx.font = "18px Inconsolata, monospace";
+      ctx.fillStyle = textLight;
+      ctx.fillText("Score", cardX + cardWidth / 2, cardY + 210);
     });
 
     // PREMIUM FOOTER - Moved to extreme bottom
-    const footerY = canvas.height - 120; // Moved much further down
+    const footerY = canvas.height - 120;
 
     // Footer divider
     const footerDividerGradient = ctx.createLinearGradient(
