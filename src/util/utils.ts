@@ -64,20 +64,25 @@ export async function extractSkinAnalysisResults(zipUrl: string) {
 }
 
 export const errorMessages: Record<string, string> = {
-  error_src_face_too_small: "your face is too far away. Please move closer to the camera",
-  error_src_face_out_of_bound: "your face is partially outside the frame. Please center your face within the camera view",
-  error_large_face_angle: "your face is tilted. Please look straight at the camera with your head upright",
+  error_src_face_too_small:
+    "your face is too far away. Please move closer to the camera",
+  error_src_face_out_of_bound:
+    "your face is partially outside the frame. Please center your face within the camera view",
+  error_large_face_angle:
+    "your face is tilted. Please look straight at the camera with your head upright",
 };
 
-
-export function generateSkinAnalysisResult({ originalImageSrc, scoreInfo }: GenerateSkinAnalysisParams): void {
+export function generateSkinAnalysisResult({
+  originalImageSrc,
+  scoreInfo,
+}: GenerateSkinAnalysisParams): void {
   const canvas: HTMLCanvasElement = document.createElement("canvas");
   const ctx: CanvasRenderingContext2D = canvas.getContext("2d")!;
 
   // Ultra-premium rendering settings
-  ctx.textRendering = 'optimizeLegibility';
+  ctx.textRendering = "optimizeLegibility";
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = "high";
 
   const logo: HTMLImageElement = new Image();
   const productImage: HTMLImageElement = new Image();
@@ -93,325 +98,353 @@ export function generateSkinAnalysisResult({ originalImageSrc, scoreInfo }: Gene
     new Promise<void>((res) => (productImage.onload = () => res())),
   ]).then(() => {
     canvas.width = 900;
-    canvas.height = 1900;
+    canvas.height = 1700;
 
-    // YOUR BRAND COLOR PALETTE
-    const darkPink = '#f847b4';      // Your primary brand color
-    const lightPink = '#ffd9f0';     // Your secondary brand color
-    const deeperPink = '#e239a3';    // Darker shade of your brand pink
-    const pureWhite = '#ffffff';
-    const charcoal = '#2c3e50';
-    const slate = '#34495e';
+    // BEAUTY HUB VIBRANT COLOR PALETTE - Instagram Ready
+    const brandPink = "#f847b4"; // Primary brand color
+    const deepPink = "#e239a3"; // Darker shade
+    const gradientPink = "#ff6bc7"; // Gradient variation
+    const pureWhite = "#ffffff";
+    const vibrantAccent = "#ff4da6"; // More vibrant accent
+    const textDark = "#2c3e50";
+    const textLight = "#6c757d";
+    const shadowColor = "rgba(248, 71, 180, 0.2)";
 
-    // Clean, minimal background - pure white
-    ctx.fillStyle = '#ffffff';
+    // SUPER BRIGHT GRADIENT BACKGROUND - All parts bright
+    const backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    backgroundGradient.addColorStop(0, "#ffb8e3"); // Bright vibrant pink at top
+    backgroundGradient.addColorStop(0.2, "#ffcceb"); // Bright throughout
+    backgroundGradient.addColorStop(0.4, "#ffd9f0"); // Your light pink
+    backgroundGradient.addColorStop(0.6, "#ffe0f3"); // Bright middle
+    backgroundGradient.addColorStop(0.8, "#ffebf7"); // Bright towards bottom
+    backgroundGradient.addColorStop(1, "#ffb8e3"); // Bright footer
+    ctx.fillStyle = backgroundGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // CLEAN HEADER SECTION - No borders, no bullshit
+    // ELEGANT HEADER SECTION - Bigger Logo
     const headerY = 40;
-    const logoSize = 160;
+    const logoSize = 180; // Much bigger logo
     const logoX = (canvas.width - logoSize) / 2;
+
+    // Logo with premium shadow - Fixed size preservation
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = 25;
+    ctx.shadowOffsetY = 8;
     
-    // Just the logo - clean and simple
-    ctx.drawImage(logo, logoX, headerY, logoSize, logoSize);
-
-    // MAGNIFICENT TYPOGRAPHY - Modern tech-forward style with your brand colors
-    ctx.font = 'bold 52px Inconsolata, monospace';
-    const titleGradient = ctx.createLinearGradient(0, headerY + logoSize + 70, canvas.width, headerY + logoSize + 70);
-    titleGradient.addColorStop(0, darkPink);
-    titleGradient.addColorStop(0.5, deeperPink);
-    titleGradient.addColorStop(1, darkPink);
-    ctx.fillStyle = titleGradient;
-    ctx.textAlign = 'center';
-    ctx.fillText('Perfect Skin By Beauty Hub', canvas.width / 2, headerY + logoSize + 70);
-
-    // Elegant subtitle with sophisticated styling
-    ctx.font = '28px Inconsolata, monospace';
-    ctx.fillStyle = slate;
-    ctx.fillText('AI Powered Skin Analysis', canvas.width / 2, headerY + logoSize + 110);
-
-    // Artistic separator - flowing wave design with your brand colors
-    const separatorY = headerY + logoSize + 140;
-    const separatorGradient = ctx.createLinearGradient(0, separatorY, canvas.width, separatorY);
-    separatorGradient.addColorStop(0, `${darkPink}00`);
-    separatorGradient.addColorStop(0.2, `${darkPink}99`);
-    separatorGradient.addColorStop(0.5, darkPink);
-    separatorGradient.addColorStop(0.8, `${darkPink}99`);
-    separatorGradient.addColorStop(1, `${darkPink}00`);
+    // Ensure logo maintains aspect ratio
+    const logoAspectRatio = logo.width / logo.height;
+    const logoWidth = logoSize;
+    const logoHeight = logoSize / logoAspectRatio;
     
-    ctx.strokeStyle = separatorGradient;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(100, separatorY);
-    ctx.bezierCurveTo(300, separatorY - 10, 600, separatorY + 10, 800, separatorY);
-    ctx.stroke();
-
-    // CLEAN IMAGE PRESENTATION - No borders, no frames
-    const imageY = separatorY + 60;
-    const imageSize = 340;
-    const imageX = (canvas.width - imageSize) / 2;
-
-    // Just the image - clean and simple
-    ctx.drawImage(productImage, imageX, imageY, imageSize, imageSize);
-
-    // SPECTACULAR OVERALL SCORE - The crown jewel with your brand colors
-    const overallScoreY = imageY + imageSize + 100;
-    const overallScore = scoreInfo.all?.score ?? 'N/A';
-
-    // Magnificent score container - glass morphism effect with your brand colors
-    const overallBoxWidth = 520;
-    const overallBoxHeight = 140;
-    const overallBoxX = (canvas.width - overallBoxWidth) / 2;
-
-    // Ultra-premium glass effect with your brand colors
-    ctx.shadowColor = `${darkPink}40`;
-    ctx.shadowBlur = 20;
-    ctx.shadowOffsetY = 10;
-    
-    const glassGradient = ctx.createLinearGradient(overallBoxX, overallScoreY, overallBoxX + overallBoxWidth, overallScoreY + overallBoxHeight);
-    glassGradient.addColorStop(0, `${darkPink}e6`);
-    glassGradient.addColorStop(0.5, `${deeperPink}f2`);
-    glassGradient.addColorStop(1, `${darkPink}e6`);
-    ctx.fillStyle = glassGradient;
-    ctx.fillRect(overallBoxX, overallScoreY, overallBoxWidth, overallBoxHeight);
-
-    // Highlight effect on top
-    const highlightGradient = ctx.createLinearGradient(overallBoxX, overallScoreY, overallBoxX + overallBoxWidth, overallScoreY + 40);
-    highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
-    highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = highlightGradient;
-    ctx.fillRect(overallBoxX, overallScoreY, overallBoxWidth, 40);
+    ctx.drawImage(logo, logoX, headerY, logoWidth, logoHeight);
 
     // Reset shadow
-    ctx.shadowColor = 'transparent';
+    ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // Gorgeous score display
-    ctx.font = 'bold 80px Inconsolata, monospace';
-    ctx.fillStyle = pureWhite;
-    ctx.textAlign = 'center';
-    ctx.fillText(String(overallScore), canvas.width / 2, overallScoreY + 60);
+    // MAGNIFICENT BRAND TYPOGRAPHY
+    const titleY = headerY + logoHeight + 40;
 
-    ctx.font = '26px Inconsolata, monospace';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.fillText('OVERALL SKIN SCORE', canvas.width / 2, overallScoreY + 95);
+    // Premium subtitle - Bigger and more visible
+    ctx.font = "bold 36px Inconsolata, monospace";
+    ctx.fillStyle = textDark;
+    ctx.textAlign = "center";
+    ctx.fillText("AI-Powered Skin Analysis", canvas.width / 2, titleY + 55);
 
-    // ELEGANT DETAILED ANALYSIS SECTION with your brand colors
-    const resultsY = overallScoreY + 200;
-    
-    ctx.font = '50px Inconsolata, monospace';
-    const detailsGradient = ctx.createLinearGradient(0, resultsY, canvas.width, resultsY);
-    detailsGradient.addColorStop(0, darkPink);
-    detailsGradient.addColorStop(0.5, deeperPink);
-    detailsGradient.addColorStop(1, darkPink);
-    ctx.fillStyle = detailsGradient;
-    ctx.textAlign = 'center';
-    ctx.fillText('Detailed Analysis', canvas.width / 2, resultsY);
+ 
 
-    // Artistic flowing divider with your brand colors
-    const resultsDividerY = resultsY + 30;
-    const flowingGradient = ctx.createLinearGradient(0, resultsDividerY, canvas.width, resultsDividerY);
-    flowingGradient.addColorStop(0, `${darkPink}00`);
-    flowingGradient.addColorStop(0.25, `${darkPink}66`);
-    flowingGradient.addColorStop(0.5, darkPink);
-    flowingGradient.addColorStop(0.75, `${darkPink}66`);
-    flowingGradient.addColorStop(1, `${darkPink}00`);
-    ctx.strokeStyle = flowingGradient;
-    ctx.lineWidth = 2;
+    // SPECTACULAR IMAGE SHOWCASE - Larger for better visual impact
+    const imageY = titleY + 100;
+    const imageSize = 600;
+    const imageX = (canvas.width - imageSize) / 2;
+
+
+    // Main image
+    ctx.drawImage(productImage, imageX, imageY, imageSize, imageSize);
+
+    // Reset shadow
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // SPECTACULAR OVERALL SCORE - Centered properly
+    const overallScoreY = imageY + imageSize + 80;
+    const overallScore = scoreInfo.all?.score ?? "N/A";
+
+    // Premium score container
+    const overallBoxWidth = 650;
+    const overallBoxHeight = 180;
+    const overallBoxX = (canvas.width - overallBoxWidth) / 2;
+
+    // Premium gradient background
+    const scoreGradient = ctx.createLinearGradient(
+      overallBoxX,
+      overallScoreY,
+      overallBoxX + overallBoxWidth,
+      overallScoreY + overallBoxHeight
+    );
+    scoreGradient.addColorStop(0, brandPink);
+    scoreGradient.addColorStop(0.5, gradientPink);
+    scoreGradient.addColorStop(1, deepPink);
+
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = 30;
+    ctx.shadowOffsetY = 10;
+
+    // Rounded rectangle for modern look
+    ctx.fillStyle = scoreGradient;
     ctx.beginPath();
-    ctx.moveTo(150, resultsDividerY);
-    ctx.bezierCurveTo(350, resultsDividerY - 8, 550, resultsDividerY + 8, 750, resultsDividerY);
-    ctx.stroke();
+    ctx.roundRect(
+      overallBoxX,
+      overallScoreY,
+      overallBoxWidth,
+      overallBoxHeight,
+      25
+    );
+    ctx.fill();
 
-    // SPECTACULAR SCORE CARDS - Floating gems with your brand colors
-    const scoresStartY = resultsY + 120;
+    // Premium highlight effect
+    const highlightGradient = ctx.createLinearGradient(
+      overallBoxX,
+      overallScoreY,
+      overallBoxX + overallBoxWidth,
+      overallScoreY + 70
+    );
+    highlightGradient.addColorStop(0, "rgba(255, 255, 255, 0.4)");
+    highlightGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = highlightGradient;
+    ctx.beginPath();
+    ctx.roundRect(
+      overallBoxX,
+      overallScoreY,
+      overallBoxWidth,
+      70,
+      [25, 25, 0, 0]
+    );
+    ctx.fill();
+
+    // Reset shadow
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Premium score display - Properly centered in the container
+    const overallScoreCenterX = overallBoxX + overallBoxWidth / 2;
+    const overallScoreCenterY = overallScoreY + overallBoxHeight / 2;
+    
+    ctx.font = "bold 110px Inconsolata, monospace";
+    ctx.fillStyle = pureWhite;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(overallScore), overallScoreCenterX, overallScoreCenterY - 15);
+
+    ctx.font = "bold 32px Inconsolata, monospace";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+    ctx.textBaseline = "middle";
+    ctx.fillText("OVERALL SKIN SCORE", overallScoreCenterX, overallScoreCenterY + 45);
+
+    // Reset text baseline
+    ctx.textBaseline = "alphabetic";
+
+    // CLEAN SCORE CARDS - No background, no "Score" text, no detailed analysis title
+    const scoresStartY = overallScoreY + 280;
     const scores = [
-      { label: 'Acne', value: scoreInfo.acne?.ui_score ?? 'N/A' },
-      { label: 'Wrinkle', value: scoreInfo.wrinkle?.ui_score ?? 'N/A' },
-      { label: 'Pore', value: scoreInfo.pore?.ui_score ?? 'N/A' },
-      { label: 'Texture', value: scoreInfo.texture?.ui_score ?? 'N/A' }
+      { label: "Acne", value: scoreInfo.acne?.ui_score ?? "N/A" },
+      { label: "Wrinkles", value: scoreInfo.wrinkle?.ui_score ?? "N/A" },
+      { label: "Pores", value: scoreInfo.pore?.ui_score ?? "N/A" },
+      { label: "Texture", value: scoreInfo.texture?.ui_score ?? "N/A" },
     ];
 
-    const scorePositions = [
-      { x: canvas.width / 2 - 200, y: scoresStartY },
-      { x: canvas.width / 2 + 200, y: scoresStartY },
-      { x: canvas.width / 2 - 200, y: scoresStartY + 240 },
-      { x: canvas.width / 2 + 200, y: scoresStartY + 240 }
-    ];
+    const cardWidth = 200;
+    const cardSpacing = 15;
+    const totalWidth = cardWidth * 4 + cardSpacing * 3;
+    const startX = (canvas.width - totalWidth) / 2;
 
-    scores.forEach((score, index) => {
-      const centerX = scorePositions[index].x;
-      const centerY = scorePositions[index].y;
-      const circleRadius = 90;
-      const scoreValue = typeof score.value === 'number' ? score.value : parseFloat(String(score.value)) || 0;
+    // Function to draw enhanced circular progress - Bigger and lighter background
+    function drawCircularProgress(x: number, y: number, radius: number, percentage: number) {
+      const centerX = x;
+      const centerY = y;
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + (percentage / 100) * 2 * Math.PI;
 
-      // Clean white circle - no borders
-      ctx.fillStyle = pureWhite;
+      // Background circle - thicker and much lighter
       ctx.beginPath();
-      ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Clean progress track with your light pink
-      ctx.strokeStyle = `${lightPink}66`;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, circleRadius - 25, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"; // Much lighter background
+      ctx.lineWidth = 14; // Thicker
       ctx.stroke();
 
-      // Clean progress arc with your dark pink
-      if (scoreValue > 0) {
-        const startAngle = -Math.PI / 2;
-        const endAngle = startAngle + (scoreValue / 100) * 2 * Math.PI;
-
-        ctx.strokeStyle = darkPink;
-        ctx.lineWidth = 8;
-        ctx.lineCap = 'round';
+      // Progress circle - thicker and more vibrant
+      if (percentage > 0) {
         ctx.beginPath();
-        ctx.arc(centerX, centerY, circleRadius - 25, startAngle, endAngle);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        const progressGradient = ctx.createLinearGradient(
+          centerX - radius, centerY - radius,
+          centerX + radius, centerY + radius
+        );
+        progressGradient.addColorStop(0, brandPink);
+        progressGradient.addColorStop(1, vibrantAccent);
+        ctx.strokeStyle = progressGradient;
+        ctx.lineWidth = 14; // Thicker
+        ctx.lineCap = "round";
         ctx.stroke();
       }
+    }
 
-      // Clean score display
-      ctx.font = 'bold 46px Inconsolata, monospace';
-      ctx.fillStyle = charcoal;
-      ctx.textAlign = 'center';
-      ctx.fillText(String(score.value), centerX, centerY + 15);
+    scores.forEach((score, index) => {
+      const cardX = startX + index * (cardWidth + cardSpacing);
+      const cardY = scoresStartY;
+      const scoreValue =
+        typeof score.value === "number"
+          ? score.value
+          : parseFloat(String(score.value)) || 0;
 
-      // Clean label
-      ctx.font = '24px Inconsolata, monospace';
-      ctx.fillStyle = slate;
-      ctx.fillText(score.label, centerX, centerY + circleRadius + 40);
+      // Enhanced circular progress - Much bigger
+      const progressCenterX = cardX + cardWidth / 2;
+      const progressCenterY = cardY + 80;
+      const progressRadius = 60; // Increased from 45 to 60
+      
+      drawCircularProgress(progressCenterX, progressCenterY, progressRadius, scoreValue);
+
+      // Score value in center of circle - bigger
+      ctx.font = "bold 42px Inconsolata, monospace"; // Increased font size
+      ctx.fillStyle = brandPink;
+      ctx.textAlign = "center";
+      ctx.fillText(String(score.value), progressCenterX, progressCenterY + 14);
+
+      // Label - bigger and more prominent
+      ctx.font = "bold 32px Inconsolata, monospace";
+      ctx.fillStyle = textDark;
+      ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 180); // Adjusted position
     });
 
-    // LUXURIOUS FOOTER with your brand colors
-    const footerY = canvas.height - 160;
-    
-    // Elegant separator wave with your brand colors
-    const footerWaveGradient = ctx.createLinearGradient(0, footerY - 30, canvas.width, footerY - 30);
-    footerWaveGradient.addColorStop(0, `${darkPink}00`);
-    footerWaveGradient.addColorStop(0.3, `${darkPink}4d`);
-    footerWaveGradient.addColorStop(0.7, `${darkPink}4d`);
-    footerWaveGradient.addColorStop(1, `${darkPink}00`);
-    ctx.strokeStyle = footerWaveGradient;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(100, footerY - 30);
-    ctx.bezierCurveTo(300, footerY - 40, 600, footerY - 20, 800, footerY - 30);
-    ctx.stroke();
+    // PREMIUM FOOTER - Moved to extreme bottom
+    const footerY = canvas.height - 120;
 
-    // Sophisticated branding with your brand colors
-    ctx.font = '36px Inconsolata, monospace';
-    const brandGradient = ctx.createLinearGradient(0, footerY, canvas.width, footerY);
-    brandGradient.addColorStop(0, darkPink);
-    brandGradient.addColorStop(0.5, deeperPink);
-    brandGradient.addColorStop(1, darkPink);
+    // Premium branding - Bigger
+    ctx.font = "bold 38px Inconsolata, monospace";
+    const brandGradient = ctx.createLinearGradient(
+      0,
+      footerY,
+      canvas.width,
+      footerY
+    );
+    brandGradient.addColorStop(0, brandPink);
+    brandGradient.addColorStop(0.5, gradientPink);
+    brandGradient.addColorStop(1, deepPink);
     ctx.fillStyle = brandGradient;
-    ctx.textAlign = 'center';
-    ctx.fillText('Powered by CRE8LAB', canvas.width / 2, footerY);
+    ctx.textAlign = "center";
+    ctx.fillText("Powered by CRE8LAB", canvas.width / 2, footerY);
 
-    // Elegant timestamp
+    // Website - Bigger and more visible
+    ctx.font = "bold 28px Inconsolata, monospace";
+    ctx.fillStyle = textDark;
+    ctx.fillText("www.beautyhub.ng", canvas.width / 2, footerY + 35);
+
+    // Timestamp - Bigger
     const now = new Date();
-    const timestamp = now.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    const timestamp = now.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
-    
-    ctx.font = '22px Inconsolata, monospace';
-    ctx.fillStyle = slate;
-    ctx.fillText(`Generated on ${timestamp}`, canvas.width / 2, footerY + 45);
 
-    ctx.font = '20px Inconsolata, monospace';
-    ctx.fillStyle = charcoal;
-    ctx.fillText('www.beautyhub.ng', canvas.width / 2, footerY + 75);
+    ctx.font = "22px Inconsolata, monospace";
+    ctx.fillStyle = textLight;
+    ctx.fillText(`Generated on ${timestamp}`, canvas.width / 2, footerY + 65);
 
-    // Export with pristine quality - Mobile-optimized
+    // Export with pristine quality
     const resultImage: string = canvas.toDataURL("image/png", 1.0);
-    
-    // Mobile-friendly download approach
-    if (navigator.userAgent.match(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile/i)) {
-      // For mobile devices - try to trigger native sharing/saving
+
+    // Enhanced mobile-friendly download
+    if (
+      navigator.userAgent.match(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile/i)
+    ) {
       if (navigator.share) {
-        // Convert data URL to blob for native sharing
         fetch(resultImage)
-          .then(res => res.blob())
-          .then(blob => {
-            const file = new File([blob], 'psbbh-skinanalysis-result.png', { type: 'image/png' });
-            navigator.share({
-              title: 'Perfect Skin Analysis Result',
-              text: 'My skin analysis result from Beauty Hub',
-              files: [file]
-            }).catch(err => {
-              console.log('Native sharing failed, falling back to download',err);
-              fallbackDownload(resultImage);
+          .then((res) => res.blob())
+          .then((blob) => {
+            const file = new File([blob], "beautyhub-skin-analysis.png", {
+              type: "image/png",
             });
+            navigator
+              .share({
+                title: "Beauty Hub - Skin Analysis Result",
+                text: "My personalized skin analysis from Beauty Hub",
+                files: [file],
+              })
+              .catch((err) => {
+                console.log(
+                  "Native sharing failed, falling back to download",
+                  err
+                );
+                fallbackDownload(resultImage);
+              });
           })
           .catch(() => fallbackDownload(resultImage));
       } else {
-        // Fallback for mobile browsers without native sharing
         fallbackDownload(resultImage);
       }
     } else {
-      // Desktop download
       fallbackDownload(resultImage);
     }
-    
+
     function fallbackDownload(imageData: string) {
       const link: HTMLAnchorElement = document.createElement("a");
       link.href = imageData;
-      link.download = `psbbh-skinanalysis-result-${Date.now()}.png`;
-      
-      // Better mobile support
-      link.style.display = 'none';
+      link.download = `perfectskinbeautyhub-skin-analysis.png`;
+
+      link.style.display = "none";
       document.body.appendChild(link);
-      
-      // Trigger download
       link.click();
-      
-      // Clean up
+
       setTimeout(() => {
         document.body.removeChild(link);
       }, 100);
-      
-      // Additional mobile-specific handling
+
+      // Enhanced mobile instruction with Beauty Hub branding
       if (navigator.userAgent.match(/Android|iPhone|iPad|iPod/i)) {
-        // Show user instruction for mobile with your brand colors
-        const instruction = document.createElement('div');
+        const instruction = document.createElement("div");
         instruction.style.cssText = `
           position: fixed;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          background: rgba(0,0,0,0.9);
+          background: linear-gradient(135deg, ${brandPink}, ${gradientPink});
           color: white;
-          padding: 20px;
-          border-radius: 10px;
+          padding: 25px;
+          border-radius: 15px;
           text-align: center;
           z-index: 10000;
-          font-family: Arial, sans-serif;
-          max-width: 300px;
+          font-family: Inconsolata, monospace;
+          max-width: 320px;
+          box-shadow: 0 10px 30px rgba(248, 71, 180, 0.3);
         `;
         instruction.innerHTML = `
-          <h3>📱 Save to Gallery</h3>
-          <p>Image downloaded! To save to your gallery:</p>
-          <p><strong>Android:</strong> Check Downloads folder, then move to Gallery</p>
-          <p><strong>iOS:</strong> Long-press the image and select "Save to Photos"</p>
+          <h3 style="margin: 0 0 15px 0; font-size: 20px;">✨ Beauty Hub</h3>
+          <p style="margin: 0 0 10px 0;">Your skin analysis is ready!</p>
+          <p style="margin: 0 0 15px 0; font-size: 14px; opacity: 0.9;">
+            <strong>Android:</strong> Check Downloads → Move to Gallery<br>
+            <strong>iOS:</strong> Long-press image → Save to Photos
+          </p>
           <button onclick="this.parentElement.remove()" style="
-            background: ${darkPink};
-            color: white;
+            background: white;
+            color: ${brandPink};
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            margin-top: 10px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin-top: 5px;
             cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            font-family: Inconsolata, monospace;
           ">Got it!</button>
         `;
         document.body.appendChild(instruction);
-        
-        // Auto-remove after 8 seconds
+
         setTimeout(() => {
           if (instruction.parentElement) {
             instruction.remove();
@@ -422,6 +455,6 @@ export function generateSkinAnalysisResult({ originalImageSrc, scoreInfo }: Gene
   });
 
   logo.onerror = () => console.error("Logo failed to load:", logo.src);
-  productImage.onerror = () => console.error("Product image failed to load:", productImage.src);
+  productImage.onerror = () =>
+    console.error("Product image failed to load:", productImage.src);
 }
-
