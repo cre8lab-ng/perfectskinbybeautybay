@@ -610,17 +610,17 @@ export default function FaceDetectionComponent() {
     };
   }, []);
 
-        // @ts-expect-error: Supabase typing is too strict here
+  // @ts-expect-error: Supabase typing is too strict here
 
   const getImageWithOverlays = async (baseSrc, overlays) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-  
+
     const baseImg = new Image();
     baseImg.crossOrigin = "anonymous";
     baseImg.src = baseSrc;
-  
+
     await new Promise((res) => {
       baseImg.onload = () => {
         canvas.width = baseImg.width;
@@ -629,55 +629,59 @@ export default function FaceDetectionComponent() {
         res(null);
       };
     });
-  
+
     for (const mask of overlays) {
       const overlay = new Image();
       overlay.crossOrigin = "anonymous";
       overlay.src = mask.url;
-  
+
       const name = mask.name.toLowerCase();
-  
+
       let filter = "contrast(250%) brightness(120%) saturate(180%)";
       let blendMode = "normal";
-  
+
       if (name.includes("acne_output")) {
-        filter = "hue-rotate(0deg) contrast(250%) brightness(120%) saturate(200%)";
+        filter =
+          "hue-rotate(0deg) contrast(250%) brightness(120%) saturate(200%)";
         blendMode = "overlay";
       } else if (name.includes("wrinkle_output")) {
-        filter = "hue-rotate(270deg) contrast(250%) brightness(120%) saturate(200%)";
+        filter =
+          "hue-rotate(270deg) contrast(250%) brightness(120%) saturate(200%)";
         blendMode = "overlay";
       } else if (name.includes("pore_output")) {
-        filter = "hue-rotate(180deg) contrast(250%) brightness(120%) saturate(200%)";
+        filter =
+          "hue-rotate(180deg) contrast(250%) brightness(120%) saturate(200%)";
         blendMode = "multiply";
       } else if (name.includes("texture_output")) {
-        filter = "hue-rotate(60deg) contrast(250%) brightness(120%) saturate(200%)";
+        filter =
+          "hue-rotate(60deg) contrast(250%) brightness(120%) saturate(200%)";
         blendMode = "overlay";
       }
-  
+
       await new Promise((res) => {
         overlay.onload = () => {
           ctx.save(); // Save canvas state
-  
+
           // Apply filter and blend mode
           ctx.filter = filter;
-                // @ts-expect-error: Supabase typing is too strict here
+          // @ts-expect-error: Supabase typing is too strict here
           ctx.globalCompositeOperation = blendMode;
-  
+
           ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
-  
+
           ctx.restore(); // Restore to previous state (important!)
           res(null);
         };
       });
     }
-  
+
     // Clear any residual filter/blend mode
     ctx.globalCompositeOperation = "source-over";
     ctx.filter = "none";
-  
+
     return canvas.toDataURL("image/png");
   };
-  
+
   return (
     <>
       {showPrivacyModal && (
@@ -1007,19 +1011,7 @@ export default function FaceDetectionComponent() {
                             animation: "shimmer 2s infinite",
                           }}
                         />
-                        <div
-                          style={{
-                            fontSize: "3rem",
-                            marginBottom: "1rem",
-                            background:
-                              "linear-gradient(45deg, #f847b4, #ffd9f0)",
-                            backgroundClip: "text",
-                            WebkitBackgroundClip: "text",
-                            WebkitTextFillColor: "transparent",
-                          }}
-                        >
-                          🧬
-                        </div>
+
                         <div
                           style={{
                             width: "60px",
@@ -1160,12 +1152,17 @@ export default function FaceDetectionComponent() {
                       >
                         <div
                           style={{
-                            fontSize: "2rem",
-                            marginBottom: "1rem",
+                            width: "60px",
+                            height: "60px",
+                            border: "4px solid rgba(248, 71, 180, 0.2)",
+                            borderTop: "4px solid #f847b4",
+                            borderRadius: "50%",
+                            animation:
+                              "spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite",
+                            margin: "0 auto 1.5rem",
+                            boxShadow: "0 8px 25px rgba(248, 71, 180, 0.3)",
                           }}
-                        >
-                          ✨
-                        </div>
+                        />
                         <p
                           style={{
                             fontWeight: "700",
@@ -1177,20 +1174,6 @@ export default function FaceDetectionComponent() {
                         >
                           Detecting your beautiful face...
                         </p>
-                        <div
-                          className="premium-spinner"
-                          style={{
-                            width: "50px",
-                            height: "50px",
-                            border: "3px solid rgba(248, 71, 180, 0.2)",
-                            borderTop: "3px solid #f847b4",
-                            borderRadius: "50%",
-                            animation:
-                              "spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite",
-                            margin: "0 auto",
-                            boxShadow: "0 4px 15px rgba(248, 71, 180, 0.3)",
-                          }}
-                        />
                       </div>
                     )}
                   </div>
@@ -1249,7 +1232,6 @@ export default function FaceDetectionComponent() {
                         const fallbackImageSrc =
                           "https://t4.ftcdn.net/jpg/02/79/66/93/360_F_279669366_Lk12QalYQKMczLEa4ySjhaLtx1M2u7e6.jpg";
 
-                    
                         const compositeImageSrc = await getImageWithOverlays(
                           originalImagePreview || fallbackImageSrc,
                           zipContent
@@ -1257,7 +1239,7 @@ export default function FaceDetectionComponent() {
 
                         try {
                           await generateSkinAnalysisResult({
-                                  // @ts-expect-error: Supabase typing is too strict here
+                            // @ts-expect-error: Supabase typing is too strict here
                             originalImageSrc: compositeImageSrc, // Pass the actual image source, not an object
                             scoreInfo: {
                               all: {

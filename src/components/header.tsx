@@ -7,6 +7,7 @@ import { RiUserLine } from "react-icons/ri";
 import { IoBagHandleOutline } from "react-icons/io5";
 import Image from "next/image";
 import Link from "next/link";
+import router from "next/router";
 
 const navItems = [
   { name: "Skincare", url: "https://beautyhub.ng/product-category/skin-care/" },
@@ -62,7 +63,11 @@ export default function Header() {
           alt="BH Logo"
           width={100}
           height={100}
+          onClick={() => router.push("/")}
+          style={{ cursor: "pointer" }}
+          priority
         />
+
 
         {/* Desktop Nav */}
 

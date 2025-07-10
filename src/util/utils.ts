@@ -214,7 +214,7 @@ export function generateSkinAnalysisResult({
 
     // PREMIUM IMAGE SHOWCASE with enhanced frame - MOVED UP
     const imageY = titleY + 140; // Moved up significantly
-    const imageSize = 480; // Slightly smaller for better proportions
+    const imageSize = 680; // Slightly smaller for better proportions
     const imageX = (canvas.width - imageSize) / 2;
 
     // Premium holographic frame with multiple layers
@@ -373,7 +373,7 @@ export function generateSkinAnalysisResult({
     ctx.textBaseline = "alphabetic";
 
     // PREMIUM SCORE CARDS - MOVED UP
-    const scoresStartY = overallScoreY + 300; // Moved up significantly
+    const scoresStartY = overallScoreY + 200; // Moved up significantly
     const scores = [
       { label: "Acne", value: scoreInfo.acne?.ui_score ?? "N/A" },
       { label: "Wrinkles", value: scoreInfo.wrinkle?.ui_score ?? "N/A" },
