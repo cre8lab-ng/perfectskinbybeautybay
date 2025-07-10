@@ -19,7 +19,7 @@ const PremiumSkincareSection = () => {
 
           {/* Main Headline */}
           <h1 className="text-5xl lg:text-7xl font-black leading-tight text-gray-900 tracking-tight">
-            Your Skin.
+            Your Skins.
             <br />
             <span className="bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 bg-clip-text text-transparent animate-pulse">
               Perfectly
