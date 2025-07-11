@@ -14,15 +14,14 @@ import {
   errorMessages,
   extractSkinAnalysisResults,
   generateSkinAnalysisResult,
-  getGranularLevel,
   notifyError,
 } from "@/util/utils";
-import { skinProductMap } from "@/data/skinProductMap";
 import WebPageTitle from "@/components/webpagetitle";
 import { useResultAccess } from "@/stores/useResultAccess";
 import LoginModal from "@/components/modal/login";
 import { loadPaystackScript } from "@/util/paystack";
 import { runMediaPipeFaceDetection } from "@/util/faceValidation";
+import { getRecommendedProducts } from "@/data/skinProductMap";
 
 interface ScoreEntry {
   ui_score?: number;
@@ -46,13 +45,6 @@ interface UploadResponse {
   file_id?: string;
 }
 
-interface Product {
-  id: number | string;
-  name: string;
-  image: string;
-  price_html: string;
-  link: string;
-}
 
 function dataURLtoFile(dataUrl: string, filename: string): File {
   const arr = dataUrl.split(",");
@@ -62,22 +54,6 @@ function dataURLtoFile(dataUrl: string, filename: string): File {
   const u8arr = new Uint8Array(n);
   while (n--) u8arr[n] = bstr.charCodeAt(n);
   return new File([u8arr], filename, { type: mime });
-}
-
-export function getRecommendedProducts(scoreInfo: ScoreInfo | null): {
-  concern: string;
-  level: string;
-  products: Product[];
-}[] {
-  if (!scoreInfo) return [];
-
-  const concerns = ["acne", "wrinkle", "texture", "pore"] as const;
-  return concerns.map((concern) => {
-    const uiScore = scoreInfo?.[concern]?.ui_score;
-    const level = getGranularLevel(uiScore ? `${uiScore}%` : undefined);
-    const products = skinProductMap[concern]?.[level] || [];
-    return { concern, level, products };
-  });
 }
 
 export default function FaceDetectionComponent() {
@@ -107,7 +83,7 @@ export default function FaceDetectionComponent() {
   const [originalImagePreview, setOriginalImagePreview] = useState<
     string | null
   >(null);
-  const productRecommendations = getRecommendedProducts(scoreInfo);
+  const routineRecommendation = getRecommendedProducts(scoreInfo);
 
   console.log(uploading, analysisStatus, uploadResponse);
   const { hasAccess, showLoginModal, setShowLoginModal } = useResultAccess();
@@ -759,7 +735,7 @@ export default function FaceDetectionComponent() {
               scoreInfo ||
               zipContent.length > 0 ||
               processedImagePreview ||
-              productRecommendations.length > 0) && (
+              routineRecommendation ) && (
               <div
                 style={{
                   position: "relative",
@@ -1420,245 +1396,264 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
 
-                {scoreInfo &&
-                  hasAccess &&
-                  productRecommendations.length > 0 && (
+                {scoreInfo && hasAccess && routineRecommendation && (
+                  <div
+                    style={{
+                      marginTop: "3rem",
+                      padding: "2rem",
+                      background:
+                        "linear-gradient(135deg, rgba(255, 217, 240, 0.3), rgba(248, 71, 180, 0.05))",
+                      borderRadius: "20px",
+                      border: "1px solid rgba(248, 71, 180, 0.2)",
+                    }}
+                  >
                     <div
                       style={{
-                        marginTop: "3rem",
-                        padding: "2rem",
-                        background:
-                          "linear-gradient(135deg, rgba(255, 217, 240, 0.3), rgba(248, 71, 180, 0.05))",
-                        borderRadius: "20px",
-                        border: "1px solid rgba(248, 71, 180, 0.2)",
+                        textAlign: "center",
+                        marginBottom: "2rem",
                       }}
                     >
-                      <div
+                      <h3
                         style={{
-                          textAlign: "center",
-                          marginBottom: "2rem",
+                          fontSize: "1.8rem",
+                          background:
+                            "linear-gradient(45deg, #f847b4, #ff6bc7)",
+                          backgroundClip: "text",
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
+                          fontWeight: "700",
+                          margin: 0,
                         }}
                       >
-                        <h3
+                        {routineRecommendation.routine.name}
+                      </h3>
+                      <p
+                        style={{
+                          color: "#666",
+                          fontSize: "1rem",
+                          margin: "0.5rem 0 0",
+                        }}
+                      >
+                        {routineRecommendation.routine.description}
+                      </p>
+                      <div
+                        style={{
+                          marginTop: "1rem",
+                          display: "flex",
+                          justifyContent: "center",
+                          gap: "1rem",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
                           style={{
-                            fontSize: "1.8rem",
-                            background:
-                              "linear-gradient(45deg, #f847b4, #ff6bc7)",
-                            backgroundClip: "text",
-                            WebkitBackgroundClip: "text",
-                            WebkitTextFillColor: "transparent",
-                            fontWeight: "700",
-                            margin: 0,
+                            background: "rgba(248, 71, 180, 0.1)",
+                            color: "#f847b4",
+                            padding: "0.3rem 0.8rem",
+                            borderRadius: "20px",
+                            fontSize: "0.9rem",
+                            fontWeight: "600",
                           }}
                         >
-                          Personalized Beauty Recommendations
-                        </h3>
-                        <p
+                          {routineRecommendation.routineLevel
+                            .charAt(0)
+                            .toUpperCase() +
+                            routineRecommendation.routineLevel.slice(1)}{" "}
+                          Level
+                        </span>
+                        <span
                           style={{
-                            color: "#666",
-                            fontSize: "1rem",
-                            margin: "0.5rem 0 0",
+                            background: "rgba(248, 71, 180, 0.1)",
+                            color: "#f847b4",
+                            padding: "0.3rem 0.8rem",
+                            borderRadius: "20px",
+                            fontSize: "0.9rem",
+                            fontWeight: "600",
                           }}
                         >
-                          Curated products tailored to your unique skin profile
-                        </p>
+                          Total: {routineRecommendation.totalCost}
+                        </span>
                       </div>
+                    </div>
 
-                      {productRecommendations.map(
-                        ({ concern, level, products }) => {
-                          const stepOrder = [
-                            "cleanser",
-                            "toner",
-                            "treatment",
-                            "moisturizer",
-                            "sunscreen",
-                          ];
+                    <div
+                      style={{
+                        marginBottom: "3rem",
+                        padding: "2rem",
+                        background: "rgba(255, 255, 255, 0.7)",
+                        borderRadius: "16px",
+                        border: "1px solid rgba(248, 71, 180, 0.1)",
+                        margin: "0 auto 3rem auto",
+                        maxWidth: "1200px",
+                      }}
+                    >
+                      <h4
+                        style={{
+                          color: "#f847b4",
+                          fontSize: "1.4rem",
+                          fontWeight: "700",
+                          marginBottom: "1rem",
+                          textAlign: "center",
+                        }}
+                      >
+                        Your Complete Skincare Routine
+                        <span
+                          style={{
+                            fontSize: "1rem",
+                            fontStyle: "italic",
+                            color: "#888",
+                            fontWeight: "400",
+                          }}
+                        >
+                          {" "}
+                          - Targets:{" "}
+                          {routineRecommendation.routine.targets.join(", ")}
+                        </span>
+                      </h4>
 
-                          // Group products by step
-                          const groupedByStep = stepOrder.reduce(
-                            (acc, step) => {
-                              // @ts-expect-error: Supabase typing is too strict here
+                      {/* Group products by step */}
+                      {["cleanser", "toner", "moisturizer", "sunscreen"].map(
+                        (step) => {
+                          const stepProducts =
+                            routineRecommendation.routine.products.filter(
+                              (p:any) => p.step === step
+                            );
 
-                              acc[step] = products.filter(
-                                // @ts-expect-error: Supabase typing is too strict here
-
-                                (p) => p.step === step
-                              );
-                              return acc;
-                            },
-                            {}
-                          );
+                          if (stepProducts.length === 0) return null;
 
                           return (
-                            <div
-                              key={concern}
-                              style={{
-                                marginBottom: "3rem",
-                                padding: "2rem",
-                                background: "rgba(255, 255, 255, 0.7)",
-                                borderRadius: "16px",
-                                border: "1px solid rgba(248, 71, 180, 0.1)",
-                                margin: "0 auto 3rem auto",
-                                maxWidth: "1200px",
-                              }}
-                            >
-                              <h4
+                            <div key={step} style={{ marginBottom: "2rem" }}>
+                              <h5
                                 style={{
                                   textTransform: "capitalize",
-                                  color: "#f847b4",
-                                  fontSize: "1.4rem",
-                                  fontWeight: "700",
-                                  marginBottom: "1rem",
-                                  textAlign: "center",
+                                  fontSize: "1.1rem",
+                                  fontWeight: "600",
+                                  margin: "1rem 0 0.5rem",
+                                  color: "#333",
                                 }}
                               >
-                                {concern} Care Solutions
-                                <span
-                                  style={{
-                                    fontSize: "1rem",
-                                    fontStyle: "italic",
-                                    color: "#888",
-                                    fontWeight: "400",
-                                  }}
-                                >
-                                  {" "}
-                                  - {level.replace("_", " ")} priority
-                                </span>
-                              </h4>
+                                {step}
+                              </h5>
 
-                              {stepOrder.map((step) =>
-                                // @ts-expect-error: Supabase typing is too strict here
-
-                                groupedByStep[step]?.length ? (
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns:
+                                    "repeat(auto-fit, minmax(200px, 1fr))",
+                                  gap: "2rem",
+                                  marginTop: "1rem",
+                                  justifyContent: "center",
+                                  justifyItems: "center",
+                                }}
+                              >
+                                {stepProducts.map((product:any) => (
                                   <div
-                                    key={step}
-                                    style={{ marginBottom: "2rem" }}
+                                    key={product.id}
+                                    style={{
+                                      width: "100%",
+                                      maxWidth: "250px",
+                                    }}
                                   >
-                                    <h5
-                                      style={{
-                                        textTransform: "capitalize",
-                                        fontSize: "1.1rem",
-                                        fontWeight: "600",
-                                        margin: "1rem 0 0.5rem",
-                                        color: "#333",
-                                      }}
-                                    >
-                                      {step}
-                                    </h5>
-
                                     <div
                                       style={{
-                                        display: "grid",
-                                        gridTemplateColumns:
-                                          "repeat(auto-fit, minmax(200px, 1fr))",
-                                        gap: "2rem",
-                                        marginTop: "1rem",
-                                        justifyContent: "center",
-                                        justifyItems: "center",
+                                        overflow: "hidden",
+                                        marginBottom: "1rem",
+                                        borderRadius: "8px",
                                       }}
                                     >
-                                      {/* @ts-expect-error: Supabase typing is too strict here */}
-
-                                      {groupedByStep[step].map(
-                                        (product: any) => (
-                                          <div
-                                            key={product.id}
-                                            style={{
-                                              width: "100%",
-                                              maxWidth: "250px",
-                                            }}
-                                          >
-                                            <div
-                                              style={{
-                                                overflow: "hidden",
-                                                marginBottom: "1rem",
-                                                borderRadius: "8px",
-                                              }}
-                                            >
-                                              <img
-                                                src={product.image}
-                                                alt={product.name}
-                                                style={{
-                                                  width: "100%",
-                                                  height: "100%",
-                                                  objectFit: "cover",
-                                                }}
-                                              />
-                                            </div>
-
-                                            <h5
-                                              style={{
-                                                margin: "0 0 0.5rem",
-                                                fontWeight: "600",
-                                                color: "#333",
-                                                fontSize: "1rem",
-                                                lineHeight: "1.3",
-                                                textAlign: "center",
-                                              }}
-                                            >
-                                              {product.name}
-                                            </h5>
-
-                                            <p
-                                              style={{
-                                                margin: "0 0 1rem",
-                                                color: "#f847b4",
-                                                fontWeight: "700",
-                                                fontSize: "1.1rem",
-                                                textAlign: "center",
-                                              }}
-                                            >
-                                              {product.price_html}
-                                            </p>
-
-                                            <a
-                                              href={product.link}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              style={{
-                                                display: "inline-block",
-                                                background:
-                                                  "linear-gradient(135deg, #f847b4, #ff6bc7)",
-                                                color: "white",
-                                                textDecoration: "none",
-                                                padding: "0.8rem 1.5rem",
-                                                borderRadius: "10px",
-                                                fontSize: "0.9rem",
-                                                fontWeight: "600",
-                                                boxShadow:
-                                                  "0 4px 15px rgba(248, 71, 180, 0.3)",
-                                                transition: "all 0.3s ease",
-                                                width: "100%",
-                                                textAlign: "center",
-                                              }}
-                                              onMouseEnter={(e) => {
-                                                e.currentTarget.style.transform =
-                                                  "translateY(-2px)";
-                                                e.currentTarget.style.boxShadow =
-                                                  "0 6px 20px rgba(248, 71, 180, 0.4)";
-                                              }}
-                                              onMouseLeave={(e) => {
-                                                e.currentTarget.style.transform =
-                                                  "translateY(0)";
-                                                e.currentTarget.style.boxShadow =
-                                                  "0 4px 15px rgba(248, 71, 180, 0.3)";
-                                              }}
-                                            >
-                                              Shop Now
-                                            </a>
-                                          </div>
-                                        )
-                                      )}
+                                      <img
+                                        src={product.image}
+                                        alt={product.name}
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          objectFit: "cover",
+                                        }}
+                                      />
                                     </div>
+
+                                    <h5
+                                      style={{
+                                        margin: "0 0 0.5rem",
+                                        fontWeight: "600",
+                                        color: "#333",
+                                        fontSize: "1rem",
+                                        lineHeight: "1.3",
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      {product.name}
+                                    </h5>
+
+                                    <p
+                                      style={{
+                                        margin: "0 0 0.5rem",
+                                        color: "#888",
+                                        fontSize: "0.9rem",
+                                        textAlign: "center",
+                                        fontWeight: "600",
+                                      }}
+                                    >
+                                      {product.brand}
+                                    </p>
+
+                                    <p
+                                      style={{
+                                        margin: "0 0 1rem",
+                                        color: "#f847b4",
+                                        fontWeight: "700",
+                                        fontSize: "1.1rem",
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      {product.price_html}
+                                    </p>
+
+                                    <a
+                                      href={product.link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display: "inline-block",
+                                        background:
+                                          "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                                        color: "white",
+                                        textDecoration: "none",
+                                        padding: "0.8rem 1.5rem",
+                                        borderRadius: "10px",
+                                        fontSize: "0.9rem",
+                                        fontWeight: "600",
+                                        boxShadow:
+                                          "0 4px 15px rgba(248, 71, 180, 0.3)",
+                                        transition: "all 0.3s ease",
+                                        width: "100%",
+                                        textAlign: "center",
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform =
+                                          "translateY(-2px)";
+                                        e.currentTarget.style.boxShadow =
+                                          "0 6px 20px rgba(248, 71, 180, 0.4)";
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform =
+                                          "translateY(0)";
+                                        e.currentTarget.style.boxShadow =
+                                          "0 4px 15px rgba(248, 71, 180, 0.3)";
+                                      }}
+                                    >
+                                      Shop Now
+                                    </a>
                                   </div>
-                                ) : null
-                              )}
+                                ))}
+                              </div>
                             </div>
                           );
                         }
                       )}
                     </div>
-                  )}
+                  </div>
+                )}
               </div>
             )}
 
