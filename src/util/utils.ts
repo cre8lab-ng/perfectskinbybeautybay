@@ -98,7 +98,7 @@ export function generateSkinAnalysisResult({
     new Promise<void>((res) => (productImage.onload = () => res())),
   ]).then(() => {
     canvas.width = 900;
-    canvas.height = 1600; // Reduced height for better proportions
+    canvas.height = 1600;
 
     // BEAUTY HUB VIBRANT COLOR PALETTE - Instagram Ready
     const brandPink = "#f847b4";
@@ -112,13 +112,13 @@ export function generateSkinAnalysisResult({
 
     // LUXE BACKGROUND – Soft pearl-to-blush gradient with shimmer
     const backgroundGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    backgroundGradient.addColorStop(0, "#fdfcfa"); // Soft pearl
-    backgroundGradient.addColorStop(0.5, "#fbe4ef"); // Gentle blush
-    backgroundGradient.addColorStop(1, "#fce1f0"); // Light petal pink
+    backgroundGradient.addColorStop(0, "#fdfcfa");
+    backgroundGradient.addColorStop(0.5, "#fbe4ef");
+    backgroundGradient.addColorStop(1, "#fce1f0");
     ctx.fillStyle = backgroundGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Add soft shimmer overlay (more subtle than sparkles)
+    // Add soft shimmer overlay
     ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
     for (let i = 0; i < 120; i++) {
       const x = Math.random() * canvas.width;
@@ -156,7 +156,6 @@ export function generateSkinAnalysisResult({
       ctx.arc(x, y, size, 0, 2 * Math.PI);
       ctx.fill();
 
-      // Add sparkle cross effect
       ctx.fillRect(x - size * 2, y - 0.5, size * 4, 1);
       ctx.fillRect(x - 0.5, y - size * 2, 1, size * 4);
     }
@@ -170,9 +169,6 @@ export function generateSkinAnalysisResult({
     const logoWidth = logoSize;
     const logoHeight = logoSize / logoAspectRatio;
 
-    ctx.drawImage(logo, logoX, headerY, logoWidth, logoHeight);
-
-    // Add holographic glow effect to logo
     ctx.drawImage(logo, logoX, headerY, logoWidth, logoHeight);
 
     // Reset shadow
@@ -197,13 +193,11 @@ export function generateSkinAnalysisResult({
     titleGradient.addColorStop(0.6, gradientPink);
     titleGradient.addColorStop(1, deepPink);
 
-    // Add text glow effect
     ctx.shadowOffsetY = 0;
     ctx.fillStyle = titleGradient;
     ctx.textAlign = "center";
     ctx.fillText("AI-Powered Skin Analysis", canvas.width / 2, titleY + 40);
 
-    // Add white highlight for premium effect
     ctx.fillText("AI-Powered Skin Analysis", canvas.width / 2, titleY + 40);
 
     // Reset shadow
@@ -212,17 +206,34 @@ export function generateSkinAnalysisResult({
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // PREMIUM IMAGE SHOWCASE with enhanced frame - MOVED UP
-    const imageY = titleY + 140; // Moved up significantly
-    const imageSize = 680; // Slightly smaller for better proportions
-    const imageX = (canvas.width - imageSize) / 2;
+    // PREMIUM IMAGE SHOWCASE with PROPER ASPECT RATIO - FIXED
+    const imageY = titleY + 140;
+    const maxImageSize = 680;
+
+    // Calculate proper dimensions maintaining aspect ratio
+    const imageAspectRatio = productImage.width / productImage.height;
+    let imageWidth, imageHeight;
+
+    if (imageAspectRatio > 1) {
+      // Landscape image
+      imageWidth = maxImageSize;
+      imageHeight = maxImageSize / imageAspectRatio;
+    } else {
+      // Portrait or square image
+      imageHeight = maxImageSize;
+      imageWidth = maxImageSize * imageAspectRatio;
+    }
+
+    // Center the image
+    const finalImageX = (canvas.width - imageWidth) / 2;
+    const finalImageY = imageY;
 
     // Premium holographic frame with multiple layers
     const frameGradient = ctx.createLinearGradient(
-      imageX - 20,
-      imageY - 20,
-      imageX + imageSize + 20,
-      imageY + imageSize + 20
+      finalImageX - 20,
+      finalImageY - 20,
+      finalImageX + imageWidth + 20,
+      finalImageY + imageHeight + 20
     );
     frameGradient.addColorStop(0, "rgba(255, 255, 255, 0.6)");
     frameGradient.addColorStop(0.25, "rgba(248, 71, 180, 0.3)");
@@ -233,20 +244,20 @@ export function generateSkinAnalysisResult({
     // Outer frame with premium glow
     ctx.fillStyle = frameGradient;
     ctx.beginPath();
-    ctx.roundRect(imageX - 20, imageY - 20, imageSize + 40, imageSize + 40, 30);
+    ctx.roundRect(finalImageX - 20, finalImageY - 20, imageWidth + 40, imageHeight + 40, 30);
     ctx.fill();
 
     // Inner pristine frame
     ctx.fillStyle = pureWhite;
     ctx.beginPath();
-    ctx.roundRect(imageX - 10, imageY - 10, imageSize + 20, imageSize + 20, 20);
+    ctx.roundRect(finalImageX - 10, finalImageY - 10, imageWidth + 20, imageHeight + 20, 20);
     ctx.fill();
 
     // Premium border accent
     ctx.strokeStyle = frameGradient;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.roundRect(imageX - 10, imageY - 10, imageSize + 20, imageSize + 20, 20);
+    ctx.roundRect(finalImageX - 10, finalImageY - 10, imageWidth + 20, imageHeight + 20, 20);
     ctx.stroke();
 
     // Reset shadow
@@ -255,16 +266,16 @@ export function generateSkinAnalysisResult({
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // Main image with rounded corners
+    // Main image with rounded corners - PROPERLY SCALED
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(imageX, imageY, imageSize, imageSize, 15);
+    ctx.roundRect(finalImageX, finalImageY, imageWidth, imageHeight, 15);
     ctx.clip();
-    ctx.drawImage(productImage, imageX, imageY, imageSize, imageSize);
+    ctx.drawImage(productImage, finalImageX, finalImageY, imageWidth, imageHeight);
     ctx.restore();
 
-    // SPECTACULAR OVERALL SCORE - MOVED UP
-    const overallScoreY = imageY + imageSize + 50; // Moved up significantly
+    // SPECTACULAR OVERALL SCORE - ADJUSTED POSITION
+    const overallScoreY = finalImageY + imageHeight + 50;
     const overallScore = scoreInfo.all?.score ?? "N/A";
 
     // Premium score container with enhanced holographic design
@@ -338,13 +349,12 @@ export function generateSkinAnalysisResult({
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // Premium score display with enhanced holographic typography
+    // Premium score display
     const overallScoreCenterX = overallBoxX + overallBoxWidth / 2;
     const overallScoreCenterY = overallScoreY + overallBoxHeight / 2;
 
-    // Score number with holographic text effect
+    // Score number
     ctx.font = "bold 110px Inconsolata, monospace";
-
     ctx.fillStyle = pureWhite;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -354,9 +364,8 @@ export function generateSkinAnalysisResult({
       overallScoreCenterY - 15
     );
 
-    // Label with enhanced holographic styling
+    // Label
     ctx.font = "bold 32px Inconsolata, monospace";
-
     ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
     ctx.fillText(
       " OVERALL SKIN SCORE ",
@@ -364,16 +373,14 @@ export function generateSkinAnalysisResult({
       overallScoreCenterY + 45
     );
 
-    // Reset shadow and text baseline
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
-
     ctx.textBaseline = "alphabetic";
 
-    // PREMIUM SCORE CARDS - MOVED UP
-    const scoresStartY = overallScoreY + 200; // Moved up significantly
+    // PREMIUM SCORE CARDS - ADJUSTED POSITION
+    const scoresStartY = overallScoreY + 200;
     const scores = [
       { label: "Acne", value: scoreInfo.acne?.ui_score ?? "N/A" },
       { label: "Wrinkles", value: scoreInfo.wrinkle?.ui_score ?? "N/A" },
@@ -398,11 +405,9 @@ export function generateSkinAnalysisResult({
       const startAngle = -Math.PI / 2;
       const endAngle = startAngle + (percentage / 100) * 2 * Math.PI;
 
-      // Premium glow effect
-
       ctx.shadowOffsetY = 0;
 
-      // Background circle with holographic gradient
+      // Background circle
       const bgGradient = ctx.createRadialGradient(
         centerX,
         centerY,
@@ -420,7 +425,7 @@ export function generateSkinAnalysisResult({
       ctx.lineWidth = 18;
       ctx.stroke();
 
-      // Progress circle with enhanced holographic gradient
+      // Progress circle
       if (percentage > 0) {
         const progressGradient = ctx.createLinearGradient(
           centerX - radius,
@@ -440,8 +445,6 @@ export function generateSkinAnalysisResult({
         ctx.lineCap = "round";
         ctx.stroke();
 
-        // Inner holographic highlight
-
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius - 5, startAngle, endAngle);
         ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
@@ -449,7 +452,6 @@ export function generateSkinAnalysisResult({
         ctx.stroke();
       }
 
-      // Reset shadow
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
       ctx.shadowOffsetX = 0;
@@ -464,8 +466,6 @@ export function generateSkinAnalysisResult({
           ? score.value
           : parseFloat(String(score.value)) || 0;
 
-      // Draw only the circular progress and label — no card background or border
-
       const progressCenterX = cardX + cardWidth / 2;
       const progressCenterY = cardY + 80;
       const progressRadius = 60;
@@ -477,7 +477,7 @@ export function generateSkinAnalysisResult({
         scoreValue
       );
 
-      // Score value with holographic styling
+      // Score value
       ctx.font = "bold 42px Inconsolata, monospace";
       const valueGradient = ctx.createLinearGradient(
         0,
@@ -498,10 +498,9 @@ export function generateSkinAnalysisResult({
       ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 180);
     });
 
-    // PREMIUM FOOTER - MOVED TO EXTREME END
-    const footerY = canvas.height - 120; // Positioned at extreme end
+    // PREMIUM FOOTER
+    const footerY = canvas.height - 120;
 
-    // Footer background with holographic gradient - REMOVED BOX SHADOW
     const footerGradient = ctx.createLinearGradient(
       0,
       footerY - 20,
@@ -517,7 +516,7 @@ export function generateSkinAnalysisResult({
     ctx.roundRect(0, footerY - 20, canvas.width, 140, 0);
     ctx.fill();
 
-    // Premium branding with enhanced holographic gradient
+    // Premium branding
     ctx.font = "bold 38px Inconsolata, monospace";
     const brandGradient = ctx.createLinearGradient(
       0,
@@ -536,14 +535,13 @@ export function generateSkinAnalysisResult({
     ctx.textAlign = "center";
     ctx.fillText(" Powered by CRE8LAB ", canvas.width / 2, footerY + 20);
 
-    // Website with holographic styling
+    // Website
     ctx.font = "bold 28px Inconsolata, monospace";
-
     ctx.shadowOffsetY = 1;
     ctx.fillStyle = textDark;
     ctx.fillText("www.beautyhub.ng", canvas.width / 2, footerY + 55);
 
-    // Timestamp with premium styling
+    // Timestamp
     const now = new Date();
     const timestamp = now.toLocaleDateString("en-US", {
       year: "numeric",
@@ -554,7 +552,6 @@ export function generateSkinAnalysisResult({
     });
 
     ctx.font = "22px Inconsolata, monospace";
-
     ctx.fillStyle = textLight;
     ctx.fillText(`Generated on ${timestamp}`, canvas.width / 2, footerY + 90);
 
@@ -613,7 +610,6 @@ export function generateSkinAnalysisResult({
         document.body.removeChild(link);
       }, 100);
 
-      // Enhanced mobile instruction with premium holographic styling
       if (navigator.userAgent.match(/Android|iPhone|iPad|iPod/i)) {
         const instruction = document.createElement("div");
         instruction.style.cssText = `
