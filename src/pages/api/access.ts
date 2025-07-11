@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import axios from "axios";
 import { LRUCache } from "lru-cache";
-import { v4 as uuidv4 } from "uuid";
 
 const WC_BASE_URL = "https://beautyhub.ng/wp-json/wc/v3";
 const WC_AUTH = {
@@ -41,9 +40,19 @@ export default async function handler(
     req.socket.remoteAddress ||
     "unknown";
 
-  const deviceId = req.cookies.device_id || uuidv4();
+  const rawDeviceId = req.cookies.device_id?.trim();
+
+  if (!rawDeviceId || rawDeviceId === "") {
+    return res.status(400).json({
+      error: "Missing device ID. Please enable cookies to continue.",
+    });
+  }
+
+  const deviceId = rawDeviceId;
+
   const key = `access-check:${ip}`;
   const current = rateLimiter.get(key) || 0;
+  const userAgent = req.headers["user-agent"] || "unknown";
 
   if (current >= 5) {
     return res
@@ -74,6 +83,7 @@ export default async function handler(
       ip,
       device_id: deviceId,
       action: type,
+      user_agent: userAgent,
     });
 
     // Trial limit logic
@@ -111,11 +121,9 @@ export default async function handler(
     const { data: alreadyUsed } = await supabaseAdmin
       .from("free_access_once")
       .select("email")
-      .eq("email", emailLower)
-      .maybeSingle();
+      .or(`email.eq.${emailLower},device_id.eq.${deviceId}`);
 
-    const hasUsedAccess = !!alreadyUsed;
-
+    const hasUsedAccess = !!(alreadyUsed && alreadyUsed.length > 0);
     // 🔍 Handle "check"
     if (type === "check") {
       const hasWoo = await checkWooOrder(emailLower);
@@ -196,6 +204,7 @@ export default async function handler(
 
     // ✅ Handle "mark-analysis"
     if (type === "mark-analysis") {
+      // ✅ Don't retry insert — exit early if already used
       if (hasUsedAccess) {
         return res.status(200).json({
           success: false,
@@ -204,7 +213,6 @@ export default async function handler(
       }
 
       const hasWoo = await checkWooOrder(emailLower);
-
       const { data: paystackVerified } = await supabaseAdmin
         .from("paystack_verified")
         .select("email")
@@ -220,17 +228,16 @@ export default async function handler(
         });
       }
 
-      const { error: insertError } = await supabaseAdmin
-        .from("free_access_once")
-        .insert({
-          email: emailLower,
-          source,
-          payment_verified: hasPaystack,
-          created_at: new Date().toISOString(),
-        });
+      // ✅ Insert only once, since we already checked hasUsedAccess
+      await supabaseAdmin.from("free_access_once").insert({
+        email: emailLower,
+        device_id: deviceId,
+        source,
+        payment_verified: hasPaystack,
+        created_at: new Date().toISOString(),
+      });
 
-      if (insertError) throw insertError;
-
+      // Optional: cleanup Paystack once used
       if (hasPaystack) {
         await supabaseAdmin
           .from("paystack_verified")
