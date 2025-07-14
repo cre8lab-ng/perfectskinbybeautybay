@@ -541,99 +541,6 @@ export default function CameraPrompt({ onCapture }: Props) {
     };
   }, [isCountingDown]);
 
-  // const handleRetake = async () => {
-  //   // COMPLETE state reset - like starting fresh
-  //   hasCapturedRef.current = false;
-  //   setCapturedImage(null);
-  //   setCountdown(3);
-  //   setIsCountingDown(false);
-  //   setCaptureFailed(false);
-
-  //   // Reset ALL validation states to false (fresh start)
-  //   setLightingOK(false);
-  //   setStraightOK(false);
-  //   setFacePositionOK(false);
-  //   setFaceValid(false);
-  //   setEyesDetected(false);
-  //   setShowCaptureButton(false); // Reset capture button visibility
-
-  //   // Clear tips
-  //   setTips(["📸 Reinitializing camera..."]);
-
-  //   // Ensure complete camera stop
-  //   stopCamera();
-
-  //   // Cancel any ongoing countdown
-  //   if (countdownRef.current) {
-  //     cancelAnimationFrame(countdownRef.current);
-  //     countdownRef.current = null;
-  //   }
-
-  //   // Wait longer for complete cleanup before restart (increased from 300ms)
-  //   setTimeout(async () => {
-  //     try {
-  //       // Request fresh camera stream
-  //       const newStream = await navigator.mediaDevices.getUserMedia({
-  //         video: { facingMode: "user", width: 640, height: 480 },
-  //         audio: false,
-  //       });
-
-  //       // Store new stream reference
-  //       streamRef.current = newStream;
-
-  //       const video = videoRef.current;
-  //       const canvas = canvasRef.current;
-
-  //       if (!video || !canvas) {
-  //         console.error("Video or canvas element not found during retake");
-  //         setTips(["❌ Failed to restart camera - elements not found"]);
-  //         return;
-  //       }
-
-  //       video.srcObject = newStream;
-
-  //       // Wait for video to be ready (important for fresh start)
-  //       await new Promise((resolve) => {
-  //         video.addEventListener("loadedmetadata", resolve, { once: true });
-  //       });
-
-  //       await video.play();
-
-  //       // Ensure canvas dimensions are properly set
-  //       if (video.videoWidth > 0 && video.videoHeight > 0) {
-  //         canvas.width = video.videoWidth;
-  //         canvas.height = video.videoHeight;
-
-  //         // Clear any previous canvas content
-  //         const ctx = canvas.getContext("2d");
-  //         if (ctx) {
-  //           ctx.clearRect(0, 0, canvas.width, canvas.height);
-  //         }
-
-  //         setTips(["✅ Camera ready. Position your face..."]);
-
-  //         // Start fresh analysis
-  //         analyze();
-
-  //         // Reset capture button timer (fresh 8-second wait)
-  //         setTimeout(() => {
-  //           if (!hasCapturedRef.current) {
-  //             setShowCaptureButton(true);
-  //           }
-  //         }, 8000);
-
-  //       } else {
-  //         console.error("Invalid video dimensions after retake");
-  //         setTips(["❌ Failed to get valid video dimensions"]);
-  //       }
-
-  //     } catch (err) {
-  //       console.error("Failed to restart camera:", err);
-  //       setTips(["❌ Failed to restart camera. Please check permissions."]);
-  //     }
-  //   }, 500); // Increased timeout for better cleanup
-  // };
-
   const startCountdown = (image: string) => {
     console.log(image, tips);
     setIsCountingDown(true);
@@ -685,13 +592,7 @@ export default function CameraPrompt({ onCapture }: Props) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Flip the canvas context before drawing
-    ctx.scale(-1, 1); // Flip horizontally
-    ctx.translate(-canvas.width, 0); // Adjust position
-
-    // Draw the flipped image
     ctx.drawImage(video, 0, 0);
-
     const image = canvas.toDataURL("image/jpeg");
 
     setLightingOK(true);
@@ -706,6 +607,8 @@ export default function CameraPrompt({ onCapture }: Props) {
     stopCamera();
     startCountdown(image);
   };
+
+  const noFaceDetected = tips.length === 1 && tips[0] === "❌ No face detected";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-200 via-pink-100 to-rose-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -752,14 +655,13 @@ export default function CameraPrompt({ onCapture }: Props) {
               <>
                 <video
                   ref={videoRef}
-                  className="absolute w-full h-full object-cover"
+                  className="absolute w-full h-full object-cover "
                   playsInline
                   muted
                 />
                 <canvas ref={canvasRef} className="absolute w-full h-full" />
               </>
             )}
-
             {capturedImage && (
               <div className="relative w-full h-full">
                 <img
@@ -770,7 +672,6 @@ export default function CameraPrompt({ onCapture }: Props) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
               </div>
             )}
-
             {!capturedImage &&
               showCaptureButton &&
               !hasCapturedRef.current &&
@@ -787,67 +688,35 @@ export default function CameraPrompt({ onCapture }: Props) {
                   </button>
                 </div>
               )}
-
             {/* Action buttons - Now as overlay */}
-            {(!faceValid || capturedImage) && !isCountingDown && (
-              <div className="absolute bottom-4 left-4 right-4 flex gap-3 z-20">
-                {capturedImage ? (
-                  <>
-                    <button
-                      onClick={() => onCapture(capturedImage)}
-                      className="group relative flex-1 px-6 py-3 bg-gradient-to-r text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105"
-                      style={{
-                        background: "linear-gradient(135deg, #f847b4, #ec4899)",
-                        boxShadow: "0 10px 15px -3px rgba(248, 71, 180, 0.4)",
-                      }}
-                    >
-                      <span className="relative z-10 flex items-center justify-center space-x-2">
-                        <span>Continue</span>
-                        <svg
-                          className="w-4 h-4 group-hover:translate-x-1 transition-transform"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13 7l5 5m0 0l-5 5m5-5H6"
-                          />
-                        </svg>
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="group px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
-                    >
-                      <span className="flex items-center justify-center space-x-2">
-                        <svg
-                          className="w-4 h-4 group-hover:rotate-12 transition-transform"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                          />
-                        </svg>
-                        <span>Retake</span>
-                      </span>
-                    </button>
-                  </>
-                ) : (
+            {capturedImage && !isCountingDown && (
+              <div
+                className={`absolute bottom-4 left-4 right-4 flex z-20 gap-3 ${
+                  noFaceDetected ? "justify-center" : "justify-between"
+                }`}
+              >
+                {/* Continue button only if face detected */}
+                {!noFaceDetected && (
                   <button
-                    onClick={() => window.location.reload()}
-                    className="mx-auto px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
+                    onClick={() => onCapture(capturedImage)}
+                    className="group relative flex-1 px-6 py-3 bg-gradient-to-r text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105"
+                    style={{
+                      background: "linear-gradient(135deg, #f847b4, #ec4899)",
+                      boxShadow: "0 10px 15px -3px rgba(248, 71, 180, 0.4)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "linear-gradient(135deg, #ec4899, #f847b4)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background =
+                        "linear-gradient(135deg, #f847b4, #ec4899)";
+                    }}
                   >
-                    <span className="flex items-center justify-center space-x-2">
+                    <span className="relative z-10 flex items-center justify-center space-x-2">
+                      <span>Continue</span>
                       <svg
-                        className="w-4 h-4 group-hover:rotate-12 transition-transform"
+                        className="w-4 h-4 group-hover:translate-x-1 transition-transform"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -856,16 +725,43 @@ export default function CameraPrompt({ onCapture }: Props) {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          d="M13 7l5 5m0 0l-5 5m5-5H6"
                         />
                       </svg>
-                      <span>Retake</span>
                     </span>
                   </button>
                 )}
+
+                {/* Retake button always shows */}
+                <button
+                  onClick={() => window.location.reload()}
+                  className={`group px-6 py-3 rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm text-white ${
+                    noFaceDetected
+                      ? "bg-black/60 hover:bg-black/80 max-w-xs"
+                      : "bg-black/40 hover:bg-black/60 flex-shrink-0"
+                  }`}
+                >
+                  <span className="flex items-center justify-center space-x-2">
+                    <svg
+                      className={`w-4 h-4 group-hover:rotate-12 transition-transform ${
+                        noFaceDetected ? "" : "mr-0"
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    <span>Retake</span>
+                  </span>
+                </button>
               </div>
             )}
-
             {/* Countdown overlay */}
             {isCountingDown && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-2xl">
