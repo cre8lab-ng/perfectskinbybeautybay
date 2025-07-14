@@ -447,7 +447,12 @@ export default function CameraPrompt({ onCapture }: Props) {
         tmpCanvas.height = video.videoHeight;
         const tmpCtx = tmpCanvas.getContext("2d");
         if (tmpCtx) {
-          tmpCtx.drawImage(video, 0, 0);
+          tmpCtx.save();
+          tmpCtx.translate(tmpCanvas.width, 0); // move to right edge
+          tmpCtx.scale(-1, 1); // flip horizontally
+          tmpCtx.drawImage(video, 0, 0); // draw flipped
+          tmpCtx.restore();
+
           const image = tmpCanvas.toDataURL("image/jpeg");
           setCapturedImage(image);
 
@@ -592,7 +597,11 @@ export default function CameraPrompt({ onCapture }: Props) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    ctx.save();
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0);
+    ctx.restore();
     const image = canvas.toDataURL("image/jpeg");
 
     setLightingOK(true);
