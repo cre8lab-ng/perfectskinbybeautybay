@@ -3,7 +3,10 @@ import Cookies from "js-cookie";
 
 export function getOrCreateDeviceId(): string {
   try {
-    let deviceId = Cookies.get("device_id") || localStorage.getItem("device_id");
+    let deviceId =
+      Cookies.get("device_id") ||
+      localStorage.getItem("device_id") ||
+      sessionStorage.getItem("device_id");
 
     if (!deviceId) {
       deviceId = uuidv4();
@@ -12,10 +15,11 @@ export function getOrCreateDeviceId(): string {
       Cookies.set("device_id", deviceId, {
         expires: 365,
         secure: true,
-        sameSite: "Strict",
+        sameSite: "Lax", // more mobile-friendly than "Strict"
       });
 
       localStorage.setItem("device_id", deviceId);
+      sessionStorage.setItem("device_id", deviceId);
     } else {
       console.log(`✅ Existing device_id found: ${deviceId}`);
     }
