@@ -789,62 +789,80 @@ export default function CameraPrompt({ onCapture }: Props) {
               )}
 
             {/* Action buttons - Now as overlay */}
-            {capturedImage && !isCountingDown && (
+            {(!faceValid || capturedImage) && !isCountingDown && (
               <div className="absolute bottom-4 left-4 right-4 flex gap-3 z-20">
-                <button
-                  onClick={() => onCapture(capturedImage)}
-                  className="group relative flex-1 px-6 py-3 bg-gradient-to-r text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105"
-                  style={{
-                    background: "linear-gradient(135deg, #f847b4, #ec4899)",
-                    boxShadow: "0 10px 15px -3px rgba(248, 71, 180, 0.4)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background =
-                      "linear-gradient(135deg, #ec4899, #f847b4)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background =
-                      "linear-gradient(135deg, #f847b4, #ec4899)";
-                  }}
-                >
-                  <span className="relative z-10 flex items-center justify-center space-x-2">
-                    <span>Continue</span>
-                    <svg
-                      className="w-4 h-4 group-hover:translate-x-1 transition-transform"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                {capturedImage ? (
+                  <>
+                    <button
+                      onClick={() => onCapture(capturedImage)}
+                      className="group relative flex-1 px-6 py-3 bg-gradient-to-r text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105"
+                      style={{
+                        background: "linear-gradient(135deg, #f847b4, #ec4899)",
+                        boxShadow: "0 10px 15px -3px rgba(248, 71, 180, 0.4)",
+                      }}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 7l5 5m0 0l-5 5m5-5H6"
-                      />
-                    </svg>
-                  </span>
-                </button>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="group px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
-                >
-                  <span className="flex items-center justify-center space-x-2">
-                    <svg
-                      className="w-4 h-4 group-hover:rotate-12 transition-transform"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                      <span className="relative z-10 flex items-center justify-center space-x-2">
+                        <span>Continue</span>
+                        <svg
+                          className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 7l5 5m0 0l-5 5m5-5H6"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="group px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                      />
-                    </svg>
-                    <span>Retake</span>
-                  </span>
-                </button>
+                      <span className="flex items-center justify-center space-x-2">
+                        <svg
+                          className="w-4 h-4 group-hover:rotate-12 transition-transform"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                        <span>Retake</span>
+                      </span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="mx-auto px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
+                  >
+                    <span className="flex items-center justify-center space-x-2">
+                      <svg
+                        className="w-4 h-4 group-hover:rotate-12 transition-transform"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                      <span>Retake</span>
+                    </span>
+                  </button>
+                )}
               </div>
             )}
 
