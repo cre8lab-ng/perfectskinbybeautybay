@@ -608,8 +608,6 @@ export default function CameraPrompt({ onCapture }: Props) {
     startCountdown(image);
   };
 
-  const noFaceDetected = tips.length === 1 && tips[0] === "❌ No face detected";
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-200 via-pink-100 to-rose-50 flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Animated background elements */}
@@ -690,62 +688,47 @@ export default function CameraPrompt({ onCapture }: Props) {
               )}
             {/* Action buttons - Now as overlay */}
             {capturedImage && !isCountingDown && (
-              <div
-                className={`absolute bottom-4 left-4 right-4 flex z-20 gap-3 ${
-                  noFaceDetected ? "justify-center" : "justify-between"
-                }`}
-              >
-                {/* Continue button only if face detected */}
-                {!noFaceDetected && (
-                  <button
-                    onClick={() => onCapture(capturedImage)}
-                    className="group relative flex-1 px-6 py-3 bg-gradient-to-r text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105"
-                    style={{
-                      background: "linear-gradient(135deg, #f847b4, #ec4899)",
-                      boxShadow: "0 10px 15px -3px rgba(248, 71, 180, 0.4)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background =
-                        "linear-gradient(135deg, #ec4899, #f847b4)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background =
-                        "linear-gradient(135deg, #f847b4, #ec4899)";
-                    }}
-                  >
-                    <span className="relative z-10 flex items-center justify-center space-x-2">
-                      <span>Continue</span>
-                      <svg
-                        className="w-4 h-4 group-hover:translate-x-1 transition-transform"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 7l5 5m0 0l-5 5m5-5H6"
-                        />
-                      </svg>
-                    </span>
-                  </button>
-                )}
-
-                {/* Retake button always shows */}
+              <div className="absolute bottom-4 left-4 right-4 flex gap-3 z-20">
+                <button
+                  onClick={() => onCapture(capturedImage)}
+                  className="group relative flex-1 px-6 py-3 bg-gradient-to-r text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105"
+                  style={{
+                    background: "linear-gradient(135deg, #f847b4, #ec4899)",
+                    boxShadow: "0 10px 15px -3px rgba(248, 71, 180, 0.4)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(135deg, #ec4899, #f847b4)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(135deg, #f847b4, #ec4899)";
+                  }}
+                >
+                  <span className="relative z-10 flex items-center justify-center space-x-2">
+                    <span>Continue</span>
+                    <svg
+                      className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 7l5 5m0 0l-5 5m5-5H6"
+                      />
+                    </svg>
+                  </span>
+                </button>
                 <button
                   onClick={() => window.location.reload()}
-                  className={`group px-6 py-3 rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm text-white ${
-                    noFaceDetected
-                      ? "bg-black/60 hover:bg-black/80 max-w-xs"
-                      : "bg-black/40 hover:bg-black/60 flex-shrink-0"
-                  }`}
+                  className="group px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
                 >
                   <span className="flex items-center justify-center space-x-2">
                     <svg
-                      className={`w-4 h-4 group-hover:rotate-12 transition-transform ${
-                        noFaceDetected ? "" : "mr-0"
-                      }`}
+                      className="w-4 h-4 group-hover:rotate-12 transition-transform"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -762,6 +745,7 @@ export default function CameraPrompt({ onCapture }: Props) {
                 </button>
               </div>
             )}
+
             {/* Countdown overlay */}
             {isCountingDown && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-2xl">
