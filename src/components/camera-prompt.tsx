@@ -753,7 +753,7 @@ export default function CameraPrompt({ onCapture }: Props) {
                 />
                 <canvas
                   ref={canvasRef}
-                  className="absolute w-full h-full transform scale-x-[-1]"
+                  className="absolute w-full h-full"
                 />
               </>
             )}
