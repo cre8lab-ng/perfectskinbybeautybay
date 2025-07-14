@@ -653,10 +653,11 @@ export default function CameraPrompt({ onCapture }: Props) {
               <>
                 <video
                   ref={videoRef}
-                  className="absolute w-full h-full object-cover "
+                  className="absolute w-full h-full object-cover transform -scale-x-100"
                   playsInline
                   muted
                 />
+
                 <canvas ref={canvasRef} className="absolute w-full h-full" />
               </>
             )}
