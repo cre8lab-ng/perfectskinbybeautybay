@@ -31,11 +31,16 @@ export interface RoutineLevel {
 }
 
 export const skinCareRoutines: {
-  [level in "beginner" | "intermediate" | "advanced" | "intensive"]?: RoutineLevel;
+  [level in
+    | "beginner"
+    | "intermediate"
+    | "advanced"
+    | "intensive"]?: RoutineLevel;
 } = {
   beginner: {
     name: "Gentle Multi-Concern Routine",
-    description: "Perfect for sensitive skin or those new to skincare. Addresses mild acne, early signs of aging, and basic texture concerns.",
+    description:
+      "Addresses mild acne, early signs of aging, and basic texture concerns.",
     targets: ["mild acne", "prevention", "hydration", "basic texture"],
     products: [
       {
@@ -58,11 +63,11 @@ export const skinCareRoutines: {
       },
       {
         id: 968896,
-        name: "Gentle Retinol Cream",
-        price_html: "₦14,300",
-        brand: "Good Molecules",
-        image: "/images/products/goodmoleculeretinolcream.png",
-        link: "https://beautyhub.ng/product/good-molecules-gentle-retinol-cream/",
+        name: "Advanced Snail 92 All in one Cream",
+        price_html: "₦16,500",
+        brand: "Cosrx",
+        image: "/images/products/cosrx-allinonecream.png",
+        link: "https://beautyhub.ng/product/cosrx-advanced-snail-92-all-in-one-cream/",
         step: "moisturizer",
       },
       {
@@ -76,11 +81,17 @@ export const skinCareRoutines: {
       },
     ],
   },
-  
+
   intermediate: {
     name: "Balanced Treatment Routine",
-    description: "For moderate concerns across multiple areas. Combines acne treatment with anti-aging and pore refinement.",
-    targets: ["moderate acne", "fine lines", "texture improvement", "pore appearance"],
+    description:
+      "For moderate concerns across multiple areas. Combines acne treatment with anti-aging and pore refinement.",
+    targets: [
+      "moderate acne",
+      "fine lines",
+      "texture improvement",
+      "pore appearance",
+    ],
     products: [
       {
         id: 104,
@@ -93,20 +104,20 @@ export const skinCareRoutines: {
       },
       {
         id: 567868,
-        name: "Madagascar Centella Tea-Trica Relief Ampoule",
-        price_html: "₦15,500",
-        brand: "Skin1004",
-        image: "/images/products/skin1004ampoule.png",
-        link: "https://beautyhub.ng/product/skin1004-madagascar-centella-tea-trica-relief-ampoule/",
+        name: "Licorice pH Balancing Cleansing Toner",
+        price_html: "₦13,000",
+        brand: "Acwell",
+        image: "/images/products/acwelltoner.png",
+        link: "https://beautyhub.ng/product/acwell-licorice-ph-balancing-cleansing-toner/",
         step: "toner",
       },
       {
         id: 1890234,
-        name: "Lactic Acid Retinol Facial Cream",
-        price_html: "₦11,400",
-        brand: "APLB",
-        image: "/images/products/aplbcream.png",
-        link: "https://beautyhub.ng/product/aplb-lactic-acid-retinol-facial-cream/",
+        name: "Daily Moisturizing Lotion",
+        price_html: "₦19,500",
+        brand: "CaraVe",
+        image: "/images/products/cerave-daily-moisturizing-lotion.png",
+        link: "https://beautyhub.ng/product/cerave-daily-moisturizing-lotion/",
         step: "moisturizer",
       },
       {
@@ -120,10 +131,11 @@ export const skinCareRoutines: {
       },
     ],
   },
-  
+
   advanced: {
     name: "Active Treatment Routine",
-    description: "For multiple significant concerns. Stronger actives for acne, visible aging signs, texture issues, and enlarged pores.",
+    description:
+      "For multiple significant concerns. Stronger actives for acne, visible aging signs, texture issues, and enlarged pores.",
     targets: ["persistent acne", "wrinkles", "rough texture", "enlarged pores"],
     products: [
       {
@@ -146,11 +158,11 @@ export const skinCareRoutines: {
       },
       {
         id: 12377758,
-        name: "Skin Renewing Night Cream",
-        price_html: "₦31,500",
-        brand: "CeraVe",
-        image: "/images/products/ceravenightcream.png",
-        link: "https://beautyhub.ng/product/cerave-skin-renewing-night-cream/",
+        name: "Cica+ Soothing Cream",
+        price_html: "₦16,800",
+        brand: "TOPICREM",
+        image: "/images/products/topicremcicasoothing.png",
+        link: "https://beautyhub.ng/product/topicrem-cica-soothing-cream/",
         step: "moisturizer",
       },
       {
@@ -164,11 +176,17 @@ export const skinCareRoutines: {
       },
     ],
   },
-  
+
   intensive: {
     name: "Maximum Strength Routine",
-    description: "For severe multiple concerns requiring intensive treatment. Combines strongest actives for comprehensive skin transformation.",
-    targets: ["severe acne", "deep wrinkles", "significant texture issues", "stubborn pores"],
+    description:
+      "For severe multiple concerns requiring intensive treatment. Combines strongest actives for comprehensive skin transformation.",
+    targets: [
+      "severe acne",
+      "deep wrinkles",
+      "significant texture issues",
+      "stubborn pores",
+    ],
     products: [
       {
         id: 109,
@@ -181,20 +199,20 @@ export const skinCareRoutines: {
       },
       {
         id: 24545665,
-        name: "Skin Perfecting 2% BHA Liquid Exfoliant",
-        price_html: "₦33,000",
-        brand: "Paula's Choice ",
-        image: "/images/products/paulaschoicebha.png",
-        link: "https://beautyhub.ng/product/paulas-choice-skin-perfecting-2-bha-liquid-exfoliant/",
+        name: "Ceramide Mochi Toner",
+        price_html: "₦16,500",
+        brand: "TonyMoly",
+        image: "/images/products/tonymolytoner.png",
+        link: "https://beautyhub.ng/product/tonymoly-ceramide-mochi-toner/",
         step: "toner",
       },
       {
         id: 185995,
-        name: "Retinol24 Night Moisturizer",
-        price_html: "₦80,000",
-        brand: "Olay",
-        image: "/images/products/olaynightcream.png",
-        link: "https://beautyhub.ng/product/olay-retinol24-night-moisturizer/",
+        name: "Ceramide Ato Concentrate Cream",
+        price_html: "₦17,500",
+        brand: "Illiyoon",
+        image: "/images/products/illiyionnconcemoisturizer.png",
+        link: "https://beautyhub.ng/product/illiyoon-ceramide-ato-concentrate-cream/",
         step: "moisturizer",
       },
       {
@@ -218,19 +236,20 @@ export function getRecommendedRoutine(concernLevels: {
   pore?: "very_low" | "moderate" | "high" | "very_high";
 }): keyof typeof skinCareRoutines {
   const levels = Object.values(concernLevels).filter(Boolean);
-  
+
   if (levels.length === 0) return "beginner";
-  
+
   const maxConcernLevel = levels.reduce((max, current) => {
     const levelOrder = { very_low: 1, moderate: 2, high: 3, very_high: 4 };
     return levelOrder[current] > levelOrder[max] ? current : max;
   });
-  
-  const averageConcernLevel = levels.reduce((sum, current) => {
-    const levelOrder = { very_low: 1, moderate: 2, high: 3, very_high: 4 };
-    return sum + levelOrder[current];
-  }, 0) / levels.length;
-  
+
+  const averageConcernLevel =
+    levels.reduce((sum, current) => {
+      const levelOrder = { very_low: 1, moderate: 2, high: 3, very_high: 4 };
+      return sum + levelOrder[current];
+    }, 0) / levels.length;
+
   if (maxConcernLevel === "very_high" && averageConcernLevel >= 3) {
     return "intensive";
   } else if (maxConcernLevel === "very_high" || averageConcernLevel >= 2.5) {
@@ -252,7 +271,7 @@ export function getRecommendedProducts(scoreInfo: ScoreInfo | null): {
   if (!scoreInfo) return null;
 
   const concerns = ["acne", "wrinkle", "texture", "pore"] as const;
-  
+
   // Convert UI scores to concern levels
   const concernLevels: {
     acne?: "very_low" | "moderate" | "high" | "very_high";
@@ -277,20 +296,20 @@ export function getRecommendedProducts(scoreInfo: ScoreInfo | null): {
 
   // Calculate total cost
   const totalCost = routine.products.reduce((sum, product) => {
-    const price = parseInt(product.price_html.replace(/[₦,]/g, ''));
+    const price = parseInt(product.price_html.replace(/[₦,]/g, ""));
     return sum + price;
   }, 0);
 
   // Get concerns that are being addressed
   const concernsAddressed = Object.keys(concernLevels).filter(
-    concern => concernLevels[concern as keyof typeof concernLevels]
+    (concern) => concernLevels[concern as keyof typeof concernLevels]
   );
 
   return {
     routineLevel,
     routine,
     totalCost: `₦${totalCost.toLocaleString()}`,
-    concernsAddressed
+    concernsAddressed,
   };
 }
 
@@ -304,9 +323,9 @@ export function getRecommendedProductsLegacy(scoreInfo: ScoreInfo | null): {
   if (!result) return [];
 
   // Return in the original format for backward compatibility
-  return result.concernsAddressed.map(concern => ({
+  return result.concernsAddressed.map((concern) => ({
     concern,
     level: result.routineLevel,
-    products: result.routine.products
+    products: result.routine.products,
   }));
 }
