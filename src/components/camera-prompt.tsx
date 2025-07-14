@@ -24,7 +24,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const streamRef = useRef<MediaStream | null>(null); // Track the stream
   const [eyesDetected, setEyesDetected] = useState(false);
   const [showCaptureButton, setShowCaptureButton] = useState(false);
- console.log(faceValid)
+  console.log(faceValid);
   useEffect(() => {
     if (!hasCapturedRef.current) {
       const timeout = setTimeout(() => {
@@ -36,7 +36,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   }, []);
 
   // Replace your drawOvalFaceMesh function with this auto-detecting version
-                            // @ts-expect-error: Supabase typing is too strict here
+  // @ts-expect-error: Supabase typing is too strict here
 
   const drawOvalFaceMesh = (ctx, landmarks, faceBox) => {
     if (!landmarks || !faceBox) return;
@@ -52,7 +52,7 @@ export default function CameraPrompt({ onCapture }: Props) {
         maxY = -Infinity;
 
       // Find actual bounds from ALL landmark points
-                                // @ts-expect-error: Supabase typing is too strict here
+      // @ts-expect-error: Supabase typing is too strict here
 
       landmarkPoints.forEach((point) => {
         minX = Math.min(minX, point.x);
@@ -188,8 +188,7 @@ export default function CameraPrompt({ onCapture }: Props) {
     ctx.globalAlpha = 1;
   };
 
-  
-                          // @ts-expect-error: Supabase typing is too strict here
+  // @ts-expect-error: Supabase typing is too strict here
   const drawFacialFeatureGuides = (ctx, centerX, centerY, radiusX, radiusY) => {
     ctx.strokeStyle = "#ff0000";
     ctx.lineWidth = 1;
@@ -549,7 +548,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   //   setCountdown(3);
   //   setIsCountingDown(false);
   //   setCaptureFailed(false);
-    
+
   //   // Reset ALL validation states to false (fresh start)
   //   setLightingOK(false);
   //   setStraightOK(false);
@@ -557,19 +556,19 @@ export default function CameraPrompt({ onCapture }: Props) {
   //   setFaceValid(false);
   //   setEyesDetected(false);
   //   setShowCaptureButton(false); // Reset capture button visibility
-    
+
   //   // Clear tips
   //   setTips(["📸 Reinitializing camera..."]);
-  
+
   //   // Ensure complete camera stop
   //   stopCamera();
-  
+
   //   // Cancel any ongoing countdown
   //   if (countdownRef.current) {
   //     cancelAnimationFrame(countdownRef.current);
   //     countdownRef.current = null;
   //   }
-  
+
   //   // Wait longer for complete cleanup before restart (increased from 300ms)
   //   setTimeout(async () => {
   //     try {
@@ -578,56 +577,56 @@ export default function CameraPrompt({ onCapture }: Props) {
   //         video: { facingMode: "user", width: 640, height: 480 },
   //         audio: false,
   //       });
-  
+
   //       // Store new stream reference
   //       streamRef.current = newStream;
-  
+
   //       const video = videoRef.current;
   //       const canvas = canvasRef.current;
-  
+
   //       if (!video || !canvas) {
   //         console.error("Video or canvas element not found during retake");
   //         setTips(["❌ Failed to restart camera - elements not found"]);
   //         return;
   //       }
-  
+
   //       video.srcObject = newStream;
-        
+
   //       // Wait for video to be ready (important for fresh start)
   //       await new Promise((resolve) => {
   //         video.addEventListener("loadedmetadata", resolve, { once: true });
   //       });
-        
+
   //       await video.play();
-  
+
   //       // Ensure canvas dimensions are properly set
   //       if (video.videoWidth > 0 && video.videoHeight > 0) {
   //         canvas.width = video.videoWidth;
   //         canvas.height = video.videoHeight;
-          
+
   //         // Clear any previous canvas content
   //         const ctx = canvas.getContext("2d");
   //         if (ctx) {
   //           ctx.clearRect(0, 0, canvas.width, canvas.height);
   //         }
-  
+
   //         setTips(["✅ Camera ready. Position your face..."]);
-          
+
   //         // Start fresh analysis
   //         analyze();
-          
+
   //         // Reset capture button timer (fresh 8-second wait)
   //         setTimeout(() => {
   //           if (!hasCapturedRef.current) {
   //             setShowCaptureButton(true);
   //           }
   //         }, 8000);
-          
+
   //       } else {
   //         console.error("Invalid video dimensions after retake");
   //         setTips(["❌ Failed to get valid video dimensions"]);
   //       }
-        
+
   //     } catch (err) {
   //       console.error("Failed to restart camera:", err);
   //       setTips(["❌ Failed to restart camera. Please check permissions."]);
@@ -686,7 +685,13 @@ export default function CameraPrompt({ onCapture }: Props) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // Flip the canvas context before drawing
+    ctx.scale(-1, 1); // Flip horizontally
+    ctx.translate(-canvas.width, 0); // Adjust position
+
+    // Draw the flipped image
     ctx.drawImage(video, 0, 0);
+
     const image = canvas.toDataURL("image/jpeg");
 
     setLightingOK(true);
@@ -751,10 +756,7 @@ export default function CameraPrompt({ onCapture }: Props) {
                   playsInline
                   muted
                 />
-                <canvas
-                  ref={canvasRef}
-                  className="absolute w-full h-full"
-                />
+                <canvas ref={canvasRef} className="absolute w-full h-full" />
               </>
             )}
 
@@ -769,8 +771,12 @@ export default function CameraPrompt({ onCapture }: Props) {
               </div>
             )}
 
-{!capturedImage && showCaptureButton && !hasCapturedRef.current && !isCountingDown && eyesDetected && (
-  <div className="absolute bottom-4 left-4 right-4 flex justify-center z-20">
+            {!capturedImage &&
+              showCaptureButton &&
+              !hasCapturedRef.current &&
+              !isCountingDown &&
+              eyesDetected && (
+                <div className="absolute bottom-4 left-4 right-4 flex justify-center z-20">
                   <button
                     onClick={handleForceCapture}
                     className="group px-8 py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50 backdrop-blur-sm"
