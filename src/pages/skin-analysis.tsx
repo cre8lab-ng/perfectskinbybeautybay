@@ -45,7 +45,6 @@ interface UploadResponse {
   file_id?: string;
 }
 
-
 function dataURLtoFile(dataUrl: string, filename: string): File {
   const arr = dataUrl.split(",");
   const mime = arr[0].match(/:(.*?);/)?.[1] || "";
@@ -84,6 +83,7 @@ export default function FaceDetectionComponent() {
     string | null
   >(null);
   const routineRecommendation = getRecommendedProducts(scoreInfo);
+  const [showRetryButton, setShowRetryButton] = useState(false);
 
   console.log(uploading, analysisStatus, uploadResponse);
   const { hasAccess, showLoginModal, setShowLoginModal } = useResultAccess();
@@ -405,6 +405,7 @@ export default function FaceDetectionComponent() {
       if (!landmarks || landmarks.length === 0) {
         notifyError("No face detected. Please try again.");
         setShowCameraPrompt(false);
+        setShowRetryButton(true);
 
         if (lastCaptureMethod === "camera") {
           setShowCameraPrompt(true);
@@ -735,7 +736,7 @@ export default function FaceDetectionComponent() {
               scoreInfo ||
               zipContent.length > 0 ||
               processedImagePreview ||
-              routineRecommendation ) && (
+              routineRecommendation) && (
               <div
                 style={{
                   position: "relative",
@@ -1021,6 +1022,50 @@ export default function FaceDetectionComponent() {
                         >
                           Our AI is mapping your unique skin profile
                         </p>
+                      </div>
+                    )}
+
+                    {showRetryButton && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: "100%",
+                          background:
+                            "linear-gradient(135deg, rgba(255, 217, 240, 0.8), rgba(255, 217, 240, 0.4))",
+                          borderRadius: "8px",
+                          border: "1px solid rgba(248, 71, 180, 0.15)",
+                          zIndex: 12,
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          padding: "2rem",
+                        }}
+                      >
+                        <button
+                          onClick={() => window.location.reload()}
+                          className="group px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
+                        >
+                          <span className="flex items-center justify-center space-x-2">
+                            <svg
+                              className="w-4 h-4 group-hover:rotate-12 transition-transform"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                            <span>Retake</span>
+                          </span>
+                        </button>
                       </div>
                     )}
 
@@ -1516,7 +1561,7 @@ export default function FaceDetectionComponent() {
                         (step) => {
                           const stepProducts =
                             routineRecommendation.routine.products.filter(
-                              (p:any) => p.step === step
+                              (p: any) => p.step === step
                             );
 
                           if (stepProducts.length === 0) return null;
@@ -1546,7 +1591,7 @@ export default function FaceDetectionComponent() {
                                   justifyItems: "center",
                                 }}
                               >
-                                {stepProducts.map((product:any) => (
+                                {stepProducts.map((product: any) => (
                                   <div
                                     key={product.id}
                                     style={{
