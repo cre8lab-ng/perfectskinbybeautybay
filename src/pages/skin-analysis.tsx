@@ -404,7 +404,7 @@ export default function FaceDetectionComponent() {
 
       if (!landmarks || landmarks.length === 0) {
         notifyError("No face detected. Please try again.");
-        setShowCameraPrompt(false);
+        setShowCameraPrompt(true);
 
         if (lastCaptureMethod === "camera") {
           setShowCameraPrompt(true);
