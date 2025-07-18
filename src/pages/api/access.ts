@@ -118,14 +118,12 @@ export default async function handler(
     }
 
     // Check if they've already accessed
-    const { data: usedAccesses } = await supabaseAdmin
+    const { data: alreadyUsed } = await supabaseAdmin
       .from("access_log_twice")
       .select("email")
-      .eq("email", emailLower);
+      .or(`email.eq.${emailLower},device_id.eq.${deviceId}`);
 
-    const usageCount = usedAccesses?.length || 0;
-    const hasRemainingAccess = usageCount < 2;
-
+    const hasUsedAccess = !!(alreadyUsed && alreadyUsed.length > 0);
     // 🔍 Handle "check"
     if (type === "check") {
       const hasWoo = await checkWooOrder(emailLower);
@@ -139,13 +137,14 @@ export default async function handler(
       const hasPaystack = !!paystackVerified;
 
       // If they've already used access but still have Paystack payment, grant access again
-      const accessGranted = (hasWoo || hasPaystack) && hasRemainingAccess;
+      const accessGranted =
+        (hasWoo || hasPaystack) && (!hasUsedAccess || !!paystackVerified);
 
       return res.status(200).json({
         access_granted: accessGranted,
         source: hasWoo ? "woocommerce" : hasPaystack ? "paystack" : undefined,
         reason: !accessGranted
-          ? hasRemainingAccess
+          ? hasUsedAccess
             ? "already_used"
             : "requires_payment"
           : undefined,
@@ -205,17 +204,11 @@ export default async function handler(
 
     // ✅ Handle "mark-analysis"
     if (type === "mark-analysis") {
-      const { data: usedAccesses } = await supabaseAdmin
-        .from("access_log_twice")
-        .select("email")
-        .eq("email", emailLower);
-
-      const usageCount = usedAccesses?.length || 0;
-
-      if (usageCount >= 2) {
+      // ✅ Don't retry insert — exit early if already used
+      if (hasUsedAccess) {
         return res.status(200).json({
           success: false,
-          reason: "access_limit_reached",
+          reason: "already_exists",
         });
       }
 
@@ -235,7 +228,7 @@ export default async function handler(
         });
       }
 
-      // ✅ Insert access use
+      // ✅ Insert only once, since we already checked hasUsedAccess
       await supabaseAdmin.from("access_log_twice").insert({
         email: emailLower,
         device_id: deviceId,
@@ -244,8 +237,8 @@ export default async function handler(
         created_at: new Date().toISOString(),
       });
 
-      // ✅ Clean up Paystack record after 2nd use
-      if (hasPaystack && usageCount + 1 >= 2) {
+      // Optional: cleanup Paystack once used
+      if (hasPaystack) {
         await supabaseAdmin
           .from("paystack_verified")
           .delete()
