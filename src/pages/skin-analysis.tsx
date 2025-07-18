@@ -1,3 +1,4 @@
+import React from "react";
 import { useEffect, useState, ChangeEvent, useRef } from "react";
 import useAccessToken from "@/stores/useAccessToken";
 import {
@@ -67,7 +68,7 @@ export default function FaceDetectionComponent() {
   const [analysisStatus, setAnalysisStatus] = useState(null);
   const [showCameraPrompt, setShowCameraPrompt] = useState(false);
   const [showInstructionModal, setShowInstructionModal] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<React.ReactNode>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(true);
   const [showOverlays, setShowOverlays] = useState(true); // 👈 toggle overlay state
   const [lastCaptureMethod, setLastCaptureMethod] = useState<
@@ -486,14 +487,51 @@ export default function FaceDetectionComponent() {
       if (err && err.response?.data.status === 400) {
         setUnitError(true);
         setMessage(
-          "Something went wrong. Please contact support on Instagram, WhatsApp, or email support@beautyhub.ng"
+          <>
+            Something went wrong. Please contact support on
+            <a
+              href="https://www.instagram.com/beautyhubco.ng/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#f847b4", textDecoration: "underline" }}
+            >
+              Instagram
+            </a>
+            ,
+            <a
+              href="https://wa.me/2348162598682"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#f847b4", textDecoration: "underline" }}
+            >
+              WhatsApp
+            </a>
+            , or
+            <a
+              href="mailto:support@beautyhub.ng"
+              style={{ color: "#f847b4", textDecoration: "underline" }}
+            >
+              email
+            </a>
+            .
+          </>
         );
         setRetake(true);
       } else {
         setUnitError(true);
         setMessage(
-          "We couldn't analyze your skin.Please try again or contact support."
+          <>
+            We couldn&apos;t analyze your skin. Please try again or
+            <a
+              href="mailto:support@beautyhub.ng"
+              style={{ color: "#f847b4", textDecoration: "underline" }}
+            >
+              contact support
+            </a>
+            .
+          </>
         );
+
         setRetake(true);
       }
     } finally {
@@ -527,7 +565,7 @@ export default function FaceDetectionComponent() {
 
           const currentEmail = useResultAccess.getState().userEmail;
           if (currentEmail) {
-            await grantAccess(currentEmail); // only called if success
+            await grantAccess(currentEmail); 
           }
 
           return res;
@@ -1351,6 +1389,7 @@ export default function FaceDetectionComponent() {
                     >
                       {message}
                     </p>
+
                     <button
                       onClick={() => {
                         window.location.reload();

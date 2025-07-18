@@ -37,11 +37,11 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
       onLoginSuccess(email, true);
     } else if (result.reason === "requires_payment") {
       setError(
-        "You're not yet a customer, so you'll need to pay ₦5,000 to access your results. A refund will be issued when you complete an order with us."
+        "We noticed you're not yet a customer. To view your results, there's a ₦5,000 access fee—refundable when you place your first order with us."
       );
       setShowPayButton(true);
     } else if (result.reason === "already_used") {
-      setError("You've already used your free access. Please pay to continue.");
+      setError("You've enjoyed your free access! To keep going, a payment is needed.");
       setShowPayButton(true);
     } else {
       setError(result.error || "Something went wrong.");
@@ -96,14 +96,44 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
           </button>
 
           {(error || accessError) && (
-            <div style={errorStyle}>
-              <span style={errorIconStyle}>⚠️</span>
-              {error === "Internal Server Error" ||
-              accessError === "Internal Server Error"
-                ? "Something went wrong. Please contact support on Instagram, WhatsApp, or email support@beautyhub.ng"
-                : error || accessError}
-            </div>
-          )}
+  <div style={errorStyle}>
+    <span style={errorIconStyle}>⚠️</span>
+
+    {error === "Internal Server Error" || accessError === "Internal Server Error" ? (
+      <>
+        Something went wrong. Please contact support on{" "}
+        <a
+              href="https://www.instagram.com/beautyhubco.ng/"
+              target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#f847b4", textDecoration: "underline" }}
+        >
+          Instagram
+        </a>
+        ,{" "}
+        <a
+              href="https://wa.me/2348162598682"
+              target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#f847b4", textDecoration: "underline" }}
+        >
+          WhatsApp
+        </a>
+        , or{" "}
+        <a
+          href="mailto:support@beautyhub.ng"
+          style={{ color: "#f847b4", textDecoration: "underline" }}
+        >
+          email
+        </a>
+        .
+      </>
+    ) : (
+      error || accessError
+    )}
+  </div>
+)}
+
 
           {showPayButton && !error.includes("trial limit") && (
             <div style={paymentSectionStyle}>
