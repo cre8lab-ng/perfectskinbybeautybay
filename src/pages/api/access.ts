@@ -31,6 +31,16 @@ async function checkWooOrder(email: string): Promise<boolean> {
   }
 }
 
+async function checkPaystackVerified(email: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("paystack_verified")
+    .select("email")
+    .eq("email", email.toLowerCase())
+    .maybeSingle();
+
+  return !!data;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -42,14 +52,13 @@ export default async function handler(
 
   const rawDeviceId = req.cookies.device_id?.trim();
 
-  if (!rawDeviceId || rawDeviceId === "") {
+  if (!rawDeviceId) {
     return res.status(400).json({
       error: "Missing device ID. Please enable cookies to continue.",
     });
   }
 
   const deviceId = rawDeviceId;
-
   const key = `access-check:${ip}`;
   const current = rateLimiter.get(key) || 0;
   const userAgent = req.headers["user-agent"] || "unknown";
@@ -77,7 +86,7 @@ export default async function handler(
   ).toISOString();
 
   try {
-    // Log request
+    // Log request for diagnostics
     await supabaseAdmin.from("access_log").insert({
       email: emailLower,
       ip,
@@ -86,7 +95,7 @@ export default async function handler(
       user_agent: userAgent,
     });
 
-    // Trial limit logic
+    // 12h trial restriction per IP or device
     const [{ data: ipAttempts }, { data: deviceAttempts }] = await Promise.all([
       supabaseAdmin
         .from("access_log")
@@ -94,7 +103,6 @@ export default async function handler(
         .eq("ip", ip)
         .eq("action", "check")
         .gte("created_at", twelveHoursAgo),
-
       supabaseAdmin
         .from("access_log")
         .select("email")
@@ -117,41 +125,46 @@ export default async function handler(
       });
     }
 
-    // Check if they've already accessed
-    const { data: alreadyUsed } = await supabaseAdmin
-      .from("access_log_twice")
-      .select("email")
-      .or(`email.eq.${emailLower},device_id.eq.${deviceId}`);
+    // Count access by email and device
+    const [{ data: emailAccess }, { data: deviceAccess }] = await Promise.all([
+      supabaseAdmin
+        .from("access_log_twice")
+        .select("id")
+        .eq("email", emailLower),
+      supabaseAdmin
+        .from("access_log_twice")
+        .select("id")
+        .eq("device_id", deviceId),
+    ]);
 
-    const hasUsedAccess = !!(alreadyUsed && alreadyUsed.length > 0);
-    // 🔍 Handle "check"
+    const emailCount = emailAccess?.length || 0;
+    const deviceCount = deviceAccess?.length || 0;
+
+    if (emailCount >= 2 || deviceCount >= 2) {
+      return res.status(200).json({
+        success: false,
+        reason: "limit_reached",
+      });
+    }
+
+    // Handle "check"
     if (type === "check") {
       const hasWoo = await checkWooOrder(emailLower);
+      const hasPaystack = await checkPaystackVerified(emailLower);
 
-      const { data: paystackVerified } = await supabaseAdmin
-        .from("paystack_verified")
-        .select("email")
-        .eq("email", emailLower)
-        .maybeSingle();
-
-      const hasPaystack = !!paystackVerified;
-
-      // If they've already used access but still have Paystack payment, grant access again
       const accessGranted =
-        (hasWoo || hasPaystack) && (!hasUsedAccess || !!paystackVerified);
+        (hasWoo || hasPaystack) && emailCount < 2 && deviceCount < 2;
 
       return res.status(200).json({
         access_granted: accessGranted,
         source: hasWoo ? "woocommerce" : hasPaystack ? "paystack" : undefined,
         reason: !accessGranted
-          ? hasUsedAccess
-            ? "already_used"
-            : "requires_payment"
+          ? "limit_reached"
           : undefined,
       });
     }
 
-    // ✅ Handle "mark-paid"
+    // Handle "mark-paid"
     if (type === "mark-paid") {
       if (!reference) {
         return res.status(400).json({ error: "Missing payment reference" });
@@ -167,14 +180,12 @@ export default async function handler(
           }
         );
 
-        console.log("🔍 Paystack verify response:", verifyRes.data);
-
         const isSuccessful =
           verifyRes.data?.status === true &&
           verifyRes.data?.data?.status === "success";
 
         if (isSuccessful) {
-          const { error } = await supabaseAdmin
+          await supabaseAdmin
             .from("paystack_verified")
             .upsert({
               email: emailLower,
@@ -182,7 +193,7 @@ export default async function handler(
               created_at: new Date().toISOString(),
             })
             .throwOnError();
-          console.log(error);
+
           return res.status(200).json({
             access_granted: true,
             source: "paystack",
@@ -194,32 +205,22 @@ export default async function handler(
           reason: "payment_failed",
         });
       } catch (err: any) {
-        console.error(
-          "❌ Paystack verification error:",
-          err?.response?.data || err
-        );
+        console.error("❌ Paystack verification error:", err?.response?.data || err);
         return res.status(500).json({ error: "Payment verification failed" });
       }
     }
 
-    // ✅ Handle "mark-analysis"
+    // Handle "mark-analysis"
     if (type === "mark-analysis") {
-      // ✅ Don't retry insert — exit early if already used
-      if (hasUsedAccess) {
+      if (emailCount >= 2 || deviceCount >= 2) {
         return res.status(200).json({
           success: false,
-          reason: "already_exists",
+          reason: "limit_reached",
         });
       }
 
       const hasWoo = await checkWooOrder(emailLower);
-      const { data: paystackVerified } = await supabaseAdmin
-        .from("paystack_verified")
-        .select("email")
-        .eq("email", emailLower)
-        .maybeSingle();
-
-      const hasPaystack = !!paystackVerified;
+      const hasPaystack = await checkPaystackVerified(emailLower);
 
       if (!hasWoo && !hasPaystack) {
         return res.status(403).json({
@@ -228,7 +229,6 @@ export default async function handler(
         });
       }
 
-      // ✅ Insert only once, since we already checked hasUsedAccess
       await supabaseAdmin.from("access_log_twice").insert({
         email: emailLower,
         device_id: deviceId,
@@ -237,7 +237,6 @@ export default async function handler(
         created_at: new Date().toISOString(),
       });
 
-      // Optional: cleanup Paystack once used
       if (hasPaystack) {
         await supabaseAdmin
           .from("paystack_verified")
