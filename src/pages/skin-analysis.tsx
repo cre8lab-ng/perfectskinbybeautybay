@@ -524,8 +524,8 @@ export default function FaceDetectionComponent() {
             We couldn&apos;t analyze your skin. Please try again or
             <a
               href="mailto:support@beautyhub.ng"
-              style={{ color: "#f847b4", textDecoration: "underline" }}
-            >
+              style={{ color: "#f847b4", textDecoration: "underline", marginLeft: "1rem" }}
+              >
               contact support
             </a>
             .
