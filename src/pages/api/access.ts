@@ -1,4 +1,3 @@
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import axios from "axios";
@@ -124,7 +123,9 @@ export default async function handler(
       .select("email")
       .or(`email.eq.${emailLower},device_id.eq.${deviceId}`);
 
-    const hasUsedAccess = !!(alreadyUsed && alreadyUsed.length > 0);
+    const accessCount = alreadyUsed?.length || 0;
+    const hasRemainingAccess = accessCount < 2;
+
     // 🔍 Handle "check"
     if (type === "check") {
       const hasWoo = await checkWooOrder(emailLower);
@@ -139,14 +140,14 @@ export default async function handler(
 
       // If they've already used access but still have Paystack payment, grant access again
       const accessGranted =
-        (hasWoo || hasPaystack) && (!hasUsedAccess || !!paystackVerified);
+        (hasWoo || hasPaystack) && (hasRemainingAccess || !!paystackVerified);
 
       return res.status(200).json({
         access_granted: accessGranted,
         source: hasWoo ? "woocommerce" : hasPaystack ? "paystack" : undefined,
         reason: !accessGranted
-          ? hasUsedAccess
-            ? "already_used"
+          ? !hasRemainingAccess
+            ? "limit_reached"
             : "requires_payment"
           : undefined,
       });
@@ -206,10 +207,10 @@ export default async function handler(
     // ✅ Handle "mark-analysis"
     if (type === "mark-analysis") {
       // ✅ Don't retry insert — exit early if already used
-      if (hasUsedAccess) {
+      if (!hasRemainingAccess) {
         return res.status(200).json({
           success: false,
-          reason: "already_exists",
+          reason: "limit_reached",
         });
       }
 
