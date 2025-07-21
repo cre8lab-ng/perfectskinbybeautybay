@@ -521,10 +521,10 @@ export default function FaceDetectionComponent() {
         setUnitError(true);
         setMessage(
           <>
-            We couldn&apos;t analyze your skin. Please try again or
+            We couldn&apos;t analyze your skin, Please try again or
             <a
               href="mailto:support@beautyhub.ng"
-              style={{ color: "#f847b4", textDecoration: "underline", marginLeft: "1rem" }}
+              style={{ color: "#f847b4", textDecoration: "underline", marginLeft: "0.5rem" }}
               >
               contact support
             </a>
