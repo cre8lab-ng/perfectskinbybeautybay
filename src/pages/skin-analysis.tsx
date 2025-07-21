@@ -525,9 +525,7 @@ export default function FaceDetectionComponent() {
             <a
               href="mailto:support@beautyhub.ng"
               style={{ color: "#f847b4", textDecoration: "underline", marginLeft: "0.5rem" }}
-              >
-              contact support
-            </a>
+              > contact support </a>
             .
           </>
         );
