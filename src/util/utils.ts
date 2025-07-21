@@ -25,13 +25,13 @@ export const notifyError = (errorMessage: string) => {
 export function getGranularLevel(
   score: string | undefined
 ): "very_low" | "moderate" | "high" | "very_high" {
-  if (!score) return "very_low";
+  if (!score) return "very_high"; // No score = assume worst case
   const percent = parseInt(score.replace("%", ""), 10);
 
-  if (percent <= 30) return "very_low";
-  if (percent <= 60) return "moderate";
-  if (percent <= 90) return "high";
-  return "very_high";
+  if (percent < 70) return "very_high";     // Very poor condition
+  if (percent < 75) return "high";          // Poor
+  if (percent < 85) return "moderate";      // Average
+  return "very_low";                        // Healthy
 }
 
 export async function extractSkinAnalysisResults(zipUrl: string) {

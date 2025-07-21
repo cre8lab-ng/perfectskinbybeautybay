@@ -40,7 +40,7 @@ export const skinCareRoutines: {
   beginner: {
     name: "Gentle Multi-Concern Routine",
     description:
-      "Addresses mild acne, early signs of aging, and basic texture concerns.",
+      "A gentle routine designed for beginners or those with generally healthy skin. Targets mild acne, early signs of aging, and basic texture concerns.",
     targets: ["mild acne", "prevention", "hydration", "basic texture"],
     products: [
       {
@@ -85,7 +85,7 @@ export const skinCareRoutines: {
   intermediate: {
     name: "Balanced Treatment Routine",
     description:
-      "For moderate concerns across multiple areas. Combines acne treatment with anti-aging and pore refinement.",
+      "A balanced routine for users with moderate concerns. Combines acne-fighting ingredients, anti-aging support, and pore-minimizing treatments.",
     targets: [
       "moderate acne",
       "fine lines",
@@ -135,7 +135,7 @@ export const skinCareRoutines: {
   advanced: {
     name: "Active Treatment Routine",
     description:
-      "For multiple significant concerns. Stronger actives for acne, visible aging signs, texture issues, and enlarged pores.",
+      "An active routine for those with multiple significant concerns. Includes stronger actives to treat persistent acne, visible signs of aging, rough texture, and enlarged pores.",
     targets: ["persistent acne", "wrinkles", "rough texture", "enlarged pores"],
     products: [
       {
@@ -180,7 +180,7 @@ export const skinCareRoutines: {
   intensive: {
     name: "Maximum Strength Routine",
     description:
-      "For severe multiple concerns requiring intensive treatment. Combines strongest actives for comprehensive skin transformation.",
+      "A maximum-strength routine for severe, stubborn skin concerns. Formulated with the most potent actives to deliver deep treatment and visible transformation.",
     targets: [
       "severe acne",
       "deep wrinkles",
