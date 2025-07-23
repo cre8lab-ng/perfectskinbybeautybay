@@ -144,12 +144,16 @@ export default async function handler(
       } else {
         reason = "limit_reached";
       }
-    } else if (hasWooOrder && accessCount === 0) {
-      accessAllowed = true;
-      accessSource = "woocommerce";
-    } else {
-      reason = "limit_reached";
+    }  else if (hasWooOrder) {
+      const allowedWooAccess = 2;
+      if (accessCount < allowedWooAccess) {
+        accessAllowed = true;
+        accessSource = "woocommerce";
+      } else {
+        reason = "limit_reached";
+      }
     }
+    
 
     // 🔍 Handle "check"
     if (type === "check") {
