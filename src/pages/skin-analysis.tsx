@@ -87,47 +87,13 @@ export default function FaceDetectionComponent() {
   const [showRetryButton, setShowRetryButton] = useState(false);
 
   console.log(uploading, analysisStatus, uploadResponse);
-
+  const { hasAccess, showLoginModal, setShowLoginModal } = useResultAccess();
+  const userEmail = useResultAccess((s) => s.userEmail);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
 
-  const {
-    userEmail,
-    hasAccess,
-    showLoginModal,
-    resetAccess,
-    setShowLoginModal,
-    checkUserAccess,
-  } = useResultAccess();
-
-  const [loadingAccess, setLoadingAccess] = useState(true);
-  console.log(loadingAccess);
-  // 🧠 Check access every time the page mounts or userEmail changes
   useEffect(() => {
-    const verifyAccess = async () => {
-      if (!userEmail) {
-        resetAccess();
-        setShowLoginModal(true);
-        setLoadingAccess(false);
-        console.log(loadingAccess);
-        return;
-      }
-      const result = await checkUserAccess(userEmail);
-      if (!result.granted) {
-        resetAccess();
-        setShowLoginModal(true);
-      }
-
-      setLoadingAccess(false);
-    };
-
-    verifyAccess();
-
-    // 🧹 Reset access when user leaves the page
-    return () => {
-      console.log("👋 Resetting access on page leave...");
-      resetAccess();
-    };
+    console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
   }, [userEmail]);
 
   function drawOverlay(
@@ -660,7 +626,7 @@ export default function FaceDetectionComponent() {
   useEffect(() => {
     return () => {
       console.log("👋 User left skin analysis page. Resetting access...");
-      resetAccess();
+      useResultAccess.getState().resetAccess();
     };
   }, []);
 
