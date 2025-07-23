@@ -702,6 +702,25 @@ export default function FaceDetectionComponent() {
     return canvas.toDataURL("image/png");
   };
 
+  const [quota, setQuota] = useState(null);
+
+  useEffect(() => {
+    if (!userEmail || hasAccess) return; // ⛔ Skip if already granted
+  
+    const checkAccess = async () => {
+      const result = await useResultAccess.getState().checkUserAccess(userEmail);
+      if (!result.granted) {
+        useResultAccess.getState().resetAccess();
+        setShowLoginModal(true);
+      }
+    };
+  
+    checkAccess();
+  }, [userEmail]);
+
+  
+  console.log(quota,setQuota)
+
   return (
     <>
       {showPrivacyModal && (

@@ -41,13 +41,11 @@ export default async function handler(
     "unknown";
 
   const rawDeviceId = req.cookies.device_id?.trim();
-
   if (!rawDeviceId || rawDeviceId === "") {
     return res.status(400).json({
       error: "Missing device ID. Please enable cookies to continue.",
     });
   }
-
   const deviceId = rawDeviceId;
 
   const key = `access-check:${ip}`;
@@ -66,7 +64,7 @@ export default async function handler(
   }
 
   const { email, type, reference, source = "analysis" } = req.body;
-
+  console.log(source)
   if (!email || !type) {
     return res.status(400).json({ error: "Missing email or type" });
   }
@@ -86,7 +84,7 @@ export default async function handler(
       user_agent: userAgent,
     });
 
-    // Trial limit logic
+    // IP/Device-level trial limit
     const [{ data: ipAttempts }, { data: deviceAttempts }] = await Promise.all([
       supabaseAdmin
         .from("access_log")
@@ -94,7 +92,6 @@ export default async function handler(
         .eq("ip", ip)
         .eq("action", "check")
         .gte("created_at", twelveHoursAgo),
-
       supabaseAdmin
         .from("access_log")
         .select("email")
@@ -117,39 +114,49 @@ export default async function handler(
       });
     }
 
-    // Check if they've already accessed
-    const { data: alreadyUsed, error: fetchError } = await supabaseAdmin
-      .from("access_log_twice")
-      .select("*", { count: "exact" })
-      .eq("email", emailLower)
-      .eq("device_id", deviceId);
+    // Fetch payment and usage counts
+    const [paymentCountRes, accessCountRes] = await Promise.all([
+      supabaseAdmin
+        .from("paystack_payment_log")
+        .select("*", { count: "exact", head: true })
+        .eq("email", emailLower),
 
-    const accessCount = alreadyUsed?.length || 0;
-    const hasRemainingAccess = accessCount < 2;
-    console.log(fetchError);
+      supabaseAdmin
+        .from("access_log_email")
+        .select("*", { count: "exact", head: true })
+        .eq("email", emailLower),
+    ]);
+
+    const paymentCount = paymentCountRes.count ?? 0;
+    const accessCount = accessCountRes.count ?? 0;
+
+    const hasWooOrder = await checkWooOrder(emailLower);
+
+    let accessAllowed = false;
+    let accessSource: string | undefined = undefined;
+    let reason: string | undefined = undefined;
+
+    if (paymentCount > 0) {
+      const allowedPaystackAccess = paymentCount * 2;
+      if (accessCount < allowedPaystackAccess) {
+        accessAllowed = true;
+        accessSource = "paystack";
+      } else {
+        reason = "limit_reached";
+      }
+    } else if (hasWooOrder && accessCount === 0) {
+      accessAllowed = true;
+      accessSource = "woocommerce";
+    } else {
+      reason = "limit_reached";
+    }
+
     // 🔍 Handle "check"
     if (type === "check") {
-      const hasWoo = await checkWooOrder(emailLower);
-
-      const { data: paystackVerified } = await supabaseAdmin
-        .from("paystack_verified")
-        .select("email")
-        .eq("email", emailLower)
-        .maybeSingle();
-
-      const hasPaystack = !!paystackVerified;
-
-      // If they've already used access but still have Paystack payment, grant access again
-      const accessGranted = hasRemainingAccess;
-
       return res.status(200).json({
-        access_granted: accessGranted,
-        source: hasWoo ? "woocommerce" : hasPaystack ? "paystack" : undefined,
-        reason: !accessGranted
-          ? !hasRemainingAccess
-            ? "limit_reached"
-            : "requires_payment"
-          : undefined,
+        access_granted: accessAllowed,
+        source: accessSource,
+        reason,
       });
     }
 
@@ -169,22 +176,19 @@ export default async function handler(
           }
         );
 
-        console.log("🔍 Paystack verify response:", verifyRes.data);
-
         const isSuccessful =
           verifyRes.data?.status === true &&
           verifyRes.data?.data?.status === "success";
 
         if (isSuccessful) {
-          const { error } = await supabaseAdmin
-            .from("paystack_verified")
-            .upsert({
-              email: emailLower,
-              reference,
-              created_at: new Date().toISOString(),
-            })
-            .throwOnError();
-          console.log(error);
+          await supabaseAdmin.from("paystack_payment_log").insert({
+            email: emailLower,
+            reference,
+            amount: verifyRes.data.data.amount,
+            currency: verifyRes.data.data.currency,
+            created_at: new Date().toISOString(),
+          });
+
           return res.status(200).json({
             access_granted: true,
             source: "paystack",
@@ -206,59 +210,29 @@ export default async function handler(
 
     // ✅ Handle "mark-analysis"
     if (type === "mark-analysis") {
-      // ✅ Don't retry insert — exit early if already used
-      if (!hasRemainingAccess) {
+      if (!accessAllowed) {
         return res.status(200).json({
           success: false,
-          reason: "limit_reached",
+          reason: reason || "not_allowed",
         });
       }
 
-      const hasWoo = await checkWooOrder(emailLower);
-      const { data: paystackVerified } = await supabaseAdmin
-        .from("paystack_verified")
-        .select("email")
-        .eq("email", emailLower)
-        .maybeSingle();
-
-      const hasPaystack = !!paystackVerified;
-
-      if (!hasWoo && !hasPaystack) {
-        return res.status(403).json({
-          success: false,
-          reason: "no_payment",
-        });
-      }
-
-      // ✅ Insert only once, since we already checked hasUsedAccess
       try {
-        await supabaseAdmin.from("access_log_twice").insert({
+        await supabaseAdmin.from("access_log_email").insert({
           email: emailLower,
-          device_id: deviceId,
-          ip,
-          source,
-          payment_verified: hasPaystack,
+          source: accessSource,
           created_at: new Date().toISOString(),
         });
+
+        return res.status(200).json({ success: true });
       } catch (insertError: any) {
         console.error("🛑 Access insert failed:", insertError.message);
-
         return res.status(200).json({
           success: false,
-          reason: "limit_reached",
-          detail: insertError.message, // optional: for debugging
+          reason: "insert_failed",
+          detail: insertError.message,
         });
       }
-
-      // Optional: cleanup Paystack once used
-      if (hasPaystack) {
-        await supabaseAdmin
-          .from("paystack_verified")
-          .delete()
-          .eq("email", emailLower);
-      }
-
-      return res.status(200).json({ success: true });
     }
 
     return res.status(400).json({ error: "Invalid type" });
