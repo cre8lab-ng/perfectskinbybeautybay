@@ -55,7 +55,7 @@ export const skinCareRoutines: {
       {
         id: 141,
         name: "Aha/Bha Clarifying Treatment Toner",
-        price_html: "₦15,300",
+        price_html: "₦13,500",
         brand: "Cosrx",
         image: "/images/products/cosrx-ahabha-toner.png",
         link: "https://beautyhub.ng/product/cosrx-aha-bha-clarifying-treatment-toner/",
@@ -114,7 +114,7 @@ export const skinCareRoutines: {
       {
         id: 567868,
         name: "Licorice pH Balancing Cleansing Toner",
-        price_html: "₦13,000",
+        price_html: "₦12,500",
         brand: "Acwell",
         image: "/images/products/acwelltoner.png",
         link: "https://beautyhub.ng/product/acwell-licorice-ph-balancing-cleansing-toner/",
@@ -131,17 +131,17 @@ export const skinCareRoutines: {
       },
       {
         id: 1890234,
-        name: "Daily Moisturizing Lotion",
+        name: "Moisturising Lotion",
         price_html: "₦19,500",
         brand: "CaraVe",
-        image: "/images/products/cerave-daily-moisturizing-lotion.png",
+        image: "/images/products/ceravemoisturisinglotion.png",
         link: "https://beautyhub.ng/product/cerave-daily-moisturizing-lotion/",
         step: "moisturizer",
       },
       {
         id: 9058858,
         name: "Relief Sun : Rice + Probiotics",
-        price_html: "₦18,200",
+        price_html: "₦19,200",
         brand: "Beauty Of Joseon",
         image: "/images/products/beautyofjoseonsunscreen.png",
         link: "https://beautyhub.ng/product/beauty-of-josen-relief-sun-rice-probiotics/",
@@ -227,7 +227,7 @@ export const skinCareRoutines: {
       {
         id: 24545665,
         name: "Ceramide Mochi Toner",
-        price_html: "₦16,500",
+        price_html: "₦15,000",
         brand: "TonyMoly",
         image: "/images/products/tonymolytoner.png",
         link: "https://beautyhub.ng/product/tonymoly-ceramide-mochi-toner/",
