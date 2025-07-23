@@ -1,4 +1,5 @@
 // store/useResultAccess.ts
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
@@ -21,10 +22,9 @@ export const useResultAccess = create(
       setIsBlocked: (value) => set({ isBlocked: value }),
       setQuota: (quota) => set({ quota }),
 
-      // Reset everything
+      // Reset everything (used on logout or page leave)
       resetAccess: () =>
         set({
-          userEmail: null,
           hasAccess: false,
           showLoginModal: false,
           isBlocked: false,
@@ -32,7 +32,7 @@ export const useResultAccess = create(
           quota: null,
         }),
 
-      // Access check
+      // Check access status (called after login or page mount)
       checkUserAccess: async (email) => {
         try {
           const res = await fetch("/api/access", {
@@ -42,7 +42,6 @@ export const useResultAccess = create(
           });
 
           const data = await res.json();
-
           set({ hasValidatedAccess: true });
 
           if (res.status === 429 || data.error?.includes("trial limit")) {
@@ -64,7 +63,7 @@ export const useResultAccess = create(
         }
       },
 
-      // Post-payment access grant
+      // Grant access after analysis or payment
       grantAnalysisAccess: async () => {
         const email = get().userEmail;
         if (!email) return;
@@ -97,7 +96,7 @@ export const useResultAccess = create(
         }
       },
 
-      // Login + Payment flow
+      // Handle login (trigger access check or payment flow)
       handleLogin: async (email) => {
         const reference = `ref-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
 
@@ -105,10 +104,11 @@ export const useResultAccess = create(
 
         const result = await get().checkUserAccess(email);
 
+        // If access granted or trial blocked, stop here
         if (result.granted || result.reason === "trial_blocked") return;
 
+        // Trigger Paystack flow
         loadPaystackScript();
-
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         triggerPaystackPopup({
@@ -150,8 +150,9 @@ export const useResultAccess = create(
     }),
     {
       name: "result-access-store",
+      // 🔒 Only persist userEmail — NOT access or quota
       partialize: (state) => ({
-        userEmail: state.userEmail, // ✅ Persist ONLY email — NOT access
+        userEmail: state.userEmail,
       }),
     }
   )

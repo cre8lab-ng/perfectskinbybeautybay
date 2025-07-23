@@ -100,20 +100,32 @@ export default function FaceDetectionComponent() {
     checkUserAccess,
   } = useResultAccess();
 
+  const [loadingAccess, setLoadingAccess] = useState(true);
+  console.log(loadingAccess);
+  // 🧠 Check access every time the page mounts or userEmail changes
   useEffect(() => {
-    const runAccessCheck = async () => {
-      if (!userEmail) return;
+    const verifyAccess = async () => {
+      if (!userEmail) {
+        resetAccess();
+        setShowLoginModal(true);
+        setLoadingAccess(false);
+        console.log(loadingAccess);
+        return;
+      }
       const result = await checkUserAccess(userEmail);
       if (!result.granted) {
         resetAccess();
         setShowLoginModal(true);
       }
+
+      setLoadingAccess(false);
     };
 
-    runAccessCheck();
+    verifyAccess();
 
+    // 🧹 Reset access when user leaves the page
     return () => {
-      console.log("👋 Resetting access on page leave");
+      console.log("👋 Resetting access on page leave...");
       resetAccess();
     };
   }, [userEmail]);
