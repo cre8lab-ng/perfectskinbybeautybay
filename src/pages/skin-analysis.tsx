@@ -648,7 +648,7 @@ export default function FaceDetectionComponent() {
   useEffect(() => {
     return () => {
       console.log("👋 User left skin analysis page. Resetting access...");
-      useResultAccess.getState().resetAccess();
+      resetAccess();
     };
   }, []);
 
