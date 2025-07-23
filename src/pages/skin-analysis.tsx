@@ -87,7 +87,14 @@ export default function FaceDetectionComponent() {
   const [showRetryButton, setShowRetryButton] = useState(false);
 
   console.log(uploading, analysisStatus, uploadResponse);
-  const { hasAccess, showLoginModal, setShowLoginModal } = useResultAccess();
+  const {
+    hasAccess,
+    showLoginModal,
+    setShowLoginModal,
+    accessConsumed,
+    setHasAccess,
+    setAccessConsumed,
+  } = useResultAccess();
   const userEmail = useResultAccess((s) => s.userEmail);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
@@ -95,6 +102,16 @@ export default function FaceDetectionComponent() {
   useEffect(() => {
     console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
   }, [userEmail]);
+
+  useEffect(() => {
+    if (hasAccess && !accessConsumed) {
+      setAccessConsumed(true); // Use once
+    } else if (accessConsumed) {
+      setHasAccess(false); // Revoke silently
+      // Do NOT trigger login modal
+      // Allow flow to restart from privacy, instruction, etc.
+    }
+  }, []);
 
   function drawOverlay(
     ctx: CanvasRenderingContext2D,

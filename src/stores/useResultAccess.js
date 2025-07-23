@@ -1,32 +1,39 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
-import { notifyError,notifySuccess } from "@/util/utils";
-
+import { notifyError, notifySuccess } from "@/util/utils";
 
 export const useResultAccess = create(
   persist(
-    (set, get) => ({
+    (set) => ({
       userEmail: null,
       hasAccess: false,
       showLoginModal: false,
       isBlocked: false,
+      accessConsumed: false,
 
+      // Setters
       setUserEmail: (email) => set({ userEmail: email }),
       setHasAccess: (access) => set({ hasAccess: access }),
       setShowLoginModal: (value) => set({ showLoginModal: value }),
       setIsBlocked: (value) => set({ isBlocked: value }),
+      setAccessConsumed: (value) => set({ accessConsumed: value }),
+
+      // Clear user email
       clearUserEmail: () => set({ userEmail: null }),
+
+      // Reset entire state
       resetAccess: () =>
         set({
           userEmail: null,
           hasAccess: false,
           showLoginModal: false,
           isBlocked: false,
+          accessConsumed: false,
         }),
 
+      // Login & Access Handling
       handleLogin: async (email) => {
-        console.log(get)
         set({ userEmail: email, isBlocked: false });
 
         try {
@@ -40,7 +47,7 @@ export const useResultAccess = create(
           try {
             result = await res.json();
           } catch (e) {
-            console.log(e)
+            console.log(e);
             notifyError("Server error. Please try again.");
             return;
           }
@@ -52,12 +59,14 @@ export const useResultAccess = create(
           }
 
           if (result.access_granted) {
-            set({ hasAccess: true });
+            set({ hasAccess: true, accessConsumed: false }); // Reset consumed on login
             return;
           }
 
           // No access → Paystack
           loadPaystackScript();
+
+          const reference = `REF-${Date.now()}`; // generate reference if needed
 
           setTimeout(() => {
             triggerPaystackPopup({
@@ -65,22 +74,21 @@ export const useResultAccess = create(
               amount: 500000,
               reference,
               onSuccess: async (response) => {
-                console.log(response)
                 try {
                   const payRes = await fetch("/api/access", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       email,
-                      reference, // ✅ must match Paystack reference
+                      reference,
                       type: "mark-paid",
                     }),
                   });
-            
+
                   const payData = await payRes.json();
-            
+console.log(response)
                   if (payRes.ok && payData.access_granted) {
-                    set({ hasAccess: true });
+                    set({ hasAccess: true, accessConsumed: false });
                     notifySuccess("Payment successful! You now have access to your results.");
                   } else {
                     notifyError("Payment succeeded, but access setup failed. Please contact support.");
@@ -103,10 +111,16 @@ export const useResultAccess = create(
     }),
     {
       name: "result-access-store",
+      storage: {
+        getItem: (name) => sessionStorage.getItem(name),
+        setItem: (name, value) => sessionStorage.setItem(name, value),
+        removeItem: (name) => sessionStorage.removeItem(name),
+      },
       partialize: (state) => ({
         userEmail: state.userEmail,
         hasAccess: state.hasAccess,
         isBlocked: state.isBlocked,
+        accessConsumed: state.accessConsumed,
       }),
     }
   )
