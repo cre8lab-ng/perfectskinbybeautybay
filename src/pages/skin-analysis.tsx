@@ -87,13 +87,35 @@ export default function FaceDetectionComponent() {
   const [showRetryButton, setShowRetryButton] = useState(false);
 
   console.log(uploading, analysisStatus, uploadResponse);
-  const { hasAccess, showLoginModal, setShowLoginModal } = useResultAccess();
-  const userEmail = useResultAccess((s) => s.userEmail);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
 
+  const {
+    userEmail,
+    hasAccess,
+    showLoginModal,
+    resetAccess,
+    setShowLoginModal,
+    checkUserAccess,
+  } = useResultAccess();
+
   useEffect(() => {
-    console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
+    const runAccessCheck = async () => {
+      if (!userEmail) return;
+      const result = await checkUserAccess(userEmail);
+      if (!result.granted) {
+        resetAccess();
+        setShowLoginModal(true);
+      }
+    };
+
+    runAccessCheck();
+
+    return () => {
+      console.log("👋 Resetting access on page leave");
+      resetAccess();
+    };
   }, [userEmail]);
 
   function drawOverlay(
@@ -701,25 +723,6 @@ export default function FaceDetectionComponent() {
 
     return canvas.toDataURL("image/png");
   };
-
-  const [quota, setQuota] = useState(null);
-
-  useEffect(() => {
-    if (!userEmail || hasAccess) return; // ⛔ Skip if already granted
-  
-    const checkAccess = async () => {
-      const result = await useResultAccess.getState().checkUserAccess(userEmail);
-      if (!result.granted) {
-        useResultAccess.getState().resetAccess();
-        setShowLoginModal(true);
-      }
-    };
-  
-    checkAccess();
-  }, [userEmail]);
-
-  
-  console.log(quota,setQuota)
 
   return (
     <>

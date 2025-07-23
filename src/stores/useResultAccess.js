@@ -1,3 +1,4 @@
+// store/useResultAccess.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { loadPaystackScript, triggerPaystackPopup } from "@/util/paystack";
@@ -10,20 +11,28 @@ export const useResultAccess = create(
       hasAccess: false,
       showLoginModal: false,
       isBlocked: false,
+      hasValidatedAccess: false,
+      quota: null,
 
+      // Setters
       setUserEmail: (email) => set({ userEmail: email }),
       setHasAccess: (access) => set({ hasAccess: access }),
       setShowLoginModal: (value) => set({ showLoginModal: value }),
       setIsBlocked: (value) => set({ isBlocked: value }),
-      clearUserEmail: () => set({ userEmail: null }),
+      setQuota: (quota) => set({ quota }),
+
+      // Reset everything
       resetAccess: () =>
         set({
           userEmail: null,
           hasAccess: false,
           showLoginModal: false,
           isBlocked: false,
+          hasValidatedAccess: false,
+          quota: null,
         }),
 
+      // Access check
       checkUserAccess: async (email) => {
         try {
           const res = await fetch("/api/access", {
@@ -34,21 +43,17 @@ export const useResultAccess = create(
 
           const data = await res.json();
 
+          set({ hasValidatedAccess: true });
+
           if (res.status === 429 || data.error?.includes("trial limit")) {
             set({ isBlocked: true });
-            notifyError(
-              "You’ve reached the trial limit. Please try again in the next 12 hours."
-            );
+            notifyError("Trial limit reached. Try again later.");
             return { granted: false, reason: "trial_blocked" };
           }
 
           if (data.success && data.access_granted) {
-            set({ hasAccess: true });
-            return {
-              granted: true,
-              quota: data.remaining_quota, // optional: if your backend sends this
-              source: data.source,
-            };
+            set({ hasAccess: true, quota: data.remaining_quota || null });
+            return { granted: true, quota: data.remaining_quota };
           }
 
           return { granted: false, reason: data.reason || "unknown" };
@@ -59,6 +64,7 @@ export const useResultAccess = create(
         }
       },
 
+      // Post-payment access grant
       grantAnalysisAccess: async () => {
         const email = get().userEmail;
         if (!email) return;
@@ -81,9 +87,7 @@ export const useResultAccess = create(
             console.log("✅ Access marked for analysis");
             return true;
           } else {
-            notifyError(
-              "Access marking failed: " + (data.reason || "Unknown error")
-            );
+            notifyError("Access marking failed: " + (data.reason || "Unknown error"));
             return false;
           }
         } catch (err) {
@@ -93,69 +97,61 @@ export const useResultAccess = create(
         }
       },
 
+      // Login + Payment flow
       handleLogin: async (email) => {
-        const reference = "ref-" + Date.now(); // Generate properly in real use
+        const reference = `ref-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+
         set({ userEmail: email, isBlocked: false });
 
         const result = await get().checkUserAccess(email);
 
-        if (result.granted) {
-          return;
-        }
+        if (result.granted || result.reason === "trial_blocked") return;
 
-        if (result.reason === "trial_blocked") {
-          return;
-        }
-
-        // 🧾 Trigger Paystack
         loadPaystackScript();
 
-        setTimeout(() => {
-          triggerPaystackPopup({
-            email,
-            amount: 500000,
-            reference,
-            onSuccess: async (response) => {
-              try {
-                const payRes = await fetch("/api/access", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    email,
-                    reference,
-                    type: "mark-paid",
-                  }),
-                });
-                console.log(response);
-                const payData = await payRes.json();
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
-                if (payRes.ok && payData.access_granted) {
-                  // 🔁 Immediately grant access
-                  const granted = await get().grantAnalysisAccess();
-                  if (granted) {
-                    notifySuccess("Payment successful! You now have access.");
-                  }
-                } else {
-                  notifyError("Payment succeeded, but access setup failed.");
+        triggerPaystackPopup({
+          email,
+          amount: 500000,
+          reference,
+          onSuccess: async () => {
+            try {
+              const payRes = await fetch("/api/access", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email,
+                  reference,
+                  type: "mark-paid",
+                }),
+              });
+
+              const payData = await payRes.json();
+
+              if (payRes.ok && payData.access_granted) {
+                const granted = await get().grantAnalysisAccess();
+                if (granted) {
+                  notifySuccess("Payment successful! You now have access.");
                 }
-              } catch (err) {
-                console.error("Post-payment error:", err);
-                notifyError("Payment verified but access setup failed.");
+              } else {
+                notifyError("Payment succeeded, but access setup failed.");
               }
-            },
-            onClose: () => {
-              console.log("Payment popup closed");
-            },
-          });
-        }, 1000);
+            } catch (err) {
+              console.error("Post-payment error:", err);
+              notifyError("Payment verified but access setup failed.");
+            }
+          },
+          onClose: () => {
+            console.log("Payment popup closed");
+          },
+        });
       },
     }),
     {
       name: "result-access-store",
       partialize: (state) => ({
-        userEmail: state.userEmail,
-        hasAccess: state.hasAccess,
-        isBlocked: state.isBlocked,
+        userEmail: state.userEmail, // ✅ Persist ONLY email — NOT access
       }),
     }
   )
