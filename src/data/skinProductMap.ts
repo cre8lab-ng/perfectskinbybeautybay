@@ -266,23 +266,23 @@ export const skinCareRoutines: {
 
 // Helper function to get routine based on combined concern levels
 export function getRecommendedRoutine(concernLevels: {
-  acne?: "very_low" | "moderate" | "high" | "very_high";
-  wrinkle?: "very_low" | "moderate" | "high" | "very_high";
-  texture?: "very_low" | "moderate" | "high" | "very_high";
-  pore?: "very_low" | "moderate" | "high" | "very_high";
+  acne?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  wrinkle?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  texture?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  pore?: "very_low" | "low" | "moderate" | "high" | "very_high";
 }): keyof typeof skinCareRoutines {
   const levels = Object.values(concernLevels).filter(Boolean);
 
   if (levels.length === 0) return "beginner";
 
   const maxConcernLevel = levels.reduce((max, current) => {
-    const levelOrder = { very_low: 1, moderate: 2, high: 3, very_high: 4 };
+    const levelOrder = { very_low: 1, low: 2, moderate: 3, high: 4, very_high: 5 };
     return levelOrder[current] > levelOrder[max] ? current : max;
   });
 
   const averageConcernLevel =
     levels.reduce((sum, current) => {
-      const levelOrder = { very_low: 1, moderate: 2, high: 3, very_high: 4 };
+      const levelOrder = { very_low: 1, low: 2, moderate: 3, high: 4, very_high: 5 };
       return sum + levelOrder[current];
     }, 0) / levels.length;
 
@@ -310,10 +310,10 @@ export function getRecommendedProducts(scoreInfo: ScoreInfo | null): {
 
   // Convert UI scores to concern levels
   const concernLevels: {
-    acne?: "very_low" | "moderate" | "high" | "very_high";
-    wrinkle?: "very_low" | "moderate" | "high" | "very_high";
-    texture?: "very_low" | "moderate" | "high" | "very_high";
-    pore?: "very_low" | "moderate" | "high" | "very_high";
+    acne?: "very_low" | "low" | "moderate" | "high" | "very_high";
+    wrinkle?: "very_low" | "low" | "moderate" | "high" | "very_high";
+    texture?: "very_low" | "low" | "moderate" | "high" | "very_high";
+    pore?: "very_low" | "low" | "moderate" | "high" | "very_high";
   } = {};
 
   concerns.forEach((concern) => {
