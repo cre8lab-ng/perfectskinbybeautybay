@@ -20,7 +20,7 @@ export interface Product {
   brand: string;
   image: string;
   link: string;
-  step: "cleanser" | "toner" | "moisturizer" | "sunscreen";
+  step: "cleanser" | "toner" | "moisturizer" | "sunscreen" | "serum";
 }
 
 export interface RoutineLevel {
@@ -60,6 +60,15 @@ export const skinCareRoutines: {
         image: "/images/products/cosrx-ahabha-toner.png",
         link: "https://beautyhub.ng/product/cosrx-aha-bha-clarifying-treatment-toner/",
         step: "toner",
+      },
+      {
+        id: 1356200941,
+        name: "Glow Serum : Propolis + Niacinamide",
+        price_html: "₦18,500",
+        brand: "Beauty Of Joseon",
+        image: "/images/products/cosrx-ahabha-toner.png",
+        link: "https://beautyhub.ng/product/beauty-of-joseon-glow-serum-propolis-niacinamide/",
+        step: "serum",
       },
       {
         id: 968896,
@@ -112,6 +121,15 @@ export const skinCareRoutines: {
         step: "toner",
       },
       {
+        id: 98598945665,
+        name: "Galactomyces Pure Vitamin C Glow Serum",
+        price_html: "₦15,000",
+        brand: "Some By Mi",
+        image: "/images/products/somebymisotoner.png",
+        link: "https://beautyhub.ng/product/some-by-mi-galactomyces-pure-vitamin-c-glow-serum-30ml/",
+        step: "serum",
+      },
+      {
         id: 1890234,
         name: "Daily Moisturizing Lotion",
         price_html: "₦19,500",
@@ -155,6 +173,15 @@ export const skinCareRoutines: {
         image: "/images/products/somebymisotoner.png",
         link: "https://beautyhub.ng/product/some-by-mi-aha-bha-pha-30-days-miracle-toner/",
         step: "toner",
+      },
+      {
+        id: 5609712453868,
+        name: "Vitamin C Serum Anti-Aging",
+        price_html: "₦15,000",
+        brand: "Advanced Clinicals",
+        image: "/images/products/acwelltoner.png",
+        link: "https://beautyhub.ng/product/advanced-clinicals-vitamin-c-face-serum/",
+        step: "serum",
       },
       {
         id: 12377758,
@@ -205,6 +232,15 @@ export const skinCareRoutines: {
         image: "/images/products/tonymolytoner.png",
         link: "https://beautyhub.ng/product/tonymoly-ceramide-mochi-toner/",
         step: "toner",
+      },
+      {
+        id: 200000665,
+        name: "Alpha Arbutin 2% + HA",
+        price_html: "₦27,200",
+        brand: "The Ordinary",
+        image: "/images/products/tonymolytoner.png",
+        link: "https://beautyhub.ng/product/the-ordinary-alpha-arbutin-2-ha/",
+        step: "serum",
       },
       {
         id: 185995,
