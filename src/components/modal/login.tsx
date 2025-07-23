@@ -17,26 +17,28 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
   const [email, setEmail] = useState("");
   const { checkAccess, loading, error: accessError } = useAccessManager();
   const [error, setError] = useState("");
- 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setShowPayButton(false);
-  
+
     const result = await checkAccess(email);
-  
+
     if (!result) {
       setError("Unexpected error. Please try again.");
       return;
     }
-  
+
     const errorText = result.error?.toLowerCase?.() ?? "";
-  
+
     if (errorText.includes("trial limit") || result.reason === "trial_limit") {
-      setError("You’ve reached the trial limit. Please try again in the next 12 hours.");
+      setError(
+        "You’ve reached the trial limit. Please try again in the next 12 hours."
+      );
       return;
     }
-  
+
     if (result.accessGranted) {
       useResultAccess.getState().setUserEmail(email);
       useResultAccess.getState().setHasAccess(true);
@@ -47,6 +49,9 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
     } else if (result.reason === "already_used") {
       setError("You've used your free access. Payment is required.");
       setShowPayButton(true);
+    } else if (result.reason === "limit_reached") {
+      setError("You've used your free access. Payment is required.");
+      setShowPayButton(true);
     } else if (result.error) {
       setError(result.error);
     } else {
@@ -54,7 +59,6 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
       console.warn("Unexpected result from checkAccess:", result);
     }
   };
-  
 
   return (
     <div style={overlayStyle}>
@@ -104,44 +108,44 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
           </button>
 
           {(error || accessError) && (
-  <div style={errorStyle}>
-    <span style={errorIconStyle}>⚠️</span>
+            <div style={errorStyle}>
+              <span style={errorIconStyle}>⚠️</span>
 
-    {error === "Internal Server Error" || accessError === "Internal Server Error" ? (
-      <>
-        Something went wrong. Please contact support on{" "}
-        <a
-              href="https://www.instagram.com/beautyhubco.ng/"
-              target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#f847b4", textDecoration: "underline" }}
-        >
-          Instagram
-        </a>
-        ,{" "}
-        <a
-              href="https://wa.me/2348162598682"
-              target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#f847b4", textDecoration: "underline" }}
-        >
-          WhatsApp
-        </a>
-        , or{" "}
-        <a
-          href="mailto:support@beautyhub.ng"
-          style={{ color: "#f847b4", textDecoration: "underline" }}
-        >
-          email
-        </a>
-        .
-      </>
-    ) : (
-      error || accessError
-    )}
-  </div>
-)}
-
+              {error === "Internal Server Error" ||
+              accessError === "Internal Server Error" ? (
+                <>
+                  Something went wrong. Please contact support on{" "}
+                  <a
+                    href="https://www.instagram.com/beautyhubco.ng/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#f847b4", textDecoration: "underline" }}
+                  >
+                    Instagram
+                  </a>
+                  ,{" "}
+                  <a
+                    href="https://wa.me/2348162598682"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#f847b4", textDecoration: "underline" }}
+                  >
+                    WhatsApp
+                  </a>
+                  , or{" "}
+                  <a
+                    href="mailto:support@beautyhub.ng"
+                    style={{ color: "#f847b4", textDecoration: "underline" }}
+                  >
+                    email
+                  </a>
+                  .
+                </>
+              ) : (
+                error || accessError
+              )}
+            </div>
+          )}
 
           {showPayButton && !error.includes("trial limit") && (
             <div style={paymentSectionStyle}>

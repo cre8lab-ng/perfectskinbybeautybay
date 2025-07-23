@@ -29,7 +29,7 @@ export function useAccessManager() {
 
       if (!res.ok || result.error) {
         const errorMsg =
-          result.error ?? "Something went wrong. Please try again nn.";
+          result.error ?? "Something went wrong. Please try again.";
         return {
           accessGranted: false,
           error: errorMsg,
