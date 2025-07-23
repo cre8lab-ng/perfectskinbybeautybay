@@ -17,20 +17,26 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
   const [email, setEmail] = useState("");
   const { checkAccess, loading, error: accessError } = useAccessManager();
   const [error, setError] = useState("");
+ 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
+    setShowPayButton(false);
+  
     const result = await checkAccess(email);
-
-    if (result.error?.toLowerCase().includes("trial limit")) {
-      setError(
-        "You’ve reached the trial limit. Please try again in the next 12 hours."
-      );
-      setShowPayButton(false);
+  
+    if (!result) {
+      setError("Unexpected error. Please try again.");
       return;
     }
-
+  
+    const errorText = result.error?.toLowerCase?.() ?? "";
+  
+    if (errorText.includes("trial limit") || result.reason === "trial_limit") {
+      setError("You’ve reached the trial limit. Please try again in the next 12 hours.");
+      return;
+    }
+  
     if (result.accessGranted) {
       useResultAccess.getState().setUserEmail(email);
       useResultAccess.getState().setHasAccess(true);
@@ -44,11 +50,11 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
     } else if (result.error) {
       setError(result.error);
     } else {
-      console.warn("Unexpected result from checkAccess:", result);
       setError("Something went wrong. Please try again.");
+      console.warn("Unexpected result from checkAccess:", result);
     }
-    
   };
+  
 
   return (
     <div style={overlayStyle}>

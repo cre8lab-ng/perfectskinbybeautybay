@@ -22,42 +22,32 @@ export function useAccessManager() {
         console.error("Failed to parse JSON:", e);
         return {
           accessGranted: false,
-          error: "Invalid response from server. Please try again later.",
+          error: "Invalid response from server.",
+          reason: "invalid_json",
         };
       }
 
-      // Catch rate-limiting or trial block
-      if (
-        res.status === 429 ||
-        result?.error?.toLowerCase().includes("trial limit")
-      ) {
+      if (!res.ok || result.error) {
+        const errorMsg =
+          result.error ?? "Something went wrong. Please try again nn.";
         return {
           accessGranted: false,
-          error:
-            "You’ve reached the trial limit. Please try again in the next 12 hours.",
-          reason: "trial_limit",
-        };
-      }
-
-      if (!res.ok) {
-        return {
-          accessGranted: false,
-          error: result.error || "Something went wrong. Please try again.",
-          reason: result.reason || "unknown",
+          error: errorMsg,
+          reason: result.reason ?? "unknown",
         };
       }
 
       return {
         accessGranted: !!result.access_granted,
-        source: result.source || null,
-        reason: result.access_granted ? null : result.reason || "unknown",
+        reason: result.access_granted ? null : result.reason ?? "unknown",
+        source: result.source ?? null,
       };
     } catch (err) {
       console.error("Network or server error:", err);
       return {
         accessGranted: false,
-        error:
-          "Network error. Please check your internet connection and try again.",
+        error: "Network error. Please check your internet and try again.",
+        reason: "network",
       };
     } finally {
       setLoading(false);
