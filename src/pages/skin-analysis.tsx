@@ -1284,6 +1284,7 @@ export default function FaceDetectionComponent() {
                     }}
                   >
                     <button
+                      type="button"
                       onClick={async () => {
                         // Create fallback image URL or use a default placeholder
                         const fallbackImageSrc =
