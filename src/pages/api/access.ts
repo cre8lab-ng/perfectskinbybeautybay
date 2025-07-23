@@ -118,14 +118,15 @@ export default async function handler(
     }
 
     // Check if they've already accessed
-    const { data: alreadyUsed } = await supabaseAdmin
+    const { data: alreadyUsed, error: fetchError } = await supabaseAdmin
       .from("access_log_twice")
-      .select("email")
-      .or(`email.eq.${emailLower},device_id.eq.${deviceId}`);
+      .select("*", { count: "exact" })
+      .eq("email", emailLower)
+      .eq("device_id", deviceId);
 
     const accessCount = alreadyUsed?.length || 0;
     const hasRemainingAccess = accessCount < 2;
-
+    console.log(fetchError);
     // 🔍 Handle "check"
     if (type === "check") {
       const hasWoo = await checkWooOrder(emailLower);
@@ -139,8 +140,7 @@ export default async function handler(
       const hasPaystack = !!paystackVerified;
 
       // If they've already used access but still have Paystack payment, grant access again
-      const accessGranted =
-        (hasWoo || hasPaystack) && (hasRemainingAccess || !!paystackVerified);
+      const accessGranted = hasRemainingAccess;
 
       return res.status(200).json({
         access_granted: accessGranted,
@@ -231,13 +231,24 @@ export default async function handler(
       }
 
       // ✅ Insert only once, since we already checked hasUsedAccess
-      await supabaseAdmin.from("access_log_twice").insert({
-        email: emailLower,
-        device_id: deviceId,
-        source,
-        payment_verified: hasPaystack,
-        created_at: new Date().toISOString(),
-      });
+      try {
+        await supabaseAdmin.from("access_log_twice").insert({
+          email: emailLower,
+          device_id: deviceId,
+          ip,
+          source,
+          payment_verified: hasPaystack,
+          created_at: new Date().toISOString(),
+        });
+      } catch (insertError: any) {
+        console.error("🛑 Access insert failed:", insertError.message);
+
+        return res.status(200).json({
+          success: false,
+          reason: "limit_reached",
+          detail: insertError.message, // optional: for debugging
+        });
+      }
 
       // Optional: cleanup Paystack once used
       if (hasPaystack) {

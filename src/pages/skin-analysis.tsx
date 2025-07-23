@@ -1588,14 +1588,13 @@ export default function FaceDetectionComponent() {
                             fontWeight: "400",
                           }}
                         >
-                          {" "}
-                          - Targets:{" "}
+                          - Targets:
                           {routineRecommendation.routine.targets.join(", ")}
                         </span>
                       </h4>
 
                       {/* Group products by step */}
-                      {["cleanser", "toner", "moisturizer", "sunscreen"].map(
+                      {["cleanser", "toner", "moisturizer", "sunscreen","serum"].map(
                         (step) => {
                           const stepProducts =
                             routineRecommendation.routine.products.filter(
