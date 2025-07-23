@@ -524,8 +524,15 @@ export default function FaceDetectionComponent() {
             We couldn&apos;t analyze your skin, Please try again or
             <a
               href="mailto:support@beautyhub.ng"
-              style={{ color: "#f847b4", textDecoration: "underline", marginLeft: "0.5rem" }}
-              > contact support </a>
+              style={{
+                color: "#f847b4",
+                textDecoration: "underline",
+                marginLeft: "0.5rem",
+              }}
+            >
+              {" "}
+              contact support{" "}
+            </a>
             .
           </>
         );
@@ -563,7 +570,7 @@ export default function FaceDetectionComponent() {
 
           const currentEmail = useResultAccess.getState().userEmail;
           if (currentEmail) {
-            await grantAccess(currentEmail); 
+            await grantAccess(currentEmail);
           }
 
           return res;
@@ -1594,145 +1601,149 @@ export default function FaceDetectionComponent() {
                       </h4>
 
                       {/* Group products by step */}
-                      {["cleanser", "toner", "moisturizer", "sunscreen","serum"].map(
-                        (step) => {
-                          const stepProducts =
-                            routineRecommendation.routine.products.filter(
-                              (p: any) => p.step === step
-                            );
+                      {[
+                        "cleanser",
+                        "toner",
+                        "serum",
+                        "moisturizer",
+                        "sunscreen",
+                      ].map((step) => {
+                        const stepProducts =
+                          routineRecommendation.routine.products.filter(
+                            (p: any) => p.step === step
+                          );
 
-                          if (stepProducts.length === 0) return null;
+                        if (stepProducts.length === 0) return null;
 
-                          return (
-                            <div key={step} style={{ marginBottom: "2rem" }}>
-                              <h5
-                                style={{
-                                  textTransform: "capitalize",
-                                  fontSize: "1.1rem",
-                                  fontWeight: "600",
-                                  margin: "1rem 0 0.5rem",
-                                  color: "#333",
-                                }}
-                              >
-                                {step}
-                              </h5>
+                        return (
+                          <div key={step} style={{ marginBottom: "2rem" }}>
+                            <h5
+                              style={{
+                                textTransform: "capitalize",
+                                fontSize: "1.1rem",
+                                fontWeight: "600",
+                                margin: "1rem 0 0.5rem",
+                                color: "#333",
+                              }}
+                            >
+                              {step}
+                            </h5>
 
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns:
-                                    "repeat(auto-fit, minmax(200px, 1fr))",
-                                  gap: "2rem",
-                                  marginTop: "1rem",
-                                  justifyContent: "center",
-                                  justifyItems: "center",
-                                }}
-                              >
-                                {stepProducts.map((product: any) => (
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns:
+                                  "repeat(auto-fit, minmax(200px, 1fr))",
+                                gap: "2rem",
+                                marginTop: "1rem",
+                                justifyContent: "center",
+                                justifyItems: "center",
+                              }}
+                            >
+                              {stepProducts.map((product: any) => (
+                                <div
+                                  key={product.id}
+                                  style={{
+                                    width: "100%",
+                                    maxWidth: "250px",
+                                  }}
+                                >
                                   <div
-                                    key={product.id}
                                     style={{
-                                      width: "100%",
-                                      maxWidth: "250px",
+                                      overflow: "hidden",
+                                      marginBottom: "1rem",
+                                      borderRadius: "8px",
                                     }}
                                   >
-                                    <div
+                                    <img
+                                      src={product.image}
+                                      alt={product.name}
                                       style={{
-                                        overflow: "hidden",
-                                        marginBottom: "1rem",
-                                        borderRadius: "8px",
-                                      }}
-                                    >
-                                      <img
-                                        src={product.image}
-                                        alt={product.name}
-                                        style={{
-                                          width: "100%",
-                                          height: "100%",
-                                          objectFit: "cover",
-                                        }}
-                                      />
-                                    </div>
-
-                                    <h5
-                                      style={{
-                                        margin: "0 0 0.5rem",
-                                        fontWeight: "600",
-                                        color: "#333",
-                                        fontSize: "1rem",
-                                        lineHeight: "1.3",
-                                        textAlign: "center",
-                                      }}
-                                    >
-                                      {product.name}
-                                    </h5>
-
-                                    <p
-                                      style={{
-                                        margin: "0 0 0.5rem",
-                                        color: "#888",
-                                        fontSize: "0.9rem",
-                                        textAlign: "center",
-                                        fontWeight: "600",
-                                      }}
-                                    >
-                                      {product.brand}
-                                    </p>
-
-                                    <p
-                                      style={{
-                                        margin: "0 0 1rem",
-                                        color: "#f847b4",
-                                        fontWeight: "700",
-                                        fontSize: "1.1rem",
-                                        textAlign: "center",
-                                      }}
-                                    >
-                                      {product.price_html}
-                                    </p>
-
-                                    <a
-                                      href={product.link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={{
-                                        display: "inline-block",
-                                        background:
-                                          "linear-gradient(135deg, #f847b4, #ff6bc7)",
-                                        color: "white",
-                                        textDecoration: "none",
-                                        padding: "0.8rem 1.5rem",
-                                        borderRadius: "10px",
-                                        fontSize: "0.9rem",
-                                        fontWeight: "600",
-                                        boxShadow:
-                                          "0 4px 15px rgba(248, 71, 180, 0.3)",
-                                        transition: "all 0.3s ease",
                                         width: "100%",
-                                        textAlign: "center",
+                                        height: "100%",
+                                        objectFit: "cover",
                                       }}
-                                      onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform =
-                                          "translateY(-2px)";
-                                        e.currentTarget.style.boxShadow =
-                                          "0 6px 20px rgba(248, 71, 180, 0.4)";
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform =
-                                          "translateY(0)";
-                                        e.currentTarget.style.boxShadow =
-                                          "0 4px 15px rgba(248, 71, 180, 0.3)";
-                                      }}
-                                    >
-                                      Shop Now
-                                    </a>
+                                    />
                                   </div>
-                                ))}
-                              </div>
+
+                                  <h5
+                                    style={{
+                                      margin: "0 0 0.5rem",
+                                      fontWeight: "600",
+                                      color: "#333",
+                                      fontSize: "1rem",
+                                      lineHeight: "1.3",
+                                      textAlign: "center",
+                                    }}
+                                  >
+                                    {product.name}
+                                  </h5>
+
+                                  <p
+                                    style={{
+                                      margin: "0 0 0.5rem",
+                                      color: "#888",
+                                      fontSize: "0.9rem",
+                                      textAlign: "center",
+                                      fontWeight: "600",
+                                    }}
+                                  >
+                                    {product.brand}
+                                  </p>
+
+                                  <p
+                                    style={{
+                                      margin: "0 0 1rem",
+                                      color: "#f847b4",
+                                      fontWeight: "700",
+                                      fontSize: "1.1rem",
+                                      textAlign: "center",
+                                    }}
+                                  >
+                                    {product.price_html}
+                                  </p>
+
+                                  <a
+                                    href={product.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      display: "inline-block",
+                                      background:
+                                        "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                                      color: "white",
+                                      textDecoration: "none",
+                                      padding: "0.8rem 1.5rem",
+                                      borderRadius: "10px",
+                                      fontSize: "0.9rem",
+                                      fontWeight: "600",
+                                      boxShadow:
+                                        "0 4px 15px rgba(248, 71, 180, 0.3)",
+                                      transition: "all 0.3s ease",
+                                      width: "100%",
+                                      textAlign: "center",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.transform =
+                                        "translateY(-2px)";
+                                      e.currentTarget.style.boxShadow =
+                                        "0 6px 20px rgba(248, 71, 180, 0.4)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.transform =
+                                        "translateY(0)";
+                                      e.currentTarget.style.boxShadow =
+                                        "0 4px 15px rgba(248, 71, 180, 0.3)";
+                                    }}
+                                  >
+                                    Shop Now
+                                  </a>
+                                </div>
+                              ))}
                             </div>
-                          );
-                        }
-                      )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

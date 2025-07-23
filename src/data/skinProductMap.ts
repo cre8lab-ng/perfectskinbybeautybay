@@ -265,52 +265,44 @@ export const skinCareRoutines: {
 };
 
 // Helper function to get routine based on combined concern levels
-export function getRecommendedRoutine(
-  concernLevels: {
-    acne?: "very_low" | "low" | "moderate" | "high" | "very_high";
-    wrinkle?: "very_low" | "low" | "moderate" | "high" | "very_high";
-    texture?: "very_low" | "low" | "moderate" | "high" | "very_high";
-    pore?: "very_low" | "low" | "moderate" | "high" | "very_high";
-  },
-  scoreInfo?: ScoreInfo
-): keyof typeof skinCareRoutines {
+export function getRecommendedRoutine(concernLevels: {
+  acne?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  wrinkle?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  texture?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  pore?: "very_low" | "low" | "moderate" | "high" | "very_high";
+}): keyof typeof skinCareRoutines {
   const levels = Object.values(concernLevels).filter(Boolean);
 
   if (levels.length === 0) return "beginner";
 
-  const levelOrder = {
-    very_low: 1,
-    low: 2,
-    moderate: 3,
-    high: 4,
-    very_high: 5,
-  };
-
-  const maxConcernLevel = levels.reduce((max, current) =>
-    levelOrder[current] > levelOrder[max] ? current : max
-  );
-
-  const averageConcernLevel =
-    levels.reduce((sum, current) => sum + levelOrder[current], 0) /
-    levels.length;
-
-  // ✅ FIX: Safely extract ui_score only from ScoreEntry fields
-  const rawScores = Object.keys(concernLevels).map((key) => {
-    const entry = scoreInfo?.[key as keyof ScoreInfo];
-    if (entry && "ui_score" in entry && typeof entry.ui_score === "number") {
-      return entry.ui_score;
-    }
-    return scoreInfo?.all?.score ?? 100; // <-- more intelligent fallback
+  const maxConcernLevel = levels.reduce((max, current) => {
+    const levelOrder = {
+      very_low: 1,
+      low: 2,
+      moderate: 3,
+      high: 4,
+      very_high: 5,
+    };
+    return levelOrder[current] > levelOrder[max] ? current : max;
   });
 
-  const avgRawScore = rawScores.length
-    ? rawScores.reduce((sum, val) => sum + val, 0) / rawScores.length
-    : 100;
-  if (avgRawScore < 70) {
+  const averageConcernLevel =
+    levels.reduce((sum, current) => {
+      const levelOrder = {
+        very_low: 1,
+        low: 2,
+        moderate: 3,
+        high: 4,
+        very_high: 5,
+      };
+      return sum + levelOrder[current];
+    }, 0) / levels.length;
+
+  if (maxConcernLevel === "very_high" && averageConcernLevel >= 3) {
     return "intensive";
-  } else if (maxConcernLevel === "very_high" || averageConcernLevel >= 3.5) {
+  } else if (maxConcernLevel === "very_high" || averageConcernLevel >= 2.5) {
     return "advanced";
-  } else if (maxConcernLevel === "high" || averageConcernLevel >= 2.5) {
+  } else if (maxConcernLevel === "high" || averageConcernLevel >= 2) {
     return "intermediate";
   } else {
     return "beginner";
@@ -328,7 +320,7 @@ export function getRecommendedProducts(scoreInfo: ScoreInfo | null): {
 
   const concerns = ["acne", "wrinkle", "texture", "pore"] as const;
 
-  // Step 1: Build concern levels only for concerns < 70%
+  // Convert UI scores to concern levels
   const concernLevels: {
     acne?: "very_low" | "low" | "moderate" | "high" | "very_high";
     wrinkle?: "very_low" | "low" | "moderate" | "high" | "very_high";
@@ -338,26 +330,28 @@ export function getRecommendedProducts(scoreInfo: ScoreInfo | null): {
 
   concerns.forEach((concern) => {
     const uiScore = scoreInfo?.[concern]?.ui_score;
-    if (uiScore !== undefined && uiScore < 70) {
+    if (uiScore) {
       const level = getGranularLevel(`${uiScore}%`);
       concernLevels[concern] = level;
     }
   });
 
-  // Step 2: Choose routine based on concernLevels + avg raw score logic
-  const routineLevel = getRecommendedRoutine(concernLevels, scoreInfo);
+  // Get the recommended routine
+  const routineLevel = getRecommendedRoutine(concernLevels);
   const routine = skinCareRoutines[routineLevel];
 
   if (!routine) return null;
 
-  // Step 3: Calculate total cost
+  // Calculate total cost
   const totalCost = routine.products.reduce((sum, product) => {
     const price = parseInt(product.price_html.replace(/[₦,]/g, ""));
     return sum + price;
   }, 0);
 
-  // Step 4: Report which concerns are addressed
-  const concernsAddressed = Object.keys(concernLevels);
+  // Get concerns that are being addressed
+  const concernsAddressed = Object.keys(concernLevels).filter(
+    (concern) => concernLevels[concern as keyof typeof concernLevels]
+  );
 
   return {
     routineLevel,
