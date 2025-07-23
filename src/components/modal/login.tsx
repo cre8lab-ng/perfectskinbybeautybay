@@ -36,16 +36,18 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
       useResultAccess.getState().setHasAccess(true);
       onLoginSuccess(email, true);
     } else if (result.reason === "requires_payment") {
-      setError(
-        "We noticed you're not yet a customer. To view your results, there's a ₦5,000 access fee—refundable when you place your first order with us."
-      );
+      setError("₦5,000 access fee required to continue.");
       setShowPayButton(true);
     } else if (result.reason === "already_used") {
-      setError("You've enjoyed your free access! To keep going, a payment is needed.");
+      setError("You've used your free access. Payment is required.");
       setShowPayButton(true);
+    } else if (result.error) {
+      setError(result.error);
     } else {
-      setError(result.error || "Something went wrong.");
+      console.warn("Unexpected result from checkAccess:", result);
+      setError("Something went wrong. Please try again.");
     }
+    
   };
 
   return (

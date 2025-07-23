@@ -92,7 +92,7 @@ export default function FaceDetectionComponent() {
     showLoginModal,
     setShowLoginModal,
     accessConsumed,
-    setHasAccess,
+    resetAccess,
     setAccessConsumed,
   } = useResultAccess();
   const userEmail = useResultAccess((s) => s.userEmail);
@@ -105,14 +105,12 @@ export default function FaceDetectionComponent() {
 
   useEffect(() => {
     if (hasAccess && !accessConsumed) {
-      setAccessConsumed(true); // Use once
-    } else if (accessConsumed) {
-      setHasAccess(false); // Revoke silently
-      // Do NOT trigger login modal
-      // Allow flow to restart from privacy, instruction, etc.
+      setAccessConsumed(true); // First-time view
+    } else if (accessConsumed || !hasAccess) {
+      resetAccess(); // Fully revoke access silently
     }
   }, []);
-
+  
   function drawOverlay(
     ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement,

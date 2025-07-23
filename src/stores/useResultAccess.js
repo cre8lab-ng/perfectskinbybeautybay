@@ -34,7 +34,7 @@ export const useResultAccess = create(
 
       // Login & Access Handling
       handleLogin: async (email) => {
-        set({ userEmail: email, isBlocked: false });
+        set({ isBlocked: false, showLoginModal: false });
 
         try {
           const res = await fetch("/api/access", {
@@ -47,33 +47,39 @@ export const useResultAccess = create(
           try {
             result = await res.json();
           } catch (e) {
-            console.log(e);
-            notifyError("Server error. Please try again.");
+            console.error("Invalid JSON from /api/access:", e);
+            notifyError("Unexpected server error. Please try again.");
+            set({ showLoginModal: true });
             return;
           }
 
-          if (res.status === 429 || result.error?.includes("trial limit")) {
-            set({ isBlocked: true });
+          if (res.status === 429 || result.error?.toLowerCase().includes("trial limit")) {
+            set({ isBlocked: true, showLoginModal: true });
             notifyError("You’ve reached the trial limit. Please try again in the next 12 hours.");
             return;
           }
 
           if (result.access_granted) {
-            set({ hasAccess: true, accessConsumed: false }); // Reset consumed on login
+            set({
+              userEmail: email,
+              hasAccess: true,
+              accessConsumed: false,
+              showLoginModal: false,
+            });
             return;
           }
 
-          // No access → Paystack
+          // No access → launch Paystack
           loadPaystackScript();
 
-          const reference = `REF-${Date.now()}`; // generate reference if needed
+          const reference = `REF-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
           setTimeout(() => {
             triggerPaystackPopup({
               email,
               amount: 500000,
               reference,
-              onSuccess: async (response) => {
+              onSuccess: async () => {
                 try {
                   const payRes = await fetch("/api/access", {
                     method: "POST",
@@ -86,26 +92,36 @@ export const useResultAccess = create(
                   });
 
                   const payData = await payRes.json();
-console.log(response)
+
                   if (payRes.ok && payData.access_granted) {
-                    set({ hasAccess: true, accessConsumed: false });
+                    set({
+                      userEmail: email,
+                      hasAccess: true,
+                      accessConsumed: false,
+                      showLoginModal: false,
+                    });
                     notifySuccess("Payment successful! You now have access to your results.");
                   } else {
+                    console.error("Pay succeeded but backend failed:", payData);
                     notifyError("Payment succeeded, but access setup failed. Please contact support.");
+                    set({ showLoginModal: true });
                   }
                 } catch (err) {
-                  console.error("Post-payment error:", err);
-                  notifyError("Payment verified but failed to set up access. Please contact support.");
+                  console.error("Error after Paystack:", err);
+                  notifyError("Something went wrong setting up access. Please contact support.");
+                  set({ showLoginModal: true });
                 }
               },
               onClose: () => {
-                console.log("Payment popup closed");
+                console.log("Paystack popup closed");
+                set({ showLoginModal: true });
               },
             });
           }, 1000);
         } catch (err) {
-          console.error("Access check failed:", err);
-          notifyError("Login failed. Please try again.");
+          console.error("Login request failed:", err);
+          notifyError("Could not verify access. Please check your connection and try again.");
+          set({ showLoginModal: true });
         }
       },
     }),

@@ -15,25 +15,50 @@ export function useAccessManager() {
         body: JSON.stringify({ email, type: "check" }),
       });
 
-      const result = await res.json();
+      let result;
+      try {
+        result = await res.json();
+      } catch (e) {
+        console.error("Failed to parse JSON:", e);
+        return {
+          accessGranted: false,
+          error: "Invalid response from server. Please try again later.",
+        };
+      }
+
+      // Catch rate-limiting or trial block
+      if (
+        res.status === 429 ||
+        result?.error?.toLowerCase().includes("trial limit")
+      ) {
+        return {
+          accessGranted: false,
+          error:
+            "You’ve reached the trial limit. Please try again in the next 12 hours.",
+          reason: "trial_limit",
+        };
+      }
 
       if (!res.ok) {
-        // Capture error message from API and return to UI
         return {
           accessGranted: false,
           error: result.error || "Something went wrong. Please try again.",
+          reason: result.reason || "unknown",
         };
       }
 
       return {
-        accessGranted: result.access_granted,
-        source: result.source,
-        reason: result.reason,
+        accessGranted: !!result.access_granted,
+        source: result.source || null,
+        reason: result.access_granted ? null : result.reason || "unknown",
       };
     } catch (err) {
-      console.error("Access check error:", err);
-      setError("Failed to check access.");
-      return { accessGranted: false, error: "Failed to check access." };
+      console.error("Network or server error:", err);
+      return {
+        accessGranted: false,
+        error:
+          "Network error. Please check your internet connection and try again.",
+      };
     } finally {
       setLoading(false);
     }
