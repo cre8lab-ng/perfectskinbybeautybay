@@ -63,8 +63,7 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { email, type, reference, source = "analysis" } = req.body;
-  console.log(source);
+  const { email, type, reference } = req.body;
   if (!email || !type) {
     return res.status(400).json({ error: "Missing email or type" });
   }
@@ -84,7 +83,7 @@ export default async function handler(
       user_agent: userAgent,
     });
 
-    // IP/Device-level trial limit
+    // Trial limit by IP and device
     const [{ data: ipAttempts }, { data: deviceAttempts }] = await Promise.all([
       supabaseAdmin
         .from("access_log")
@@ -114,8 +113,12 @@ export default async function handler(
       });
     }
 
-    // Fetch payment and usage counts
-    const [paymentCountRes, accessCountRes] = await Promise.all([
+    // Fetch Paystack payments and usage logs separately
+    const [
+      paymentCountRes,
+      accessCountPaystackRes,
+      accessCountWooRes,
+    ] = await Promise.all([
       supabaseAdmin
         .from("paystack_payment_log")
         .select("*", { count: "exact", head: true })
@@ -124,12 +127,19 @@ export default async function handler(
       supabaseAdmin
         .from("access_log_email")
         .select("*", { count: "exact", head: true })
-        .eq("email", emailLower),
+        .eq("email", emailLower)
+        .eq("source", "paystack"),
+
+      supabaseAdmin
+        .from("access_log_email")
+        .select("*", { count: "exact", head: true })
+        .eq("email", emailLower)
+        .eq("source", "woocommerce"),
     ]);
 
     const paymentCount = paymentCountRes.count ?? 0;
-    const accessCount = accessCountRes.count ?? 0;
-
+    const paystackAccessCount = accessCountPaystackRes.count ?? 0;
+    const wooAccessCount = accessCountWooRes.count ?? 0;
     const hasWooOrder = await checkWooOrder(emailLower);
 
     let accessAllowed = false;
@@ -138,7 +148,7 @@ export default async function handler(
 
     if (paymentCount > 0) {
       const allowedPaystackAccess = paymentCount * 2;
-      if (accessCount < allowedPaystackAccess) {
+      if (paystackAccessCount < allowedPaystackAccess) {
         accessAllowed = true;
         accessSource = "paystack";
       } else {
@@ -146,7 +156,7 @@ export default async function handler(
       }
     } else if (hasWooOrder) {
       const allowedWooAccess = 2;
-      if (accessCount < allowedWooAccess) {
+      if (wooAccessCount < allowedWooAccess) {
         accessAllowed = true;
         accessSource = "woocommerce";
       } else {
@@ -170,7 +180,7 @@ export default async function handler(
       }
 
       try {
-        // 🔒 Check if this reference already exists
+        // 🔒 Check if reference already exists
         const { count: existingPayment } = await supabaseAdmin
           .from("paystack_payment_log")
           .select("*", { count: "exact", head: true })
@@ -198,7 +208,6 @@ export default async function handler(
           verifyRes.data?.data?.status === "success";
 
         if (isSuccessful) {
-          // 🧾 Log the payment in your DB
           await supabaseAdmin.from("paystack_payment_log").insert({
             email: emailLower,
             reference,
