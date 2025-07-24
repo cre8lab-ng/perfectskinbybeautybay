@@ -54,6 +54,10 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
       setShowPayButton(true);
     } else if (result.error) {
       setError(result.error);
+    } else if (result.accessGranted === false) {
+      setError("You're not yet a customer. Pay a fully refundable ₦5,000 to unlock your result.");
+      setShowPayButton(true);
+      console.warn("Access explicitly denied:", result);
     } else {
       setError("Something went wrong. Please try again.");
       console.warn("Unexpected result from checkAccess:", result);
