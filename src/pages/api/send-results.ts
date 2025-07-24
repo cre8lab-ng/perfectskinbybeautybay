@@ -20,508 +20,521 @@ export default async function handler(
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Your Skin Analysis Results</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        
+        /* Reset styles */
         * {
           margin: 0;
           padding: 0;
           box-sizing: border-box;
         }
         
+        /* Email client compatibility */
+        body, table, td, p, a, li, blockquote {
+          -webkit-text-size-adjust: 100%;
+          -ms-text-size-adjust: 100%;
+        }
+        
+        table, td {
+          mso-table-lspace: 0pt;
+          mso-table-rspace: 0pt;
+        }
+        
+        img {
+          -ms-interpolation-mode: bicubic;
+          border: 0;
+          height: auto;
+          line-height: 100%;
+          outline: none;
+          text-decoration: none;
+        }
+        
+        /* Base styles */
         body {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-          background: linear-gradient(135deg, #ffd9f0 0%, #ffffff 50%, #ffd9f0 100%);
-          min-height: 100vh;
-          padding: 20px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+          background-color: #ffd9f0;
+          margin: 0;
+          padding: 0;
           line-height: 1.6;
           color: #1a1a1a;
+          width: 100% !important;
+          min-width: 100%;
+        }
+        
+        .email-wrapper {
+          width: 100%;
+          background-color: #ffd9f0;
+          padding: 20px 0;
         }
         
         .email-container {
-          max-width: 680px;
+          max-width: 600px;
           margin: 0 auto;
-          background: #ffffff;
-          border-radius: 24px;
+          background-color: #ffffff;
+          border-radius: 16px;
           overflow: hidden;
-          box-shadow: 
-            0 20px 60px rgba(248, 71, 180, 0.15),
-            0 8px 30px rgba(0, 0, 0, 0.05);
-          border: 1px solid rgba(248, 71, 180, 0.1);
+          box-shadow: 0 10px 30px rgba(248, 71, 180, 0.15);
         }
         
+        /* Header */
         .header {
-          background: linear-gradient(135deg, #f847b4 0%, #ff6bc7 100%);
-          padding: 50px 40px;
+          background-color: #ffffff;
+          padding: 40px 20px;
           text-align: center;
-          position: relative;
-        }
-        
-        .header::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 50%;
-          background: linear-gradient(
-            180deg,
-            rgba(255, 255, 255, 0.2) 0%,
-            rgba(255, 255, 255, 0.1) 50%,
-            transparent 100%
-          );
+          border-bottom: 1px solid #ffd9f0;
         }
         
         .logo {
-          width: 80px;
+          width: 60px;
           height: auto;
-          margin-bottom: 20px;
-          filter: brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
-          position: relative;
-          z-index: 2;
+          margin-bottom: 16px;
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
         }
         
         .header h1 {
-          color: white;
-          font-size: 28px;
+          color: #f847b4;
+          font-size: 24px;
           font-weight: 700;
           margin-bottom: 8px;
-          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-          letter-spacing: -0.5px;
-          position: relative;
-          z-index: 2;
+          line-height: 1.2;
         }
         
         .header p {
-          color: rgba(255, 255, 255, 0.9);
-          font-size: 16px;
+          color: #666;
+          font-size: 14px;
           font-weight: 400;
-          position: relative;
-          z-index: 2;
+          margin: 0;
         }
         
+        /* Content container */
         .content {
-          padding: 48px 40px;
+          padding: 30px 20px;
         }
         
         .greeting {
-          font-size: 20px;
+          font-size: 18px;
           color: #f847b4;
-          margin-bottom: 40px;
+          margin-bottom: 30px;
           font-weight: 600;
           text-align: center;
         }
         
+        /* Section styles */
         .section {
-          margin-bottom: 48px;
+          margin-bottom: 40px;
         }
         
         .section-title {
           color: #1a1a1a;
-          font-size: 24px;
+          font-size: 20px;
           font-weight: 700;
-          margin-bottom: 24px;
+          margin-bottom: 20px;
           text-align: center;
-          position: relative;
+          padding-bottom: 10px;
+          border-bottom: 2px solid #ffd9f0;
         }
         
-        .section-title::after {
-          content: '';
-          display: block;
-          width: 60px;
-          height: 3px;
-          background: linear-gradient(90deg, #f847b4, #ffd9f0);
-          margin: 12px auto 0;
-          border-radius: 2px;
-        }
-        
+        /* Results section - using table for better mobile support */
         .results-section {
-          background: linear-gradient(135deg, #ffd9f0 0%, #ffffff 100%);
-          border-radius: 20px;
-          padding: 40px 32px;
-          border: 1px solid rgba(248, 71, 180, 0.1);
+          background-color: #ffd9f0;
+          border-radius: 12px;
+          padding: 24px 16px;
+          margin-bottom: 30px;
         }
         
-        .results-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 20px;
-          margin-top: 24px;
+        .results-table {
+          width: 100%;
+          border-collapse: collapse;
         }
         
         .result-item {
-          background: white;
-          padding: 32px 24px;
-          border-radius: 16px;
+          background-color: white;
+          border-radius: 8px;
+          padding: 20px;
+          margin-bottom: 12px;
           text-align: center;
-          border: 1px solid rgba(248, 71, 180, 0.08);
-          box-shadow: 0 4px 16px rgba(248, 71, 180, 0.08);
-          transition: all 0.3s ease;
-        }
-        
-        .result-item:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(248, 71, 180, 0.15);
+          box-shadow: 0 2px 8px rgba(248, 71, 180, 0.1);
+          display: block;
+          width: 100%;
         }
         
         .result-label {
           color: #666;
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 500;
           text-transform: uppercase;
-          letter-spacing: 0.8px;
-          margin-bottom: 8px;
+          letter-spacing: 0.5px;
+          margin-bottom: 6px;
+          display: block;
         }
         
         .result-value {
           color: #f847b4;
-          font-size: 24px;
+          font-size: 18px;
           font-weight: 700;
           line-height: 1.2;
+          display: block;
         }
         
+        /* Recommendations section */
         .recommendations-section {
-          background: linear-gradient(135deg, #ffffff 0%, #ffd9f0 100%);
-          border-radius: 20px;
-          padding: 40px 32px;
-          border: 1px solid rgba(248, 71, 180, 0.1);
-        }
-        
-        .product-list {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 24px;
-          margin-top: 24px;
+          background-color: #ffffff;
+          border: 1px solid #ffd9f0;
+          border-radius: 12px;
+          padding: 24px 16px;
         }
         
         .product-item {
-          background: white;
-          padding: 32px 24px;
-          border-radius: 16px;
+          background-color: #fafafa;
+          border-radius: 12px;
+          padding: 20px;
+          margin-bottom: 20px;
           text-align: center;
-          border: 1px solid rgba(248, 71, 180, 0.08);
-          box-shadow: 0 4px 16px rgba(248, 71, 180, 0.08);
-          transition: all 0.3s ease;
-        }
-        
-        .product-item:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 32px rgba(248, 71, 180, 0.2);
+          border: 1px solid #f0f0f0;
         }
         
         .product-step {
           background: linear-gradient(135deg, #f847b4, #ff85d1);
           color: white;
-          font-size: 12px;
+          font-size: 10px;
           font-weight: 600;
           text-transform: uppercase;
-          letter-spacing: 1px;
-          padding: 8px 16px;
-          border-radius: 20px;
-          margin-bottom: 20px;
+          letter-spacing: 0.5px;
+          padding: 6px 12px;
+          border-radius: 15px;
+          margin-bottom: 15px;
           display: inline-block;
         }
         
         .product-image {
-          width: 120px;
-          height: 120px;
+          width: 80px;
+          height: 80px;
           object-fit: contain;
-          margin: 0 auto 20px auto;
+          margin: 0 auto 15px auto;
           display: block;
-          border-radius: 12px;
-          background: #fafafa;
-          padding: 12px;
-          border: 1px solid rgba(248, 71, 180, 0.08);
+          border-radius: 8px;
+          background-color: white;
+          padding: 8px;
         }
         
         .product-name {
           color: #1a1a1a;
           font-weight: 600;
-          font-size: 16px;
-          margin-bottom: 6px;
+          font-size: 14px;
+          margin-bottom: 4px;
           line-height: 1.3;
         }
         
         .product-brand {
           color: #666;
-          font-size: 14px;
-          margin-bottom: 16px;
+          font-size: 12px;
+          margin-bottom: 12px;
           font-weight: 400;
         }
         
         .product-price {
           color: #f847b4;
-          font-size: 20px;
+          font-size: 16px;
           font-weight: 700;
-          margin-bottom: 20px;
+          margin-bottom: 15px;
         }
         
         .product-shop-btn {
           background: linear-gradient(135deg, #f847b4 0%, #ff6bc7 100%);
-          color: white;
+          color: white !important;
           border: none;
-          padding: 12px 32px;
-          border-radius: 25px;
-          font-size: 14px;
+          padding: 10px 24px;
+          border-radius: 20px;
+          font-size: 12px;
           font-weight: 600;
-          cursor: pointer;
           text-decoration: none;
           display: inline-block;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 16px rgba(248, 71, 180, 0.3);
-          width: 100%;
-          max-width: 180px;
+          min-width: 120px;
         }
         
-        .product-shop-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(248, 71, 180, 0.4);
-        }
-        
+        /* CTA Section */
         .cta-section {
           text-align: center;
-          padding: 40px 32px;
-          background: linear-gradient(135deg, #ffd9f0 0%, #ffffff 100%);
-          border-radius: 20px;
-          border: 1px solid rgba(248, 71, 180, 0.1);
+          padding: 30px 20px;
+          background-color: #ffd9f0;
+          border-radius: 12px;
+          margin-top: 30px;
         }
         
         .cta-title {
           color: #1a1a1a;
-          margin-bottom: 12px;
-          font-size: 22px;
+          margin-bottom: 10px;
+          font-size: 18px;
           font-weight: 700;
         }
         
         .cta-text {
           color: #666;
-          margin-bottom: 24px;
-          font-size: 15px;
+          margin-bottom: 20px;
+          font-size: 14px;
         }
         
         .cta-button {
           display: inline-block;
           background: linear-gradient(135deg, #f847b4 0%, #ff6bc7 100%);
-          color: white;
+          color: white !important;
           text-decoration: none;
-          padding: 16px 40px;
-          border-radius: 25px;
+          padding: 12px 30px;
+          border-radius: 20px;
           font-weight: 600;
-          font-size: 16px;
-          box-shadow: 0 6px 20px rgba(248, 71, 180, 0.3);
-          transition: all 0.3s ease;
+          font-size: 14px;
         }
         
-        .cta-button:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(248, 71, 180, 0.4);
-        }
-        
+        /* Footer */
         .footer {
-          background: #1a1a1a;
+          background-color: #1a1a1a;
           color: white;
-          padding: 40px;
+          padding: 30px 20px;
           text-align: center;
         }
         
-        .footer-content h3 {
-          color: #f847b4;
-          margin-bottom: 8px;
-          font-size: 20px;
-          font-weight: 700;
+        .footer-logo {
+          width: 80px;
+          height: auto;
+          margin-bottom: 16px;
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
         }
         
         .footer-content p {
           color: #ccc;
-          font-size: 14px;
-          margin-bottom: 8px;
+          font-size: 12px;
+          margin-bottom: 6px;
+          line-height: 1.4;
         }
         
         .powered-by {
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
           color: #f847b4;
           margin-top: 8px;
         }
         
         .social-links {
-          margin: 24px 0;
+          margin: 20px 0;
         }
         
         .social-links a {
-          color: #f847b4;
+          color: #f847b4 !important;
           text-decoration: none;
-          margin: 0 16px;
+          margin: 0 12px;
           font-weight: 500;
-          font-size: 14px;
-          transition: all 0.3s ease;
-        }
-        
-        .social-links a:hover {
-          color: #ffd9f0;
+          font-size: 12px;
         }
         
         .footer-text {
           color: #999;
-          font-size: 12px;
-          margin-top: 20px;
-          line-height: 1.5;
+          font-size: 11px;
+          margin-top: 15px;
+          line-height: 1.4;
         }
         
         .footer-text p {
-          margin-bottom: 4px;
+          margin-bottom: 3px;
         }
         
-        @media (max-width: 600px) {
+        /* Mobile-specific styles */
+        @media only screen and (max-width: 600px) {
+          .email-wrapper {
+            padding: 10px 0;
+          }
+          
           .email-container {
-            margin: 10px;
-            border-radius: 16px;
+            margin: 0 10px;
+            border-radius: 12px;
           }
           
-          .header, .content, .footer {
-            padding: 32px 24px;
+          .header {
+            padding: 30px 15px;
           }
           
-          .results-section, .recommendations-section, .cta-section {
-            padding: 32px 24px;
-          }
-          
-          .results-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .product-list {
-            grid-template-columns: 1fr;
+          .content {
+            padding: 20px 15px;
           }
           
           .header h1 {
-            font-size: 24px;
+            font-size: 20px;
           }
           
           .section-title {
-            font-size: 20px;
-          }
-          
-          .result-value {
-            font-size: 20px;
-          }
-          
-          .product-price {
             font-size: 18px;
           }
           
+          .greeting {
+            font-size: 16px;
+          }
+          
+          .results-section,
+          .recommendations-section {
+            padding: 20px 12px;
+          }
+          
+          .result-item {
+            padding: 16px;
+            margin-bottom: 10px;
+          }
+          
+          .result-value {
+            font-size: 16px;
+          }
+          
+          .product-item {
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+          
+          .product-image {
+            width: 70px;
+            height: 70px;
+          }
+          
+          .cta-section {
+            padding: 25px 15px;
+          }
+          
           .cta-title {
-            font-size: 20px;
+            font-size: 16px;
+          }
+          
+          .footer {
+            padding: 25px 15px;
+          }
+          
+          .footer-logo {
+            width: 70px;
+          }
+        }
+        
+        /* Outlook-specific fixes */
+        @media screen and (-webkit-min-device-pixel-ratio:0) {
+          .product-shop-btn, .cta-button {
+            background: #f847b4 !important;
           }
         }
       </style>
+      <!--[if mso]>
+      <style type="text/css">
+        .email-container {
+          width: 600px !important;
+        }
+        .header, .content, .footer {
+          width: 100% !important;
+        }
+      </style>
+      <![endif]-->
     </head>
     <body>
-      <div class="email-container">
-        <!-- Header with Logo -->
-        <div class="header">
-          <img src="https://res.cloudinary.com/debcfaccq/image/upload/v1753339613/Asset_12BH_n3ygpt.png" alt="Beauty Hub Logo" class="logo" />
-          <h1>AI-Powered Skin Analysis</h1>
-          <p>Personalized beauty insights just for you</p>
-        </div>
-        
-        <!-- Main Content -->
-        <div class="content">
-          <div class="greeting">
-            Hello Beautiful! 💕
+      <div class="email-wrapper">
+        <div class="email-container">
+          <!-- Header -->
+          <div class="header">
+            <img src="https://res.cloudinary.com/debcfaccq/image/upload/v1753339613/Asset_12BH_n3ygpt.png" alt="Beauty Hub Logo" class="logo" />
+            <h1>Perfect Skin By Beauty Hub</h1>
+            <p>AI-Powered Skin Analysis</p>
           </div>
           
-          <!-- Results Section -->
-          <div class="section">
-            <div class="results-section">
-              <h2 class="section-title">✨ Your Skin Analysis</h2>
-              <div class="results-grid">
-                ${resultsHtml.replace(
-                  /<p><strong>(\w+):<\/strong>\s*([^<]+)<\/p>/g,
+          <!-- Main Content -->
+          <div class="content">
+            <div class="greeting">
+              Hello Beautiful! 💕
+            </div>
+            
+            <!-- Results Section -->
+            <div class="section">
+              <div class="results-section">
+                <h2 class="section-title">✨ Your Skin Analysis</h2>
+                <div class="results-container">
+                  ${resultsHtml.replace(
+                    /<p><strong>(\w+):<\/strong>\s*([^<]+)<\/p>/g,
+                    `
+                    <div class="result-item">
+                      <span class="result-label">$1</span>
+                      <span class="result-value">$2</span>
+                    </div>
                   `
-                  <div class="result-item">
-                    <div class="result-label">$1</div>
-                    <div class="result-value">$2</div>
-                  </div>
-                `
-                )}
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          
-          <!-- Recommendations Section -->
-          <div class="section">
-            <div class="recommendations-section">
-              <h2 class="section-title">🌟 Recommended Products</h2>
-              <ul class="product-list">
-                ${recommendations
-                  .map(
-                    (prod: {
-                      name: string;
-                      description?: string;
-                      image?: string;
-                      price_html?: string;
-                      brand?: string;
-                      step?: string;
-                      link?: string;
-                    }) => `
-                    <li class="product-item">
-                      <div class="product-step">${prod.step || "Product"}</div>
-                      <img
-                        src="${
-                          prod.image
-                            ? prod.image
-                            : "https://placehold.co/120x120/f8f8f8/cccccc?text=Product"
-                        }"
-                        alt="${prod.name}"
-                        class="product-image"
-                      />
-                      <div class="product-name">${prod.name}</div>
-                      <div class="product-brand">${
-                        prod.brand || "Beauty Hub"
-                      }</div>
-                      <div class="product-price">${prod.price_html || "₦0"}</div>
-                      <a href="${
-                        prod.link || "https://beautyhub.ng"
-                      }" class="product-shop-btn">Shop Now</a>
-                    </li>
-                  `
-                  )
-                  .join("")}
-              </ul>
+            
+            <!-- Recommendations Section -->
+            <div class="section">
+              <div class="recommendations-section">
+                <h2 class="section-title">🌟 Recommended Products</h2>
+                <div class="product-container">
+                  ${recommendations
+                    .map(
+                      (prod: {
+                        name: string;
+                        description?: string;
+                        image?: string;
+                        price_html?: string;
+                        brand?: string;
+                        step?: string;
+                        link?: string;
+                      }) => `
+                      <div class="product-item">
+                        <div class="product-step">${prod.step || "Product"}</div>
+                        <img
+                          src="${
+                            prod.image
+                              ? prod.image
+                              : "https://placehold.co/80x80/f8f8f8/cccccc?text=Product"
+                          }"
+                          alt="${prod.name}"
+                          class="product-image"
+                          width="80"
+                          height="80"
+                        />
+                        <div class="product-name">${prod.name}</div>
+                        <div class="product-brand">${
+                          prod.brand || "Beauty Hub"
+                        }</div>
+                        <div class="product-price">${prod.price_html || "₦0"}</div>
+                        <a href="${
+                          prod.link || "https://beautyhub.ng"
+                        }" class="product-shop-btn">Shop Now</a>
+                      </div>
+                    `
+                    )
+                    .join("")}
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <!-- Call to Action -->
-          <div class="section">
+            
+            <!-- Call to Action -->
             <div class="cta-section">
               <h3 class="cta-title">Ready to Transform Your Skin? 🚀</h3>
               <p class="cta-text">Visit our website to explore more products</p>
               <a href="https://beautyhub.ng" class="cta-button">Shop Now</a>
             </div>
           </div>
-        </div>
-        
-        <!-- Footer -->
-        <div class="footer">
-          <div class="footer-content">
-            <h3>Beauty Hub</h3>
-            <p>Your ultimate destination for authentic skincare, fragrances, makeup, and more, all under one virtual roof.</p>
-            <p class="powered-by">Powered by CRE8LAB</p>
-          </div>
           
-          <div class="social-links">
-            <a href="https://www.instagram.com/beautyhubco.ng/">Instagram</a>
-            <a href="https://wa.me/2348162598682">WhatsApp</a>
-            <a href="mailto:hello@beautyhub.ng">Email</a>
-          </div>
-          
-          <div class="footer-text">
-            <p>© 2025 Beauty Hub. All rights reserved.</p>
-            <p>This email was sent to you because you requested a skin analysis report.</p>
-            <p>www.beautyhub.ng</p>
+          <!-- Footer -->
+          <div class="footer">
+            <div class="footer-content">
+              <img src="https://res.cloudinary.com/debcfaccq/image/upload/v1753339613/Asset_12BH_n3ygpt.png" alt="Beauty Hub Logo" class="footer-logo" />
+              <p>Your ultimate destination for authentic skincare, fragrances, makeup, and more, all under one virtual roof.</p>
+              <p class="powered-by">Powered by CRE8LAB</p>
+            </div>
+            
+            <div class="social-links">
+              <a href="https://www.instagram.com/beautyhubco.ng/">Instagram</a>
+              <a href="https://wa.me/2348162598682">WhatsApp</a>
+              <a href="mailto:hello@beautyhub.ng">Email</a>
+            </div>
+            
+            <div class="footer-text">
+              <p>© 2025 Beauty Hub. All rights reserved.</p>
+              <p>This email was sent to you because you requested a skin analysis report.</p>
+              <p>www.beautyhub.ng</p>
+            </div>
           </div>
         </div>
       </div>
