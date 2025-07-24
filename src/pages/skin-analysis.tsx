@@ -1299,106 +1299,6 @@ export default function FaceDetectionComponent() {
                     </label>
                   </div>
                 )}
-                {scoreInfo && hasAccess && (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      marginTop: "1rem",
-                      marginBottom: "1rem",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        // Create fallback image URL or use a default placeholder
-                        const fallbackImageSrc =
-                          "https://t4.ftcdn.net/jpg/02/79/66/93/360_F_279669366_Lk12QalYQKMczLEa4ySjhaLtx1M2u7e6.jpg";
-
-                        const compositeImageSrc = await getImageWithOverlays(
-                          originalImagePreview || fallbackImageSrc,
-                          zipContent
-                        );
-
-                        try {
-                          await generateSkinAnalysisResult({
-                            // @ts-expect-error: Supabase typing is too strict here
-                            originalImageSrc: compositeImageSrc, // Pass the actual image source, not an object
-                            scoreInfo: {
-                              all: {
-                                score: `${scoreInfo.all?.score?.toFixed(1)}%`,
-                              },
-                              // @ts-expect-error: Supabase typing is too strict here
-
-                              acne: { ui_score: scoreInfo.acne?.ui_score },
-
-                              wrinkle: {
-                                // @ts-expect-error: Supabase typing is too strict here
-
-                                ui_score: scoreInfo.wrinkle?.ui_score,
-                              },
-                              // @ts-expect-error: Supabase typing is too strict here
-
-                              pore: { ui_score: scoreInfo.pore?.ui_score },
-                              texture: {
-                                // @ts-expect-error: Supabase typing is too strict here
-
-                                ui_score: scoreInfo.texture?.ui_score,
-                              },
-                            },
-                          });
-                        } catch (error) {
-                          console.error(
-                            "Error generating skin analysis result:",
-                            error
-                          );
-                          // Optional: Show user-friendly error message
-                          alert("Failed to generate result. Please try again.");
-                        }
-                      }}
-                      style={{
-                        background: "linear-gradient(135deg, #f847b4, #ff6bc7)",
-                        color: "white",
-                        border: "none",
-                        padding: "1rem 2rem",
-                        borderRadius: "10px",
-                        fontSize: "1rem",
-                        fontWeight: "600",
-                        cursor: "pointer",
-                        boxShadow: "0 6px 20px rgba(248, 71, 180, 0.3)",
-                        transition: "all 0.3s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        // @ts-expect-error: Supabase typing is too strict here
-
-                        e.target.style.transform = "translateY(-2px)";
-                        // @ts-expect-error: Supabase typing is too strict here
-
-                        e.target.style.boxShadow =
-                          "0 8px 25px rgba(248, 71, 180, 0.4)";
-                      }}
-                      onMouseLeave={(e) => {
-                        // @ts-expect-error: Supabase typing is too strict here
-
-                        e.target.style.transform = "translateY(0)";
-                        // @ts-expect-error: Supabase typing is too strict here
-
-                        e.target.style.boxShadow =
-                          "0 6px 20px rgba(248, 71, 180, 0.3)";
-                      }}
-                    >
-                      Download Result
-                    </button>
-                  </div>
-                )}
-
-                {scoreInfo && (
-                  <button
-                    onClick={() => setShowSendModal(true)}
-                    className="mt-4 px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700"
-                  >
-                    Send Results via Email
-                  </button>
-                )}
 
                 {retake ? (
                   <div
@@ -1771,6 +1671,141 @@ export default function FaceDetectionComponent() {
                         );
                       })}
                     </div>
+                  </div>
+                )}
+
+                {scoreInfo && hasAccess && (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      marginTop: "1rem",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        // Create fallback image URL or use a default placeholder
+                        const fallbackImageSrc =
+                          "https://t4.ftcdn.net/jpg/02/79/66/93/360_F_279669366_Lk12QalYQKMczLEa4ySjhaLtx1M2u7e6.jpg";
+
+                        const compositeImageSrc = await getImageWithOverlays(
+                          originalImagePreview || fallbackImageSrc,
+                          zipContent
+                        );
+
+                        try {
+                          await generateSkinAnalysisResult({
+                            // @ts-expect-error: Supabase typing is too strict here
+                            originalImageSrc: compositeImageSrc, // Pass the actual image source, not an object
+                            scoreInfo: {
+                              all: {
+                                score: `${scoreInfo.all?.score?.toFixed(1)}%`,
+                              },
+                              // @ts-expect-error: Supabase typing is too strict here
+
+                              acne: { ui_score: scoreInfo.acne?.ui_score },
+
+                              wrinkle: {
+                                // @ts-expect-error: Supabase typing is too strict here
+
+                                ui_score: scoreInfo.wrinkle?.ui_score,
+                              },
+                              // @ts-expect-error: Supabase typing is too strict here
+
+                              pore: { ui_score: scoreInfo.pore?.ui_score },
+                              texture: {
+                                // @ts-expect-error: Supabase typing is too strict here
+
+                                ui_score: scoreInfo.texture?.ui_score,
+                              },
+                            },
+                          });
+                        } catch (error) {
+                          console.error(
+                            "Error generating skin analysis result:",
+                            error
+                          );
+                          // Optional: Show user-friendly error message
+                          alert("Failed to generate result. Please try again.");
+                        }
+                      }}
+                      style={{
+                        background: "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                        color: "white",
+                        border: "none",
+                        padding: "1rem 2rem",
+                        borderRadius: "10px",
+                        fontSize: "1rem",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        boxShadow: "0 6px 20px rgba(248, 71, 180, 0.3)",
+                        transition: "all 0.3s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        // @ts-expect-error: Supabase typing is too strict here
+
+                        e.target.style.transform = "translateY(-2px)";
+                        // @ts-expect-error: Supabase typing is too strict here
+
+                        e.target.style.boxShadow =
+                          "0 8px 25px rgba(248, 71, 180, 0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        // @ts-expect-error: Supabase typing is too strict here
+
+                        e.target.style.transform = "translateY(0)";
+                        // @ts-expect-error: Supabase typing is too strict here
+
+                        e.target.style.boxShadow =
+                          "0 6px 20px rgba(248, 71, 180, 0.3)";
+                      }}
+                    >
+                      Download Result
+                    </button>
+                  </div>
+                )}
+
+                {scoreInfo && (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      marginTop: "1rem",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setShowSendModal(true)}
+                      style={{
+                        background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                        color: "white",
+                        border: "none",
+                        padding: "0.875rem 1.75rem",
+                        borderRadius: "8px",
+                        fontSize: "0.95rem",
+                        fontWeight: "500",
+                        cursor: "pointer",
+                        boxShadow: "0 4px 15px rgba(99, 102, 241, 0.3)",
+                        transition: "all 0.3s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        // @ts-expect-error: Supabase typing is too strict here
+                        e.target.style.transform = "translateY(-2px)";
+                        // @ts-expect-error: Supabase typing is too strict here
+                        e.target.style.boxShadow =
+                          "0 6px 20px rgba(99, 102, 241, 0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        // @ts-expect-error: Supabase typing is too strict here
+                        e.target.style.transform = "translateY(0)";
+                        // @ts-expect-error: Supabase typing is too strict here
+                        e.target.style.boxShadow =
+                          "0 4px 15px rgba(99, 102, 241, 0.3)";
+                      }}
+                    >
+                      📧 Send Results via Email
+                    </button>
                   </div>
                 )}
               </div>
