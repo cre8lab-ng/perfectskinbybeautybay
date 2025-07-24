@@ -64,7 +64,7 @@ export default async function handler(
   }
 
   const { email, type, reference, source = "analysis" } = req.body;
-  console.log(source)
+  console.log(source);
   if (!email || !type) {
     return res.status(400).json({ error: "Missing email or type" });
   }
@@ -144,7 +144,7 @@ export default async function handler(
       } else {
         reason = "limit_reached";
       }
-    }  else if (hasWooOrder) {
+    } else if (hasWooOrder) {
       const allowedWooAccess = 2;
       if (accessCount < allowedWooAccess) {
         accessAllowed = true;
@@ -153,7 +153,6 @@ export default async function handler(
         reason = "limit_reached";
       }
     }
-    
 
     // 🔍 Handle "check"
     if (type === "check") {
@@ -171,6 +170,20 @@ export default async function handler(
       }
 
       try {
+        // 🔒 Check if this reference already exists
+        const { count: existingPayment } = await supabaseAdmin
+          .from("paystack_payment_log")
+          .select("*", { count: "exact", head: true })
+          .eq("reference", reference);
+
+        if ((existingPayment ?? 0) > 0) {
+          return res.status(200).json({
+            access_granted: false,
+            reason: "duplicate_payment",
+          });
+        }
+
+        // 🔍 Verify payment with Paystack
         const verifyRes = await axios.get(
           `https://api.paystack.co/transaction/verify/${reference}`,
           {
@@ -185,6 +198,7 @@ export default async function handler(
           verifyRes.data?.data?.status === "success";
 
         if (isSuccessful) {
+          // 🧾 Log the payment in your DB
           await supabaseAdmin.from("paystack_payment_log").insert({
             email: emailLower,
             reference,
