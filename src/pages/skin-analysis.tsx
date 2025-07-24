@@ -23,6 +23,7 @@ import LoginModal from "@/components/modal/login";
 import { loadPaystackScript } from "@/util/paystack";
 import { runMediaPipeFaceDetection } from "@/util/faceValidation";
 import { getRecommendedProducts } from "@/data/skinProductMap";
+import SendResultModal from "@/components/modal/send-email";
 
 interface ScoreEntry {
   ui_score?: number;
@@ -98,6 +99,7 @@ export default function FaceDetectionComponent() {
   const userEmail = useResultAccess((s) => s.userEmail);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
+  const [showSendModal, setShowSendModal] = useState(false);
 
   useEffect(() => {
     console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
@@ -110,7 +112,7 @@ export default function FaceDetectionComponent() {
       resetAccess(); // Fully revoke access silently
     }
   }, []);
-  
+
   function drawOverlay(
     ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement,
@@ -1389,6 +1391,15 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
 
+                {scoreInfo && (
+                  <button
+                    onClick={() => setShowSendModal(true)}
+                    className="mt-4 px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700"
+                  >
+                    Send Results via Email
+                  </button>
+                )}
+
                 {retake ? (
                   <div
                     style={{
@@ -1841,6 +1852,15 @@ export default function FaceDetectionComponent() {
           }}
         />
       )}
+
+      <SendResultModal
+        isOpen={showSendModal}
+        onClose={() => setShowSendModal(false)}
+        scoreInfo={scoreInfo}
+        recommendations={
+          routineRecommendation?.routine.products ?? [] // ✅ Always an array
+        }
+      />
     </>
   );
 }
