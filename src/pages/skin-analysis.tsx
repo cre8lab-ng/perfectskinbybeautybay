@@ -1,26 +1,15 @@
 import React from "react";
 import { useEffect, useState, ChangeEvent, useRef } from "react";
-import useAccessToken from "@/stores/useAccessToken";
-import {
-  uploadImage,
-  analyzeSkinFeatures,
-  checkSkinAnalysisStatus,
-} from "@/services/skinanalysis";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import InstructionModal from "@/components/modal/instruction-modal";
 import PrivacyConsentModal from "@/components/modal/privacy-consent-modal";
 import CameraPrompt from "@/components/camera-prompt";
 import {
-  errorMessages,
-  extractSkinAnalysisResults,
   generateSkinAnalysisResult,
   notifyError,
 } from "@/util/utils";
 import WebPageTitle from "@/components/webpagetitle";
-import { useResultAccess } from "@/stores/useResultAccess";
-import LoginModal from "@/components/modal/login";
-import { loadPaystackScript } from "@/util/paystack";
 import { runMediaPipeFaceDetection } from "@/util/faceValidation";
 import { getRecommendedProducts } from "@/data/skinProductMap";
 import SendResultModal from "@/components/modal/send-email";
@@ -43,8 +32,174 @@ interface ZipImage {
   url: string;
 }
 
-interface UploadResponse {
-  file_id?: string;
+type SkinType = "dry" | "oily" | "combination" | "normal" | "not_sure";
+type Sensitivity = "low" | "medium" | "high";
+type AcneFrequency = "none" | "occasional" | "often" | "severe";
+type PoreVisibility = "minimal" | "some" | "very_visible";
+type TextureFeel = "smooth" | "slightly_rough" | "very_rough";
+type AgeRange = "under_18" | "18_24" | "25_34" | "35_44" | "45_plus";
+type SunscreenUse = "daily" | "sometimes" | "rarely";
+type SunExposure = "low" | "medium" | "high";
+
+type SkinQuestionnaire = {
+  skinType: SkinType;
+  sensitivity: Sensitivity;
+  acneFrequency: AcneFrequency;
+  poreVisibility: PoreVisibility;
+  textureFeel: TextureFeel;
+  ageRange: AgeRange;
+  sunscreenUse: SunscreenUse;
+  sunExposure: SunExposure;
+};
+
+type FaceBox = { x: number; y: number; width: number; height: number };
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function toUiScore(value: number) {
+  return clamp(Math.round(value), 1, 100);
+}
+
+function questionnaireToBaseScores(q: SkinQuestionnaire) {
+  const acneBase =
+    q.acneFrequency === "none"
+      ? 8
+      : q.acneFrequency === "occasional"
+      ? 30
+      : q.acneFrequency === "often"
+      ? 60
+      : 85;
+
+  const poreFromType =
+    q.skinType === "oily"
+      ? 70
+      : q.skinType === "combination"
+      ? 55
+      : q.skinType === "normal"
+      ? 35
+      : q.skinType === "dry"
+      ? 25
+      : 45;
+
+  const poreFromVisibility =
+    q.poreVisibility === "minimal"
+      ? 15
+      : q.poreVisibility === "some"
+      ? 40
+      : 70;
+
+  const textureFromFeel =
+    q.textureFeel === "smooth"
+      ? 15
+      : q.textureFeel === "slightly_rough"
+      ? 40
+      : 70;
+
+  const wrinkleFromAge =
+    q.ageRange === "under_18"
+      ? 10
+      : q.ageRange === "18_24"
+      ? 15
+      : q.ageRange === "25_34"
+      ? 25
+      : q.ageRange === "35_44"
+      ? 45
+      : 65;
+
+  const wrinkleFromSunscreen =
+    q.sunscreenUse === "daily" ? 0 : q.sunscreenUse === "sometimes" ? 10 : 20;
+  const wrinkleFromExposure =
+    q.sunExposure === "low" ? 0 : q.sunExposure === "medium" ? 10 : 20;
+
+  const sensitivityPenalty = q.sensitivity === "high" ? 10 : 0;
+
+  return {
+    acne: acneBase,
+    pore: clamp(Math.round(0.6 * poreFromType + 0.4 * poreFromVisibility), 1, 100),
+    texture: clamp(textureFromFeel + sensitivityPenalty, 1, 100),
+    wrinkle: clamp(wrinkleFromAge + wrinkleFromSunscreen + wrinkleFromExposure, 1, 100),
+  };
+}
+
+async function computeImageMetrics(img: HTMLImageElement, faceBox: FaceBox) {
+  const maxSide = 256;
+  const scale = Math.min(1, maxSide / Math.max(faceBox.width, faceBox.height));
+  const w = Math.max(1, Math.round(faceBox.width * scale));
+  const h = Math.max(1, Math.round(faceBox.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not available");
+
+  ctx.drawImage(
+    img,
+    faceBox.x,
+    faceBox.y,
+    faceBox.width,
+    faceBox.height,
+    0,
+    0,
+    w,
+    h
+  );
+
+  const { data } = ctx.getImageData(0, 0, w, h);
+
+  let count = 0;
+  let sumL = 0;
+  let sumL2 = 0;
+  let sumRedDelta = 0;
+  let sumEdge = 0;
+
+  const stride = 2;
+  const idx = (x: number, y: number) => (y * w + x) * 4;
+  const lumaAt = (x: number, y: number) => {
+    const i = idx(x, y);
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+
+  for (let y = 0; y < h; y += stride) {
+    for (let x = 0; x < w; x += stride) {
+      const i = idx(x, y);
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      sumL += l;
+      sumL2 += l * l;
+
+      const redDelta = r - (g + b) / 2;
+      if (redDelta > 0) sumRedDelta += redDelta;
+
+      if (x + stride < w) {
+        sumEdge += Math.abs(l - lumaAt(x + stride, y));
+      }
+      if (y + stride < h) {
+        sumEdge += Math.abs(l - lumaAt(x, y + stride));
+      }
+
+      count++;
+    }
+  }
+
+  const meanL = sumL / Math.max(1, count);
+  const variance = sumL2 / Math.max(1, count) - meanL * meanL;
+  const sd = Math.sqrt(Math.max(0, variance));
+
+  const brightness = clamp((meanL / 255) * 100, 0, 100);
+  const contrast = clamp((sd / 64) * 100, 0, 100);
+  const redness = clamp((sumRedDelta / Math.max(1, count)) / 40 * 100, 0, 100);
+  const edge = clamp((sumEdge / Math.max(1, count)) / 35 * 100, 0, 100);
+
+  return { brightness, contrast, redness, edge };
 }
 
 function dataURLtoFile(dataUrl: string, filename: string): File {
@@ -58,60 +213,39 @@ function dataURLtoFile(dataUrl: string, filename: string): File {
 }
 
 export default function FaceDetectionComponent() {
-  const accessToken = useAccessToken((s) => s.accessToken);
   const [processedImagePreview, setProcessedImagePreview] = useState<
     string | null
   >(null);
   const [faceDetectionLoading, setFaceDetectionLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [retake, setRetake] = useState(false);
-  const [analysisStatus, setAnalysisStatus] = useState(null);
   const [showCameraPrompt, setShowCameraPrompt] = useState(false);
   const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [message, setMessage] = useState<React.ReactNode>(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(true);
   const [showOverlays, setShowOverlays] = useState(true); // 👈 toggle overlay state
-  const [lastCaptureMethod, setLastCaptureMethod] = useState<
-    "upload" | "camera" | null
-  >(null);
   const [scoreInfo, setScoreInfo] = useState<ScoreInfo | null>(null);
-  const [unitError, setUnitError] = useState(false);
   const [zipContent, setZipContent] = useState<ZipImage[]>([]);
-  const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(
-    null
-  );
   const [originalImagePreview, setOriginalImagePreview] = useState<
     string | null
   >(null);
   const routineRecommendation = getRecommendedProducts(scoreInfo);
   const [showRetryButton, setShowRetryButton] = useState(false);
-
-  console.log(uploading, analysisStatus, uploadResponse);
-  const {
-    hasAccess,
-    showLoginModal,
-    setShowLoginModal,
-    accessConsumed,
-    resetAccess,
-    setAccessConsumed,
-  } = useResultAccess();
-  const userEmail = useResultAccess((s) => s.userEmail);
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+  const [questionnaireCompleted, setQuestionnaireCompleted] = useState(false);
+  const [questionnaire, setQuestionnaire] = useState<SkinQuestionnaire>({
+    skinType: "not_sure",
+    sensitivity: "medium",
+    acneFrequency: "occasional",
+    poreVisibility: "some",
+    textureFeel: "slightly_rough",
+    ageRange: "25_34",
+    sunscreenUse: "sometimes",
+    sunExposure: "medium",
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
   const [showSendModal, setShowSendModal] = useState(false);
-
-  useEffect(() => {
-    console.log("🔍 userEmail in FaceDetectionComponent:", userEmail);
-  }, [userEmail]);
-
-  useEffect(() => {
-    if (hasAccess && !accessConsumed) {
-      setAccessConsumed(true); // First-time view
-    } else if (accessConsumed || !hasAccess) {
-      resetAccess(); // Fully revoke access silently
-    }
-  }, []);
 
   function drawOverlay(
     ctx: CanvasRenderingContext2D,
@@ -260,8 +394,7 @@ export default function FaceDetectionComponent() {
   useEffect(() => {
     console.log("🔍 Running overlay draw effect");
 
-    if (!scoreInfo || !originalImagePreview || !hasAccess || !showOverlays)
-      return;
+    if (!scoreInfo || !originalImagePreview || !showOverlays) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -302,7 +435,7 @@ export default function FaceDetectionComponent() {
     return () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-  }, [scoreInfo, originalImagePreview, hasAccess, showOverlays]);
+  }, [scoreInfo, originalImagePreview, showOverlays]);
 
   function resizeImageWithOverride(
     inputFile: File,
@@ -369,11 +502,11 @@ export default function FaceDetectionComponent() {
           (blob) => {
             if (!blob) return reject(new Error("Failed to create blob"));
             const processedFile = new File([blob], inputFile.name, {
-              type: inputFile.type,
+              type: "image/jpeg",
             });
             resolve({ file: processedFile, previewUrl });
           },
-          inputFile.type,
+          "image/jpeg",
           quality
         );
       };
@@ -383,27 +516,35 @@ export default function FaceDetectionComponent() {
     });
   }
 
-  useEffect(() => {
-    loadPaystackScript();
-  }, []);
-
   const handleCaptureWithOverride = async (
     e?: ChangeEvent<HTMLInputElement>,
     capturedFile?: File | null
   ): Promise<void> => {
     if (faceDetectionLoading) return;
+    if (!questionnaireCompleted) {
+      setShowQuestionnaire(true);
+      notifyError("Please answer the skin questionnaire first.");
+      return;
+    }
 
     const file = capturedFile ?? e?.target?.files?.[0];
     if (!file) return;
 
-    const { file: resizedFile, previewUrl } = await resizeImageWithOverride(
-      file
-    );
-    setScoreInfo(null);
-    setZipContent([]);
-    setProcessedImagePreview(previewUrl);
-    setAnalysisStatus(null);
-    setUploadResponse(null);
+    let previewUrl = "";
+    try {
+      ({ previewUrl } = await resizeImageWithOverride(file));
+      setScoreInfo(null);
+      setZipContent([]);
+      setProcessedImagePreview(previewUrl);
+      setMessage(null);
+      setRetake(false);
+      setShowRetryButton(false);
+    } catch (err) {
+      console.error(err);
+      setMessage("We couldn't process that photo. Please retake and try again.");
+      setRetake(true);
+      return;
+    }
 
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -418,35 +559,102 @@ export default function FaceDetectionComponent() {
 
       await new Promise((res) => (img.onload = res));
 
-      const landmarks = await runMediaPipeFaceDetection(img);
+      let faceBox: FaceBox | null = null;
+      let landmarks: any[] | null = null;
 
-      if (!landmarks || landmarks.length === 0) {
-        notifyError("No face detected. Please try again.");
-        setShowCameraPrompt(false);
-        setShowRetryButton(true);
-
-        if (lastCaptureMethod === "camera") {
-          setShowCameraPrompt(true);
-        } else if (lastCaptureMethod === "upload") {
-          document.getElementById("fileInput")?.click();
-        } else {
-          setShowInstructionModal(true);
-        }
-
-        return;
+      try {
+        landmarks = await runMediaPipeFaceDetection(img);
+      } catch (err) {
+        console.warn("Face detection failed, falling back to center crop", err);
       }
 
-      // Optional: check bounding box from landmarks
-      const xs = landmarks.map((lm) => lm.x * img.width);
-      const ys = landmarks.map((lm) => lm.y * img.height);
-      const width = Math.max(...xs) - Math.min(...xs);
-      const height = Math.max(...ys) - Math.min(...ys);
+      if (landmarks && landmarks.length > 0) {
+        const xs = landmarks.map((lm) => lm.x * img.width);
+        const ys = landmarks.map((lm) => lm.y * img.height);
+        const width = Math.max(...xs) - Math.min(...xs);
+        const height = Math.max(...ys) - Math.min(...ys);
 
-      if (width < 300 || height < 300) {
-        notifyError(
-          "Your face is too small in the image. Please move closer or upload a clearer selfie."
+        if (width < 300 || height < 300) {
+          notifyError(
+            "Your face is too small in the image. Please move closer or upload a clearer selfie."
+          );
+          return;
+        }
+
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+
+        const padX = (maxX - minX) * 0.15;
+        const padY = (maxY - minY) * 0.2;
+
+        faceBox = {
+          x: clamp(minX - padX, 0, img.width - 1),
+          y: clamp(minY - padY, 0, img.height - 1),
+          width: clamp(maxX - minX + padX * 2, 1, img.width),
+          height: clamp(maxY - minY + padY * 2, 1, img.height),
+        };
+      } else {
+        const boxWidth = Math.round(img.width * 0.62);
+        const boxHeight = Math.round(img.height * 0.62);
+        faceBox = {
+          x: clamp(Math.round((img.width - boxWidth) / 2), 0, img.width - 1),
+          y: clamp(Math.round((img.height - boxHeight) / 2), 0, img.height - 1),
+          width: clamp(boxWidth, 1, img.width),
+          height: clamp(boxHeight, 1, img.height),
+        };
+      }
+
+      setAnalyzing(true);
+      try {
+        const base = questionnaireToBaseScores(questionnaire);
+        const metrics = await computeImageMetrics(img, faceBox);
+
+        if (metrics.brightness < 15) {
+          setMessage("Your photo looks too dark. Please retake in better lighting.");
+          setRetake(true);
+          return;
+        }
+
+        const acne = toUiScore(base.acne * 0.75 + metrics.redness * 0.25);
+        const pore = toUiScore(base.pore * 0.75 + metrics.contrast * 0.25);
+        const texture = toUiScore(
+          base.texture * 0.6 + metrics.edge * 0.2 + metrics.contrast * 0.2
         );
-        return;
+        const wrinkle = toUiScore(base.wrinkle * 0.8 + metrics.edge * 0.2);
+
+        const avgConcern = (acne + pore + texture + wrinkle) / 4;
+        const overall = clamp(100 - avgConcern, 0, 100);
+
+        setScoreInfo({
+          acne: { ui_score: acne },
+          pore: { ui_score: pore },
+          texture: { ui_score: texture },
+          wrinkle: { ui_score: wrinkle },
+          all: { score: overall },
+        });
+      } catch (err) {
+        console.error(err);
+        setMessage(
+          <>
+            We couldn&apos;t analyze your skin. Please retake your photo or{" "}
+            <a
+              href="mailto:support@beautyhub.ng"
+              style={{
+                color: "#f847b4",
+                textDecoration: "underline",
+                marginLeft: "0.25rem",
+              }}
+            >
+              contact support
+            </a>
+            .
+          </>
+        );
+        setRetake(true);
+      } finally {
+        setAnalyzing(false);
       }
 
       // ✅ If you want to re-enable blur/brightness checks later, reinsert these:
@@ -456,196 +664,12 @@ export default function FaceDetectionComponent() {
       // const blurry = isImageBlurry(ctx, box);
     } catch (error) {
       console.warn("MediaPipe face detection failed", error);
+      setMessage("We couldn't analyze that photo. Please retake and try again.");
+      setRetake(true);
     } finally {
       setFaceDetectionLoading(false);
     }
-
-    if (!accessToken) {
-      notifyError("Access token not available yet.");
-      return;
-    }
-
-    setUploading(true);
-
-    try {
-      const res = await uploadImage(resizedFile, accessToken);
-      if (!res?.file_id) throw new Error("Upload failed: Missing file_id.");
-      setUploadResponse(res); // ✅ Store file_id for later use (delayed analysis)
-    } catch (err) {
-      notifyError("Upload failed: " + (err as Error).message);
-    } finally {
-      setUploading(false);
-    }
   };
-
-  console.log(unitError);
-
-  const runSkinAnalysis = async (fileId: string) => {
-    if (!accessToken) return notifyError("Access token not available");
-    setAnalyzing(true);
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // optional delay
-
-      const analysis = await analyzeSkinFeatures(fileId, accessToken, [
-        "acne",
-        "wrinkle",
-        "pore",
-        "texture",
-      ]);
-
-      const taskId = analysis.result.task_id;
-      if (!taskId) throw new Error("No task_id returned");
-
-      const status = await pollAnalysisStatus(taskId, accessToken);
-      setAnalysisStatus(status); // set UI status
-    } catch (err) {
-      // @ts-expect-error: Supabase typing is too strict here
-      if (err && err.response?.data.status === 400) {
-        setUnitError(true);
-        setMessage(
-          <>
-            Something went wrong. Please contact support on
-            <a
-              href="https://www.instagram.com/beautyhubco.ng/"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "#f847b4", textDecoration: "underline" }}
-            >
-              Instagram
-            </a>
-            ,
-            <a
-              href="https://wa.me/2348162598682"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "#f847b4", textDecoration: "underline" }}
-            >
-              WhatsApp
-            </a>
-            , or
-            <a
-              href="mailto:support@beautyhub.ng"
-              style={{ color: "#f847b4", textDecoration: "underline" }}
-            >
-              email
-            </a>
-            .
-          </>
-        );
-        setRetake(true);
-      } else {
-        setUnitError(true);
-        setMessage(
-          <>
-            We couldn&apos;t analyze your skin, Please try again or
-            <a
-              href="mailto:support@beautyhub.ng"
-              style={{
-                color: "#f847b4",
-                textDecoration: "underline",
-                marginLeft: "0.5rem",
-              }}
-            >
-              {" "}
-              contact support{" "}
-            </a>
-            .
-          </>
-        );
-
-        setRetake(true);
-      }
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const pollAnalysisStatus = async (
-    taskId: string,
-    accessToken: string
-  ): Promise<any> => {
-    let attempts = 0;
-    const maxAttempts = 10;
-    const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
-    while (attempts < maxAttempts) {
-      try {
-        const res = await checkSkinAnalysisStatus(taskId, accessToken);
-        const status = res?.result?.status;
-        console.log(status, res);
-
-        if (status === "success") {
-          console.log("✅ Analysis successful");
-
-          const zipUrl = res.result?.results?.[0]?.data?.[0]?.url;
-          if (!zipUrl) throw new Error("No ZIP URL found in result");
-
-          const { score, images } = await extractSkinAnalysisResults(zipUrl);
-          if (score) setScoreInfo(score);
-          if (images.length > 0) setZipContent(images);
-
-          const currentEmail = useResultAccess.getState().userEmail;
-          if (currentEmail) {
-            await grantAccess(currentEmail);
-          }
-
-          return res;
-        }
-
-        if (status === "error") {
-          const errorCode = res.result.error;
-          console.log("❌ Analysis returned error:", errorCode);
-          const humanMessage =
-            errorMessages[errorCode] ||
-            "Please ensure your face is clearly visible and centered.";
-          setMessage(humanMessage);
-          console.log("Analysis returned error");
-        }
-
-        console.log(`⏳ Polling status: ${status}, retrying...`);
-      } catch (err) {
-        console.error("❌ Polling failed:", err);
-      }
-
-      attempts++;
-      await delay(500);
-    }
-
-    throw new Error("❌ Polling timed out after maximum retries");
-  };
-
-  const grantAccess = async (email: string) => {
-    try {
-      const res = await fetch("/api/access", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          type: "mark-analysis",
-          source: "analysis",
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || data.success === false) {
-        console.warn("⚠️ Access grant failed:", data.reason || data.error);
-        return;
-      }
-
-      console.log("✅ Access granted successfully via mark-analysis");
-    } catch (err) {
-      console.error("❌ Failed to call mark-analysis:", err);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      console.log("👋 User left skin analysis page. Resetting access...");
-      useResultAccess.getState().resetAccess();
-    };
-  }, []);
 
   // @ts-expect-error: Supabase typing is too strict here
 
@@ -725,7 +749,11 @@ export default function FaceDetectionComponent() {
         <PrivacyConsentModal
           onAgree={() => {
             setShowPrivacyModal(false);
-            setShowInstructionModal(true);
+            if (questionnaireCompleted) {
+              setShowInstructionModal(true);
+            } else {
+              setShowQuestionnaire(true);
+            }
           }}
         />
       )}
@@ -733,12 +761,10 @@ export default function FaceDetectionComponent() {
       {showInstructionModal && (
         <InstructionModal
           onTakeSelfie={() => {
-            setLastCaptureMethod("camera");
             setShowInstructionModal(false);
             setShowCameraPrompt(true);
           }}
           onUploadPhoto={() => {
-            setLastCaptureMethod("upload");
             setShowInstructionModal(false);
             document.getElementById("fileInput")?.click();
           }}
@@ -790,13 +816,248 @@ export default function FaceDetectionComponent() {
               }}
             />
 
-            {(showCameraPrompt ||
-              faceDetectionLoading ||
-              analyzing ||
-              scoreInfo ||
-              zipContent.length > 0 ||
-              processedImagePreview ||
-              routineRecommendation) && (
+            {showQuestionnaire && (
+              <div
+                style={{
+                  position: "relative",
+                  zIndex: 1,
+                  maxWidth: "720px",
+                  margin: "0 auto",
+                  padding: "2rem",
+                  background: "rgba(255, 255, 255, 0.85)",
+                  borderRadius: "20px",
+                  border: "1px solid rgba(248, 71, 180, 0.2)",
+                  boxShadow: "0 20px 60px rgba(248, 71, 180, 0.25)",
+                  backdropFilter: "blur(8px)",
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "1.8rem",
+                    fontWeight: "800",
+                    textAlign: "center",
+                    background: "linear-gradient(45deg, #f847b4, #ff6bc7)",
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Quick Skin Questionnaire
+                </h2>
+                <p
+                  style={{
+                    margin: "0.75rem 0 1.75rem",
+                    textAlign: "center",
+                    color: "#666",
+                    fontSize: "1rem",
+                  }}
+                >
+                  Answer a few questions first, then we&apos;ll scan your photo and
+                  generate your results on-device.
+                </p>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                    gap: "1rem",
+                  }}
+                >
+                  {[
+                    {
+                      label: "Skin type",
+                      value: questionnaire.skinType,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          skinType: v as SkinType,
+                        })),
+                      options: [
+                        ["not_sure", "Not sure"],
+                        ["dry", "Dry"],
+                        ["normal", "Normal"],
+                        ["combination", "Combination"],
+                        ["oily", "Oily"],
+                      ] as const,
+                    },
+                    {
+                      label: "Sensitivity",
+                      value: questionnaire.sensitivity,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          sensitivity: v as Sensitivity,
+                        })),
+                      options: [
+                        ["low", "Low"],
+                        ["medium", "Medium"],
+                        ["high", "High"],
+                      ] as const,
+                    },
+                    {
+                      label: "Acne frequency",
+                      value: questionnaire.acneFrequency,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          acneFrequency: v as AcneFrequency,
+                        })),
+                      options: [
+                        ["none", "None"],
+                        ["occasional", "Occasional"],
+                        ["often", "Often"],
+                        ["severe", "Severe"],
+                      ] as const,
+                    },
+                    {
+                      label: "Pores visibility",
+                      value: questionnaire.poreVisibility,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          poreVisibility: v as PoreVisibility,
+                        })),
+                      options: [
+                        ["minimal", "Minimal"],
+                        ["some", "Some"],
+                        ["very_visible", "Very visible"],
+                      ] as const,
+                    },
+                    {
+                      label: "Skin texture",
+                      value: questionnaire.textureFeel,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          textureFeel: v as TextureFeel,
+                        })),
+                      options: [
+                        ["smooth", "Smooth"],
+                        ["slightly_rough", "Slightly rough"],
+                        ["very_rough", "Very rough"],
+                      ] as const,
+                    },
+                    {
+                      label: "Age range",
+                      value: questionnaire.ageRange,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          ageRange: v as AgeRange,
+                        })),
+                      options: [
+                        ["under_18", "Under 18"],
+                        ["18_24", "18–24"],
+                        ["25_34", "25–34"],
+                        ["35_44", "35–44"],
+                        ["45_plus", "45+"],
+                      ] as const,
+                    },
+                    {
+                      label: "Sunscreen use",
+                      value: questionnaire.sunscreenUse,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          sunscreenUse: v as SunscreenUse,
+                        })),
+                      options: [
+                        ["daily", "Daily"],
+                        ["sometimes", "Sometimes"],
+                        ["rarely", "Rarely"],
+                      ] as const,
+                    },
+                    {
+                      label: "Sun exposure",
+                      value: questionnaire.sunExposure,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          sunExposure: v as SunExposure,
+                        })),
+                      options: [
+                        ["low", "Low"],
+                        ["medium", "Medium"],
+                        ["high", "High"],
+                      ] as const,
+                    },
+                  ].map((field) => (
+                    <div
+                      key={field.label}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.4rem",
+                      }}
+                    >
+                      <label
+                        style={{
+                          fontSize: "0.85rem",
+                          fontWeight: "700",
+                          color: "#444",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        {field.label}
+                      </label>
+                      <select
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        style={{
+                          padding: "0.9rem 1rem",
+                          borderRadius: "14px",
+                          border: "2px solid rgba(248, 71, 180, 0.2)",
+                          background: "white",
+                          outline: "none",
+                          fontSize: "1rem",
+                        }}
+                      >
+                        {field.options.map(([val, label]) => (
+                          <option key={val} value={val}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: "1.75rem", textAlign: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuestionnaireCompleted(true);
+                      setShowQuestionnaire(false);
+                      setShowInstructionModal(true);
+                    }}
+                    style={{
+                      background: "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                      color: "white",
+                      border: "none",
+                      padding: "1rem 2rem",
+                      borderRadius: "14px",
+                      fontSize: "1rem",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      boxShadow: "0 10px 25px rgba(248, 71, 180, 0.35)",
+                    }}
+                  >
+                    Continue to Scan
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!showQuestionnaire &&
+              (showCameraPrompt ||
+                faceDetectionLoading ||
+                analyzing ||
+                scoreInfo ||
+                zipContent.length > 0 ||
+                processedImagePreview ||
+                routineRecommendation) && (
               <div
                 style={{
                   position: "relative",
@@ -899,10 +1160,7 @@ export default function FaceDetectionComponent() {
                       })}
 
                     {/* Score Overlays - UI layer */}
-                    {hasAccess &&
-                      !analyzing &&
-                      !faceDetectionLoading &&
-                      scoreInfo && (
+                    {!analyzing && !faceDetectionLoading && scoreInfo && (
                         <div
                           style={{
                             position: "absolute",
@@ -1129,87 +1387,6 @@ export default function FaceDetectionComponent() {
                       </div>
                     )}
 
-                    {/* Login/Premium Results Overlay - Medium priority */}
-                    {uploadResponse?.file_id &&
-                      !scoreInfo &&
-                      !retake &&
-                      !analyzing && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            height: "100%",
-                            background:
-                              "linear-gradient(135deg, rgba(255, 217, 240, 0.8), rgba(255, 217, 240, 0.4))",
-                            borderRadius: "8px",
-                            border: "1px solid rgba(248, 71, 180, 0.15)",
-                            zIndex: 12,
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            padding: "2rem",
-                          }}
-                        >
-                          <p
-                            style={{
-                              color: "#f847b4",
-                              fontSize: "1.1rem",
-                              fontWeight: "600",
-                              marginBottom: "1.5rem",
-                              textAlign: "center",
-                            }}
-                          >
-                            Your image is ready for premium analysis
-                          </p>
-                          <button
-                            disabled={analyzing}
-                            onClick={() => {
-                              if (!hasAccess) {
-                                setShowLoginModal(true);
-                              } else if (
-                                !analyzing &&
-                                uploadResponse?.file_id
-                              ) {
-                                runSkinAnalysis(uploadResponse.file_id);
-                              }
-                            }}
-                            aria-label={
-                              hasAccess
-                                ? "View Premium Results"
-                                : "Log In to View Results"
-                            }
-                            style={{
-                              background: analyzing
-                                ? "linear-gradient(135deg, #ccc, #999)"
-                                : "linear-gradient(135deg, #f847b4, #ff6bc7)",
-                              color: "white",
-                              border: "none",
-                              padding: "1rem 2rem",
-                              borderRadius: "12px",
-                              fontSize: "1rem",
-                              fontWeight: "600",
-                              cursor: analyzing ? "not-allowed" : "pointer",
-                              boxShadow: analyzing
-                                ? "none"
-                                : "0 8px 25px rgba(248, 71, 180, 0.4)",
-                              transition: "all 0.3s ease",
-                              transform: analyzing
-                                ? "none"
-                                : "translateY(-2px)",
-                            }}
-                          >
-                            {analyzing
-                              ? "Analyzing..."
-                              : hasAccess
-                              ? "✨ View Premium Results"
-                              : "🔐 Log In to View Results"}
-                          </button>
-                        </div>
-                      )}
-
                     {/* Face Detection Loading Overlay - Highest priority */}
                     {faceDetectionLoading && (
                       <div
@@ -1349,7 +1526,7 @@ export default function FaceDetectionComponent() {
                   </div>
                 ) : null}
 
-                {scoreInfo && hasAccess && (
+                {scoreInfo && (
                   <div style={{ marginBottom: "3rem" }}>
                     <div
                       style={{
@@ -1412,7 +1589,7 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
 
-                {scoreInfo && hasAccess && routineRecommendation && (
+                {scoreInfo && routineRecommendation && (
                   <div
                     style={{
                       marginTop: "3rem",
@@ -1674,7 +1851,7 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
 
-                {scoreInfo && hasAccess && (
+                {scoreInfo && (
                   <div
                     style={{
                       textAlign: "center",
@@ -1874,18 +2051,6 @@ export default function FaceDetectionComponent() {
           </main>
           <Footer />
         </>
-      )}
-
-      {showLoginModal && (
-        <LoginModal
-          onClose={() => setShowLoginModal(false)}
-          onLoginSuccess={(email, hasAccess) => {
-            setShowLoginModal(false);
-            if (hasAccess && uploadResponse?.file_id) {
-              runSkinAnalysis(uploadResponse.file_id);
-            }
-          }}
-        />
       )}
 
       <SendResultModal

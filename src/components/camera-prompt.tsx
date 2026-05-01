@@ -19,6 +19,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const hasCapturedRef = useRef(false);
+  const hasAutoSubmittedRef = useRef(false);
   const countdownRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null); // Track the stream
@@ -34,6 +35,16 @@ export default function CameraPrompt({ onCapture }: Props) {
       return () => clearTimeout(timeout);
     }
   }, []);
+
+  useEffect(() => {
+    if (!capturedImage || isCountingDown) return;
+    if (!hasCapturedRef.current) return;
+    if (hasAutoSubmittedRef.current) return;
+
+    hasAutoSubmittedRef.current = true;
+    const timeout = window.setTimeout(() => onCapture(capturedImage), 300);
+    return () => window.clearTimeout(timeout);
+  }, [capturedImage, isCountingDown, onCapture]);
 
   // Replace your drawOvalFaceMesh function with this auto-detecting version
   // @ts-expect-error: Supabase typing is too strict here
