@@ -123,6 +123,87 @@ function questionnaireToBaseScores(q: SkinQuestionnaire) {
   };
 }
 
+type ImageMetrics = {
+  brightness: number;
+  contrast: number;
+  redness: number;
+  edge: number;
+};
+
+type AnalysisBreakdown = {
+  questionnaire: SkinQuestionnaire;
+  base: { acne: number; pore: number; texture: number; wrinkle: number };
+  metrics: ImageMetrics;
+  weights: { questionnaire: number; image: number };
+  combined: { acne: number; pore: number; texture: number; wrinkle: number; overall: number };
+  qualityNote: string;
+};
+
+type Severity = "minimal" | "mild" | "moderate" | "high";
+
+function severityFromConcernScore(score: number): Severity {
+  if (score < 20) return "minimal";
+  if (score < 40) return "mild";
+  if (score < 65) return "moderate";
+  return "high";
+}
+
+function toQualityScore(m: ImageMetrics) {
+  const brightnessScore =
+    m.brightness < 15
+      ? 0
+      : m.brightness < 25
+      ? 35
+      : m.brightness < 80
+      ? 100
+      : 60;
+  const contrastScore = m.contrast < 10 ? 35 : m.contrast < 25 ? 70 : 100;
+  return clamp(Math.round(0.6 * brightnessScore + 0.4 * contrastScore), 0, 100);
+}
+
+function heroProductFromRoutine(
+  products: any[],
+  topConcern: "acne" | "pore" | "texture" | "wrinkle",
+  q: SkinQuestionnaire
+) {
+  const byStep = (step: string) => products.filter((p) => p.step === step);
+  const has = (re: RegExp) => (p: any) => re.test(`${p.brand} ${p.name}`.toLowerCase());
+
+  if (topConcern === "wrinkle") {
+    const sunscreens = byStep("sunscreen");
+    const preferred = sunscreens.find(has(/anthelios|uvmune|spf/));
+    return preferred || sunscreens[0] || products[0] || null;
+  }
+
+  if (topConcern === "acne") {
+    if (q.sensitivity === "high") {
+      const gentle = byStep("cleanser").find(has(/cerave|cera\w*/));
+      return gentle || byStep("cleanser")[0] || products[0] || null;
+    }
+
+    const bp = products.find(has(/benzoyl|panoxyl/));
+    const sal = products.find(has(/salicylic/));
+    return bp || sal || byStep("cleanser")[0] || products[0] || null;
+  }
+
+  if (topConcern === "texture") {
+    if (q.sensitivity === "high") {
+      const barrier = products.find(has(/cica|ceramide|snail|moistur/));
+      return barrier || byStep("moisturizer")[0] || products[0] || null;
+    }
+    const acids = products.find(has(/aha|bha|pha|miracle|clarifying/));
+    return acids || byStep("toner")[0] || products[0] || null;
+  }
+
+  if (topConcern === "pore") {
+    const niacinamide = products.find(has(/niacinamide|propolis/));
+    const bha = products.find(has(/bha|salicylic/));
+    return niacinamide || bha || byStep("serum")[0] || products[0] || null;
+  }
+
+  return products[0] || null;
+}
+
 async function computeImageMetrics(img: HTMLImageElement, faceBox: FaceBox) {
   const maxSide = 256;
   const scale = Math.min(1, maxSide / Math.max(faceBox.width, faceBox.height));
@@ -202,6 +283,72 @@ async function computeImageMetrics(img: HTMLImageElement, faceBox: FaceBox) {
   return { brightness, contrast, redness, edge };
 }
 
+function concernMeaning(concern: "acne" | "pore" | "texture" | "wrinkle") {
+  if (concern === "acne")
+    return "This reflects tendency toward breakouts and congestion. It is not a diagnosis.";
+  if (concern === "pore")
+    return "This reflects the visibility of pores (often influenced by oil production, elasticity, and texture).";
+  if (concern === "texture")
+    return "This reflects surface roughness/unevenness (often influenced by dryness, buildup, and irritation).";
+  return "This reflects the likelihood of fine lines being visible (often influenced by age, sun exposure, and hydration).";
+}
+
+function whatToDo(concern: "acne" | "pore" | "texture" | "wrinkle", q: SkinQuestionnaire) {
+  if (concern === "acne") {
+    const base =
+      q.sensitivity === "high"
+        ? "Prioritize barrier-first acne care: gentle cleanse, moisturize, and introduce exfoliants slowly."
+        : "Use an acne-targeting cleanser and keep the rest of the routine gentle and consistent.";
+    return `${base} Avoid scrubbing, and use sunscreen daily to prevent dark marks.`;
+  }
+  if (concern === "pore") {
+    return "Focus on oil control + gentle exfoliation: a BHA/clarifying toner a few nights a week and daily sunscreen. Avoid harsh stripping cleansers.";
+  }
+  if (concern === "texture") {
+    return q.sensitivity === "high"
+      ? "Texture often improves when the skin barrier is calm: moisturize consistently and avoid over-exfoliating."
+      : "Texture usually improves with controlled exfoliation (AHA/BHA) plus hydration. Start slowly (2–3 nights/week).";
+  }
+  return "The most evidence-based anti-aging step is daily broad-spectrum sunscreen. Add antioxidants (like vitamin C) as tolerated and keep the barrier well-hydrated.";
+}
+
+function isExfoliatingProductName(productName: string) {
+  const n = productName.toLowerCase();
+  return (
+    n.includes("aha") ||
+    n.includes("bha") ||
+    n.includes("pha") ||
+    n.includes("clarifying") ||
+    n.includes("miracle") ||
+    n.includes("salicylic")
+  );
+}
+
+function stepHowToUse(step: string, productName: string, q: SkinQuestionnaire) {
+  if (step === "sunscreen") {
+    return "Every morning: apply 2 finger-lengths to face/neck. Reapply every 2–3 hours if outdoors.";
+  }
+  if (step === "cleanser") {
+    return q.sensitivity === "high"
+      ? "AM/PM: cleanse gently for 20–30 seconds. Avoid hot water."
+      : "AM/PM: cleanse gently for 20–30 seconds. If skin feels tight, reduce cleansing to once daily.";
+  }
+  if (step === "toner") {
+    return isExfoliatingProductName(productName)
+      ? q.sensitivity === "high"
+        ? "Night only: start 1–2 nights/week, then increase slowly as tolerated. Skip if stinging."
+        : "Night only: start 2–3 nights/week, then increase as tolerated."
+      : "AM/PM: apply after cleansing, then moisturize.";
+  }
+  if (step === "serum") {
+    return "AM or PM: apply 2–3 drops to dry skin, then moisturize. Introduce one active at a time.";
+  }
+  if (step === "moisturizer") {
+    return "AM/PM: apply to slightly damp skin to support the barrier.";
+  }
+  return "Use as directed and introduce slowly.";
+}
+
 function dataURLtoFile(dataUrl: string, filename: string): File {
   const arr = dataUrl.split(",");
   const mime = arr[0].match(/:(.*?);/)?.[1] || "";
@@ -243,6 +390,12 @@ export default function FaceDetectionComponent() {
     sunscreenUse: "sometimes",
     sunExposure: "medium",
   });
+  const [analysisBreakdown, setAnalysisBreakdown] =
+    useState<AnalysisBreakdown | null>(null);
+  const [heroProduct, setHeroProduct] = useState<any | null>(null);
+  const [topConcern, setTopConcern] = useState<
+    "acne" | "pore" | "texture" | "wrinkle" | null
+  >(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
   const [showSendModal, setShowSendModal] = useState(false);
@@ -539,6 +692,9 @@ export default function FaceDetectionComponent() {
       setMessage(null);
       setRetake(false);
       setShowRetryButton(false);
+      setAnalysisBreakdown(null);
+      setHeroProduct(null);
+      setTopConcern(null);
     } catch (err) {
       console.error(err);
       setMessage("We couldn't process that photo. Please retake and try again.");
@@ -610,6 +766,9 @@ export default function FaceDetectionComponent() {
       try {
         const base = questionnaireToBaseScores(questionnaire);
         const metrics = await computeImageMetrics(img, faceBox);
+        const qualityScore = toQualityScore(metrics);
+        const imageWeight = clamp(qualityScore / 100, 0.05, 0.25);
+        const qWeight = 1 - imageWeight;
 
         if (metrics.brightness < 15) {
           setMessage("Your photo looks too dark. Please retake in better lighting.");
@@ -617,15 +776,33 @@ export default function FaceDetectionComponent() {
           return;
         }
 
-        const acne = toUiScore(base.acne * 0.75 + metrics.redness * 0.25);
-        const pore = toUiScore(base.pore * 0.75 + metrics.contrast * 0.25);
+        const acneSignal = metrics.redness;
+        const poreSignal = clamp(0.6 * metrics.contrast + 0.4 * metrics.edge, 0, 100);
+        const textureSignal = clamp(0.55 * metrics.edge + 0.45 * metrics.contrast, 0, 100);
+        const wrinkleSignal = metrics.edge;
+
+        let acne = toUiScore(base.acne * qWeight + acneSignal * imageWeight);
+        const pore = toUiScore(base.pore * qWeight + poreSignal * imageWeight);
         const texture = toUiScore(
-          base.texture * 0.6 + metrics.edge * 0.2 + metrics.contrast * 0.2
+          base.texture * qWeight + textureSignal * imageWeight
         );
-        const wrinkle = toUiScore(base.wrinkle * 0.8 + metrics.edge * 0.2);
+        let wrinkle = toUiScore(base.wrinkle * qWeight + wrinkleSignal * imageWeight);
+
+        if (questionnaire.acneFrequency === "none") acne = Math.min(acne, 25);
+        if (questionnaire.ageRange === "under_18") wrinkle = Math.min(wrinkle, 20);
 
         const avgConcern = (acne + pore + texture + wrinkle) / 4;
         const overall = clamp(100 - avgConcern, 0, 100);
+
+        const combined = { acne, pore, texture, wrinkle, overall };
+        const concernEntries = [
+          ["acne", acne],
+          ["pore", pore],
+          ["texture", texture],
+          ["wrinkle", wrinkle],
+        ] as const;
+        const top = concernEntries.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+        setTopConcern(top);
 
         setScoreInfo({
           acne: { ui_score: acne },
@@ -633,6 +810,36 @@ export default function FaceDetectionComponent() {
           texture: { ui_score: texture },
           wrinkle: { ui_score: wrinkle },
           all: { score: overall },
+        });
+
+        const recommended = getRecommendedProducts({
+          acne: { ui_score: acne },
+          pore: { ui_score: pore },
+          texture: { ui_score: texture },
+          wrinkle: { ui_score: wrinkle },
+          all: { score: overall },
+        });
+
+        if (recommended?.routine?.products?.length) {
+          setHeroProduct(
+            heroProductFromRoutine(recommended.routine.products, top, questionnaire)
+          );
+        }
+
+        const qualityNote =
+          qualityScore >= 80
+            ? "Good lighting and contrast. Photo signals are reliable."
+            : qualityScore >= 55
+            ? "Okay photo quality. Results lean more on your questionnaire answers."
+            : "Low photo quality. Results rely mostly on your questionnaire answers.";
+
+        setAnalysisBreakdown({
+          questionnaire,
+          base,
+          metrics,
+          weights: { questionnaire: qWeight, image: imageWeight },
+          combined,
+          qualityNote,
         });
       } catch (err) {
         console.error(err);
@@ -742,6 +949,20 @@ export default function FaceDetectionComponent() {
 
     return canvas.toDataURL("image/png");
   };
+
+  const finalRoutine = scoreInfo
+    ? getRecommendedProducts({
+        acne: { ui_score: scoreInfo.acne?.ui_score ?? 0 },
+        pore: { ui_score: scoreInfo.pore?.ui_score ?? 0 },
+        texture: { ui_score: scoreInfo.texture?.ui_score ?? 0 },
+        wrinkle: { ui_score: scoreInfo.wrinkle?.ui_score ?? 0 },
+        all: { score: scoreInfo.all?.score ?? 0 },
+      })
+    : null;
+  const topConcernScore =
+    topConcern && scoreInfo ? (scoreInfo as any)[topConcern]?.ui_score ?? 0 : 0;
+  const routine = (finalRoutine || routineRecommendation)?.routine ?? null;
+  const routineProducts = routine?.products ?? [];
 
   return (
     <>
@@ -1057,7 +1278,9 @@ export default function FaceDetectionComponent() {
                 scoreInfo ||
                 zipContent.length > 0 ||
                 processedImagePreview ||
-                routineRecommendation) && (
+                routineRecommendation ||
+                analysisBreakdown ||
+                heroProduct) && (
               <div
                 style={{
                   position: "relative",
@@ -1589,7 +1812,7 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
 
-                {scoreInfo && routineRecommendation && (
+                {scoreInfo && (finalRoutine || routineRecommendation) && (
                   <div
                     style={{
                       marginTop: "3rem",
@@ -1602,75 +1825,6 @@ export default function FaceDetectionComponent() {
                   >
                     <div
                       style={{
-                        textAlign: "center",
-                        marginBottom: "2rem",
-                      }}
-                    >
-                      <h3
-                        style={{
-                          fontSize: "1.8rem",
-                          background:
-                            "linear-gradient(45deg, #f847b4, #ff6bc7)",
-                          backgroundClip: "text",
-                          WebkitBackgroundClip: "text",
-                          WebkitTextFillColor: "transparent",
-                          fontWeight: "700",
-                          margin: 0,
-                        }}
-                      >
-                        {routineRecommendation.routine.name}
-                      </h3>
-                      <p
-                        style={{
-                          color: "#666",
-                          fontSize: "1rem",
-                          margin: "0.5rem 0 0",
-                        }}
-                      >
-                        {routineRecommendation.routine.description}
-                      </p>
-                      <div
-                        style={{
-                          marginTop: "1rem",
-                          display: "flex",
-                          justifyContent: "center",
-                          gap: "1rem",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span
-                          style={{
-                            background: "rgba(248, 71, 180, 0.1)",
-                            color: "#f847b4",
-                            padding: "0.3rem 0.8rem",
-                            borderRadius: "20px",
-                            fontSize: "0.9rem",
-                            fontWeight: "600",
-                          }}
-                        >
-                          {routineRecommendation.routineLevel
-                            .charAt(0)
-                            .toUpperCase() +
-                            routineRecommendation.routineLevel.slice(1)}{" "}
-                          Level
-                        </span>
-                        <span
-                          style={{
-                            background: "rgba(248, 71, 180, 0.1)",
-                            color: "#f847b4",
-                            padding: "0.3rem 0.8rem",
-                            borderRadius: "20px",
-                            fontSize: "0.9rem",
-                            fontWeight: "600",
-                          }}
-                        >
-                          Total: {routineRecommendation.totalCost}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
                         marginBottom: "3rem",
                         padding: "2rem",
                         background: "rgba(255, 255, 255, 0.7)",
@@ -1680,173 +1834,468 @@ export default function FaceDetectionComponent() {
                         maxWidth: "1200px",
                       }}
                     >
-                      <h4
-                        style={{
-                          color: "#f847b4",
-                          fontSize: "1.4rem",
-                          fontWeight: "700",
-                          marginBottom: "1rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        Your Complete Skincare Routine
-                        <span
+                      {analysisBreakdown && topConcern && heroProduct && (
+                        <div
                           style={{
-                            fontSize: "1rem",
-                            fontStyle: "italic",
-                            color: "#888",
-                            fontWeight: "400",
+                            marginBottom: "2rem",
+                            padding: "1.5rem",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(248, 71, 180, 0.15)",
+                            background:
+                              "linear-gradient(135deg, rgba(248, 71, 180, 0.06), rgba(255, 255, 255, 0.8))",
                           }}
                         >
-                          - Targets:
-                          {routineRecommendation.routine.targets.join(", ")}
-                        </span>
-                      </h4>
+                          <h4
+                            style={{
+                              margin: "0 0 0.5rem",
+                              fontSize: "1.3rem",
+                              fontWeight: "800",
+                              color: "#2c3e50",
+                              textAlign: "center",
+                            }}
+                          >
+                            Best Pick For You (Derm‑style)
+                          </h4>
+                          <p
+                            style={{
+                              margin: "0 0 1rem",
+                              color: "#666",
+                              textAlign: "center",
+                            }}
+                          >
+                            Top priority:{" "}
+                            <span style={{ color: "#f847b4", fontWeight: 800 }}>
+                              {topConcern.toUpperCase()}
+                            </span>{" "}
+                            ({severityFromConcernScore(
+                              topConcernScore
+                            )})
+                          </p>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns:
+                                "repeat(auto-fit, minmax(220px, 1fr))",
+                              gap: "1rem",
+                              alignItems: "center",
+                            }}
+                          >
+                            <div style={{ textAlign: "center" }}>
+                              <img
+                                src={heroProduct.image}
+                                alt={heroProduct.name}
+                                style={{
+                                  width: "160px",
+                                  height: "160px",
+                                  objectFit: "contain",
+                                  margin: "0 auto",
+                                  borderRadius: "12px",
+                                  background: "white",
+                                  border: "1px solid rgba(0,0,0,0.06)",
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <div
+                                style={{
+                                  fontWeight: 800,
+                                  fontSize: "1.05rem",
+                                  color: "#2c3e50",
+                                }}
+                              >
+                                {heroProduct.brand} — {heroProduct.name}
+                              </div>
+                              <div style={{ color: "#666", marginTop: "0.35rem" }}>
+                                Why: {concernMeaning(topConcern)}
+                              </div>
+                              <div style={{ color: "#666", marginTop: "0.35rem" }}>
+                                How to use:{" "}
+                                {topConcern === "wrinkle"
+                                  ? "Apply generously every morning and reapply if outdoors."
+                                  : topConcern === "acne"
+                                  ? analysisBreakdown.questionnaire.sensitivity ===
+                                    "high"
+                                    ? "Use once daily. If dryness/irritation happens, reduce frequency and moisturize."
+                                    : "Start 3–4x/week, then increase as tolerated. Moisturize after."
+                                  : topConcern === "texture"
+                                  ? analysisBreakdown.questionnaire.sensitivity ===
+                                    "high"
+                                    ? "Use daily to support barrier. Avoid stacking many actives at once."
+                                    : "If it’s an exfoliating toner, start 2–3 nights/week and increase slowly."
+                                  : "Use as directed. Introduce one active at a time to reduce irritation."}
+                              </div>
+                              <div style={{ color: "#666", marginTop: "0.35rem" }}>
+                                Safety: patch test first; stop if burning, swelling, or rash.
+                              </div>
+                              <div style={{ marginTop: "0.75rem" }}>
+                                <a
+                                  href={heroProduct.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: "inline-block",
+                                    padding: "0.75rem 1rem",
+                                    borderRadius: "12px",
+                                    background:
+                                      "linear-gradient(135deg, #f847b4, #ff6bc7)",
+                                    color: "white",
+                                    fontWeight: 700,
+                                    textDecoration: "none",
+                                  }}
+                                >
+                                  Shop this product
+                                </a>
+                              </div>
+                            </div>
+                          </div>
 
-                      {/* Group products by step */}
-                      {[
-                        "cleanser",
-                        "toner",
-                        "serum",
-                        "moisturizer",
-                        "sunscreen",
-                      ].map((step) => {
-                        const stepProducts =
-                          routineRecommendation.routine.products.filter(
-                            (p: any) => p.step === step
-                          );
+                          {analysisBreakdown && routineProducts.length > 0 && (
+                            <div style={{ marginTop: "1.5rem" }}>
+                              <h5
+                                style={{
+                                  margin: "0 0 0.75rem",
+                                  fontSize: "1.1rem",
+                                  fontWeight: "900",
+                                  color: "#2c3e50",
+                                  textAlign: "center",
+                                }}
+                              >
+                                Your Full Routine (Derm‑built)
+                              </h5>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns:
+                                    "repeat(auto-fit, minmax(240px, 1fr))",
+                                  gap: "1rem",
+                                }}
+                              >
+                                {[
+                                  "cleanser",
+                                  "toner",
+                                  "serum",
+                                  "moisturizer",
+                                  "sunscreen",
+                                ].map((step) => {
+                                  const product = routineProducts.find(
+                                    (p: any) => p.step === step
+                                  );
+                                  if (!product) return null;
+                                  return (
+                                    <a
+                                      key={step}
+                                      href={product.link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "80px 1fr",
+                                        gap: "0.85rem",
+                                        alignItems: "center",
+                                        padding: "1rem",
+                                        borderRadius: "14px",
+                                        border: "1px solid rgba(0,0,0,0.06)",
+                                        background: "rgba(255, 255, 255, 0.95)",
+                                        textDecoration: "none",
+                                      }}
+                                    >
+                                      <img
+                                        src={product.image}
+                                        alt={product.name}
+                                        style={{
+                                          width: "80px",
+                                          height: "80px",
+                                          objectFit: "contain",
+                                          borderRadius: "12px",
+                                          background: "white",
+                                          border: "1px solid rgba(0,0,0,0.06)",
+                                        }}
+                                      />
+                                      <div>
+                                        <div
+                                          style={{
+                                            fontSize: "0.85rem",
+                                            textTransform: "capitalize",
+                                            letterSpacing: "0.5px",
+                                            fontWeight: 900,
+                                            color: "#f847b4",
+                                          }}
+                                        >
+                                          {step}
+                                        </div>
+                                        <div
+                                          style={{
+                                            fontWeight: 900,
+                                            color: "#2c3e50",
+                                            lineHeight: 1.2,
+                                            marginTop: "0.15rem",
+                                          }}
+                                        >
+                                          {product.brand} — {product.name}
+                                        </div>
+                                        <div style={{ color: "#666", marginTop: "0.35rem" }}>
+                                          {stepHowToUse(
+                                            step,
+                                            product.name,
+                                            analysisBreakdown.questionnaire
+                                          )}
+                                        </div>
+                                      </div>
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                              <div style={{ color: "#666", marginTop: "1rem" }}>
+                                Morning: cleanser → (toner if gentle) → serum → moisturizer →
+                                sunscreen. Night: cleanser → toner (if exfoliating, use on
+                                alternate nights) → serum → moisturizer.
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                        if (stepProducts.length === 0) return null;
-
-                        return (
-                          <div key={step} style={{ marginBottom: "2rem" }}>
-                            <h5
-                              style={{
-                                textTransform: "capitalize",
-                                fontSize: "1.1rem",
-                                fontWeight: "600",
-                                margin: "1rem 0 0.5rem",
-                                color: "#333",
-                              }}
-                            >
-                              {step}
-                            </h5>
-
+                      {analysisBreakdown && (
+                        <div
+                          style={{
+                            marginBottom: "2rem",
+                            padding: "1.5rem",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(248, 71, 180, 0.12)",
+                            background: "rgba(255, 255, 255, 0.9)",
+                          }}
+                        >
+                          <h4
+                            style={{
+                              margin: "0 0 0.75rem",
+                              fontSize: "1.2rem",
+                              fontWeight: "800",
+                              color: "#2c3e50",
+                            }}
+                          >
+                            Explanation (based on your answers + your photo)
+                          </h4>
+                          <div style={{ color: "#666", marginBottom: "0.75rem" }}>
+                            {analysisBreakdown.qualityNote}
+                          </div>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns:
+                                "repeat(auto-fit, minmax(240px, 1fr))",
+                              gap: "1rem",
+                              marginBottom: "1rem",
+                            }}
+                          >
                             <div
                               style={{
-                                display: "grid",
-                                gridTemplateColumns:
-                                  "repeat(auto-fit, minmax(200px, 1fr))",
-                                gap: "2rem",
-                                marginTop: "1rem",
-                                justifyContent: "center",
-                                justifyItems: "center",
+                                padding: "1rem",
+                                borderRadius: "14px",
+                                border: "1px solid rgba(0,0,0,0.06)",
+                                background: "rgba(255, 255, 255, 0.85)",
                               }}
                             >
-                              {stepProducts.map((product: any) => (
+                              <div
+                                style={{
+                                  fontWeight: 900,
+                                  color: "#2c3e50",
+                                  marginBottom: "0.5rem",
+                                }}
+                              >
+                                Your answers
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Skin type:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.questionnaire.skinType.replace("_", " ")}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Sensitivity:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.questionnaire.sensitivity}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Acne frequency:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.questionnaire.acneFrequency.replace(
+                                    "_",
+                                    " "
+                                  )}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Pores:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.questionnaire.poreVisibility.replace(
+                                    "_",
+                                    " "
+                                  )}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Texture feel:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.questionnaire.textureFeel.replace(
+                                    "_",
+                                    " "
+                                  )}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Sunscreen use:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.questionnaire.sunscreenUse}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Sun exposure:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.questionnaire.sunExposure}
+                                </span>
+                              </div>
+                            </div>
+                            <div
+                              style={{
+                                padding: "1rem",
+                                borderRadius: "14px",
+                                border: "1px solid rgba(0,0,0,0.06)",
+                                background: "rgba(255, 255, 255, 0.85)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontWeight: 900,
+                                  color: "#2c3e50",
+                                  marginBottom: "0.5rem",
+                                }}
+                              >
+                                Photo signals (not a diagnosis)
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Lighting:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.metrics.brightness >= 35
+                                    ? "good"
+                                    : analysisBreakdown.metrics.brightness >= 20
+                                    ? "okay"
+                                    : "low"}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Redness signal:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.metrics.redness >= 60
+                                    ? "high"
+                                    : analysisBreakdown.metrics.redness >= 35
+                                    ? "moderate"
+                                    : "low"}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Texture signal:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.metrics.edge >= 60
+                                    ? "high"
+                                    : analysisBreakdown.metrics.edge >= 35
+                                    ? "moderate"
+                                    : "low"}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666" }}>
+                                Contrast detail:{" "}
+                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                  {analysisBreakdown.metrics.contrast >= 45
+                                    ? "high"
+                                    : analysisBreakdown.metrics.contrast >= 25
+                                    ? "moderate"
+                                    : "low"}
+                                </span>
+                              </div>
+                              <div style={{ color: "#666", marginTop: "0.75rem" }}>
+                                The algorithm uses your answers as the primary driver and uses
+                                the photo only as a small adjustment when quality is good.
+                              </div>
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns:
+                                "repeat(auto-fit, minmax(240px, 1fr))",
+                              gap: "1rem",
+                            }}
+                          >
+                            {(
+                              [
+                                ["acne", "Acne"],
+                                ["pore", "Pores"],
+                                ["texture", "Texture"],
+                                ["wrinkle", "Wrinkles"],
+                              ] as const
+                            ).map(([key, label]) => {
+                              const score = (scoreInfo as any)?.[key]?.ui_score ?? 0;
+                              const sev = severityFromConcernScore(score);
+                              return (
                                 <div
-                                  key={product.id}
+                                  key={key}
                                   style={{
-                                    width: "100%",
-                                    maxWidth: "250px",
+                                    padding: "1rem",
+                                    borderRadius: "14px",
+                                    border: "1px solid rgba(0,0,0,0.06)",
+                                    background: "rgba(255, 217, 240, 0.25)",
                                   }}
                                 >
                                   <div
                                     style={{
-                                      overflow: "hidden",
-                                      marginBottom: "1rem",
-                                      borderRadius: "8px",
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "baseline",
+                                      gap: "0.75rem",
+                                      marginBottom: "0.5rem",
                                     }}
                                   >
-                                    <img
-                                      src={product.image}
-                                      alt={product.name}
+                                    <div
                                       style={{
-                                        width: "100%",
-                                        height: "100%",
-                                        objectFit: "cover",
+                                        fontWeight: 900,
+                                        color: "#2c3e50",
                                       }}
-                                    />
+                                    >
+                                      {label}
+                                    </div>
+                                    <div
+                                      style={{
+                                        fontWeight: 900,
+                                        color: "#f847b4",
+                                      }}
+                                    >
+                                      {score} / 100
+                                    </div>
                                   </div>
-
-                                  <h5
-                                    style={{
-                                      margin: "0 0 0.5rem",
-                                      fontWeight: "600",
-                                      color: "#333",
-                                      fontSize: "1rem",
-                                      lineHeight: "1.3",
-                                      textAlign: "center",
-                                    }}
-                                  >
-                                    {product.name}
-                                  </h5>
-
-                                  <p
-                                    style={{
-                                      margin: "0 0 0.5rem",
-                                      color: "#888",
-                                      fontSize: "0.9rem",
-                                      textAlign: "center",
-                                      fontWeight: "600",
-                                    }}
-                                  >
-                                    {product.brand}
-                                  </p>
-
-                                  <p
-                                    style={{
-                                      margin: "0 0 1rem",
-                                      color: "#f847b4",
-                                      fontWeight: "700",
-                                      fontSize: "1.1rem",
-                                      textAlign: "center",
-                                    }}
-                                  >
-                                    {product.price_html}
-                                  </p>
-
-                                  <a
-                                    href={product.link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                      display: "inline-block",
-                                      background:
-                                        "linear-gradient(135deg, #f847b4, #ff6bc7)",
-                                      color: "white",
-                                      textDecoration: "none",
-                                      padding: "0.8rem 1.5rem",
-                                      borderRadius: "10px",
-                                      fontSize: "0.9rem",
-                                      fontWeight: "600",
-                                      boxShadow:
-                                        "0 4px 15px rgba(248, 71, 180, 0.3)",
-                                      transition: "all 0.3s ease",
-                                      width: "100%",
-                                      textAlign: "center",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      e.currentTarget.style.transform =
-                                        "translateY(-2px)";
-                                      e.currentTarget.style.boxShadow =
-                                        "0 6px 20px rgba(248, 71, 180, 0.4)";
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      e.currentTarget.style.transform =
-                                        "translateY(0)";
-                                      e.currentTarget.style.boxShadow =
-                                        "0 4px 15px rgba(248, 71, 180, 0.3)";
-                                    }}
-                                  >
-                                    Shop Now
-                                  </a>
+                                  <div style={{ color: "#666" }}>
+                                    Severity:{" "}
+                                    <span style={{ fontWeight: 800, color: "#2c3e50" }}>
+                                      {sev}
+                                    </span>
+                                  </div>
+                                  <div style={{ color: "#666", marginTop: "0.5rem" }}>
+                                    {concernMeaning(key)}
+                                  </div>
+                                  <div style={{ color: "#666", marginTop: "0.5rem" }}>
+                                    What to do: {whatToDo(key, analysisBreakdown.questionnaire)}
+                                  </div>
                                 </div>
-                              ))}
-                            </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+                          <div style={{ color: "#666", marginTop: "1rem" }}>
+                            This tool is educational and cannot diagnose medical conditions. If
+                            you have painful acne, sudden rashes, or worsening irritation, see a
+                            dermatologist.
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
