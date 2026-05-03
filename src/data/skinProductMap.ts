@@ -1,3 +1,18 @@
+import { getGranularLevel } from "@/util/utils";
+
+interface ScoreEntry {
+  ui_score?: number;
+  raw_score?: number;
+}
+
+interface ScoreInfo {
+  wrinkle?: ScoreEntry;
+  pore?: ScoreEntry;
+  texture?: ScoreEntry;
+  acne?: ScoreEntry;
+  all?: { score?: number };
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -5,40 +20,62 @@ export interface Product {
   brand: string;
   image: string;
   link: string;
-  step: "cleanser" | "toner" | "moisturizer" | "sunscreen";
+  step: "cleanser" | "toner" | "moisturizer" | "sunscreen" | "serum";
 }
 
-export const skinProductMap: {
-  [concern: string]: {
-    [level in "very_low" | "moderate" | "high" | "very_high"]?: Product[];
-  };
+export interface RoutineLevel {
+  name: string;
+  description: string;
+  targets: string[];
+  products: Product[];
+}
+
+export const skinCareRoutines: {
+  [level in
+    | "beginner"
+    | "intermediate"
+    | "advanced"
+    | "intensive"]?: RoutineLevel;
 } = {
-  acne: {
-    very_low: [
+  beginner: {
+    name: "Gentle Multi-Concern Routine",
+    description:
+      "A gentle routine designed for beginners or those with generally healthy skin. Targets mild acne, early signs of aging, and basic texture concerns.",
+    targets: ["mild acne", "prevention", "hydration", "basic texture"],
+    products: [
       {
         id: 101,
         name: "Foaming Facial Cleanser",
         price_html: "₦16,600",
         brand: "CeraVe",
-        image: "/images/products/cerave-foaming-cleanser.png",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753342063/foamingcleansercerave_tfyjce.png",
         link: "https://beautyhub.ng/product/cerave-foaming-facial-cleanser/",
         step: "cleanser",
       },
       {
         id: 141,
         name: "Aha/Bha Clarifying Treatment Toner",
-        price_html: "₦15,300",
+        price_html: "₦13,500",
         brand: "Cosrx",
-        image: "/images/products/cosrx-ahabha-toner.png",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/cosrx-ahabha-toner_r9tfjf.png",
         link: "https://beautyhub.ng/product/cosrx-aha-bha-clarifying-treatment-toner/",
         step: "toner",
       },
       {
-        id: 102,
+        id: 1356200941,
+        name: "Glow Serum : Propolis + Niacinamide",
+        price_html: "₦18,500",
+        brand: "Beauty Of Joseon",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/beautyofjoseonniacinamide_zn5czx.png",
+        link: "https://beautyhub.ng/product/beauty-of-joseon-glow-serum-propolis-niacinamide/",
+        step: "serum",
+      },
+      {
+        id: 968896,
         name: "Advanced Snail 92 All in one Cream",
-        price_html: "₦15,500",
+        price_html: "₦16,500",
         brand: "Cosrx",
-        image: "/images/products/cosrx-allinonecream.png",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/cosrx-allinonecream_f4fxcn.png",
         link: "https://beautyhub.ng/product/cosrx-advanced-snail-92-all-in-one-cream/",
         step: "moisturizer",
       },
@@ -47,519 +84,84 @@ export const skinProductMap: {
         name: "Super Moisture Gel SPF50+ PA++++",
         price_html: "₦11,500",
         brand: "Rohto Skin Aqua",
-        image: "/images/products/skinaqua.png",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/skinaqua_b8fnel.png",
         link: "https://beautyhub.ng/product/rohto-skin-aqua-super-moisture-gel-spf50-pa/",
-        step: "sunscreen",
-      },
-    ],
-    moderate: [
-      {
-        id: 104,
-        name: "Salicylic Acid Daily Gentle Cleanser",
-        price_html: "₦11,600",
-        brand: "Cosrx",
-        image: "/images/products/cosrxsalicyliccleanser.png",
-        link: "https://beautyhub.ng/product/cosrx-salicylic-acid-daily-gentle-cleanser/",
-        step: "cleanser",
-      },
-      {
-        id: 105,
-        name: "Full Fit Propolis Synergy Toner",
-        price_html: "₦14,000",
-        brand: "Cosrx",
-        image: "/images/products/cosrxspropolistoner.png",
-        link: "https://beautyhub.ng/product/cosrx-full-fit-propolis-synergy-toner/",
-        step: "toner",
-      },
-      {
-        id: 106,
-        name: "Hydro Boost Hyaluronic Acid Water Gel",
-        price_html: "₦34,000",
-        brand: "Neutrogena",
-        image: "/images/products/neutrogenamoisturizer.png",
-        link: "https://beautyhub.ng/product/neutrogena-hydro-boost-hyaluronic-acid-water-gel/",
-        step: "moisturizer",
-      },
-      {
-        id: 136,
-        name: "Uv Perfect Gel Sunscreen",
-        price_html: "₦13,500",
-        brand: "Kose Suncut",
-        image: "/images/products/kosesuncut.png",
-        link: "https://beautyhub.ng/product/kose-suncut-uv-perfect-gel-sunscreen-spf-50-100g/",
-        step: "sunscreen",
-      },
-    ],
-    high: [
-      {
-        id: 107,
-        name: "Acne Wash Cleanser",
-        price_html: "₦15,500",
-        brand: "Zapyzt",
-        image: "/images/products/zapzytcleanser.png",
-        link: "https://beautyhub.ng/product/zapzyt-acne-wash-cleanser/",
-        step: "cleanser",
-      },
-      {
-        id: 108,
-        name: "Licorice pH Balancing Cleansing Toner",
-        price_html: "₦13,000",
-        brand: "Acwell",
-        image: "/images/products/acwelltoner.png",
-        link: "https://beautyhub.ng/product/acwell-licorice-ph-balancing-cleansing-toner/",
-        step: "toner",
-      },
-      {
-        id: 138,
-        name: "Advanced Snail 92 All in one Cream",
-        price_html: "₦15,500",
-        brand: "Cosrx",
-        image: "/images/products/cosrx-allinonecream.png",
-        link: "https://beautyhub.ng/product/cosrx-advanced-snail-92-all-in-one-cream/",
-        step: "moisturizer",
-      },
-      {
-        id: 118,
-        name: "Anthelios UVMune 400 Invisible Fluid Spf50+",
-        price_html: "₦9,000",
-        brand: "La Roche Posay",
-        image: "/images/products/larocheinvisble.png",
-        link: "https://beautyhub.ng/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
-        step: "sunscreen",
-      },
-    ],
-    very_high: [
-      {
-        id: 109,
-        name: "Acne Creamy Wash 4% Benzoyl Peroxide",
-        price_html: "₦17,800",
-        brand: "Panoxyl",
-        image: "/images/products/panoxyl4.png",
-        link: "https://beautyhub.ng/product/panoxyl-acne-acne-creamy-wash-4-benzoyl-peroxide/",
-        step: "cleanser",
-      },
-      {
-        id: 110,
-        name: "Green Tea Fresh Toner",
-        price_html: "₦14,700",
-        brand: "Isntree",
-        image: "/images/products/isntreetoner.png",
-        link: "https://beautyhub.ng/product/isntree-green-tea-fresh-toner/",
-        step: "toner",
-      },
-      {
-        id: 1788,
-        name: "Oil-Free Ultra-Moisturizing Lotion with Birch Sap",
-        price_html: "₦16,800",
-        brand: "Cosrx",
-        image: "/images/products/cosrxoilmoisturizing.png",
-        link: "https://beautyhub.ng/product/cosrx-oil-free-ultra-moisturizing-lotion-with-birch-sap/",
-        step: "moisturizer",
-      },
-      {
-        id: 10398,
-        name: "Anthelios UVMune 400 Invisible Fluid Spf50+",
-        price_html: "₦9,000",
-        brand: "La Roche Posay",
-        image: "/images/products/larocheinvisble.png",
-        link: "https://beautyhub.ng/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
         step: "sunscreen",
       },
     ],
   },
 
-  wrinkle: {
-    very_low: [
-      {
-        id: 201,
-        name: "Hydrating Cleanser",
-        price_html: "₦16,500",
-        brand: "Cerave",
-        image: "/images/products/ceravehydratingclenser.png",
-        link: "https://beautyhub.ng/product/cerave-hydrating-cleanser-473ml/",
-        step: "cleanser",
-      },
-      {
-        id: 9885,
-        name: "Advanced Snail Radiance Dual Essence",
-        price_html: "₦25,500",
-        brand: "Cosrx ",
-        image: "/images/products/cosrxdualessence.png",
-        link: "https://beautyhub.ng/product/cosrx-advanced-snail-radiance-dual-essence/",
-        step: "toner",
-      },
-      {
-        id: 968896,
-        name: "Gentle Retinol Cream",
-        price_html: "₦14,300",
-        brand: "Good Molecules",
-        image: "/images/products/goodmoleculeretinolcream.png",
-        link: "https://beautyhub.ng/product/good-molecules-gentle-retinol-cream/",
-        step: "moisturizer",
-      },
-      {
-        id: 9590003882,
-        name: "Super Moisture Gel SPF50+ PA++++",
-        price_html: "₦11,500",
-        brand: "Rohto Skin Aqua",
-        image: "/images/products/skinaqua.png",
-        link: "https://beautyhub.ng/product/rohto-skin-aqua-super-moisture-gel-spf50-pa/",
-        step: "sunscreen",
-      },
+  intermediate: {
+    name: "Balanced Treatment Routine",
+    description:
+      "A balanced routine for users with moderate concerns. Combines acne-fighting ingredients, anti-aging support, and pore-minimizing treatments.",
+    targets: [
+      "moderate acne",
+      "fine lines",
+      "texture improvement",
+      "pore appearance",
     ],
-    moderate: [
+    products: [
       {
-        id: 8492,
-        name: "Hydrating Cleanser",
-        price_html: "₦16,500",
-        brand: "Cerave",
-        image: "/images/products/ceravehydratingclenser.png",
-        link: "https://beautyhub.ng/product/cerave-hydrating-cleanser-473ml/",
-        step: "cleanser",
-      },
-      {
-        id: 109875,
-        name: "Licorice pH Balancing Cleansing Toner",
-        price_html: "₦13,000",
-        brand: "Acwell",
-        image: "/images/products/acwelltoner.png",
-        link: "https://beautyhub.ng/product/acwell-licorice-ph-balancing-cleansing-toner/",
-        step: "toner",
-      },
-      {
-        id: 1890234,
-        name: "Lactic Acid Retinol Facial Cream",
-        price_html: "₦11,400",
-        brand: "APLB",
-        image: "/images/products/aplbcream.png",
-        link: "https://beautyhub.ng/product/aplb-lactic-acid-retinol-facial-cream/",
-        step: "moisturizer",
-      },
-      {
-        id: 9088585,
-        name: "All-Around Safe Block Aqua Sun Spf50+/Pa+++",
-        price_html: "₦12,000",
-        brand: "Missha",
-        image: "/images/products/misshasunscreen.png",
-        link: "https://beautyhub.ng/product/missha-all-around-safe-block-aqua-sun-spf50-pa/",
-        step: "sunscreen",
-      },
-    ],
-    high: [
-      {
-        id: 84993,
-        name: "Foaming Gel",
-        price_html: "₦24,000",
-        brand: "Sensibio",
-        image: "/images/products/sensibiofoaming.png",
-        link: "https://beautyhub.ng/product/sensibio-foaming-gel/",
-        step: "cleanser",
-      },
-      {
-        id: 109858858,
-        name: "Licorice pH Balancing Cleansing Toner",
-        price_html: "₦13,000",
-        brand: "Acwell",
-        image: "/images/products/acwelltoner.png",
-        link: "https://beautyhub.ng/product/acwell-licorice-ph-balancing-cleansing-toner/",
-        step: "toner",
-      },
-      {
-        id: 12377758,
-        name: "Skin Renewing Night Cream",
-        price_html: "₦31,500",
-        brand: "CeraVe",
-        image: "/images/products/ceravenightcream.png",
-        link: "https://beautyhub.ng/product/cerave-skin-renewing-night-cream/",
-        step: "moisturizer",
-      },
-      {
-        id: 1958850,
-        name: "Retinol Vitamin C Vitamin E Sunscreen",
-        price_html: "₦12,400",
-        brand: "APLB",
-        image: "/images/products/aplbsunscreen.png",
-        link: "https://beautyhub.ng/product/aplb-retinol-vitamin-c-vitamin-e-sunscreen/",
-        step: "sunscreen",
-      },
-    ],
-    very_high: [
-      {
-        id: 259955,
-        name: "Age Resisting Facial Wash",
-        price_html: "₦8,500",
-        brand: "Simple",
-        image: "/images/products/simpleagewash.png",
-        link: "https://beautyhub.ng/product/simple-age-resisting-facial-wash/",
-        step: "cleanser",
-      },
-      {
-        id: 155949,
-        name: "Hydrating Toner",
-        price_html: "₦18,000",
-        brand: "CeraVe",
-        image: "/images/products/ceravetoner.png",
-        link: "https://beautyhub.ng/product/cerave-hydrating-toner/",
-        step: "toner",
-      },
-      {
-        id: 185995,
-        name: "Retinol24 Night Moisturizer",
-        price_html: "₦80,000",
-        brand: "Olay",
-        image: "/images/products/olaynightcream.png",
-        link: "https://beautyhub.ng/product/olay-retinol24-night-moisturizer/",
-        step: "moisturizer",
-      },
-      {
-        id: 1029944,
-        name: "Anthelios UVMune 400 Invisible Fluid Spf50+",
-        price_html: "₦9,000",
-        brand: "La Roche Posay",
-        image: "/images/products/larocheinvisble.png",
-        link: "https://beautyhub.ng/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
-        step: "sunscreen",
-      },
-    ],
-  },
-  texture: {
-    very_low: [
-      {
-        id: 234459,
-        name: "Hydrating Cleanser",
-        price_html: "₦16,500",
-        brand: "Cerave",
-        image: "/images/products/ceravehydratingclenser.png",
-        link: "https://beautyhub.ng/product/cerave-hydrating-cleanser-473ml/",
-        step: "cleanser",
-      },
-      {
-        id: 9885,
-        name: "Niacinamide Serum",
-        price_html: "₦28,000",
-        brand: "The Inkey List",
-        image: "/images/products/inkeylistniacinamide.png",
-        link: "https://beautyhub.ng/product/the-inkey-list-niacinamide-serum/",
-        step: "toner",
-      },
-      {
-        id: 968896,
-        name: "Advanced Snail 92 All in one Cream",
-        price_html: "₦15,500",
+        id: 104,
+        name: "Salicylic Acid Daily Gentle Cleanser",
+        price_html: "₦11,600",
         brand: "Cosrx",
-        image: "/images/products/cosrx-allinonecream.png",
-        link: "https://beautyhub.ng/product/cosrx-advanced-snail-92-all-in-one-cream/",
-        step: "moisturizer",
-      },
-      {
-        id: 9590003882,
-        name: "Super Moisture Gel SPF50+ PA++++",
-        price_html: "₦11,500",
-        brand: "Rohto Skin Aqua",
-        image: "/images/products/skinaqua.png",
-        link: "https://beautyhub.ng/product/rohto-skin-aqua-super-moisture-gel-spf50-pa/",
-        step: "sunscreen",
-      },
-    ],
-    moderate: [
-      {
-        id: 3675758,
-        name: "Matcha Biome Amino Acne Cleansing Foam",
-        price_html: "₦16,500",
-        brand: "Heimish",
-        image: "/images/products/heimishmatcha.png",
-        link: "https://beautyhub.ng/product/heimish-matcha-biome-amino-acne-cleansing-foam/",
-        step: "cleanser",
-      },
-      {
-        id: 109875,
-        name: "Bean Essence",
-        price_html: "₦20,500",
-        brand: "Mixsoon",
-        image: "/images/products/mixsoonbean.png",
-        link: "https://beautyhub.ng/product/mixsoon-bean-essence/",
-        step: "toner",
-      },
-      {
-        id: 1890234,
-        name: "Holy Hydration! Face Cream",
-        price_html: "₦28,000",
-        brand: "e.l.f Cosmetics",
-        image: "/images/products/elfcosmetics.png",
-        link: "https://beautyhub.ng/product/e-l-f-cosmetics-holy-hydration-face-cream/",
-        step: "moisturizer",
-      },
-      {
-        id: 9088585,
-        name: "All-Around Safe Block Aqua Sun Spf50+/Pa+++",
-        price_html: "₦12,000",
-        brand: "Missha",
-        image: "/images/products/misshasunscreen.png",
-        link: "https://beautyhub.ng/product/missha-all-around-safe-block-aqua-sun-spf50-pa/",
-        step: "sunscreen",
-      },
-    ],
-    high: [
-      {
-        id: 3958859,
-        name: "Hydrating Cleanser",
-        price_html: "₦16,500",
-        brand: "Cerave",
-        image: "/images/products/ceravehydratingclenser.png",
-        link: "https://beautyhub.ng/product/cerave-hydrating-cleanser-473ml/",
-        step: "cleanser",
-      },
-      {
-        id: 109858858,
-        name: "Brightening Toner with Glycolic Acid",
-        price_html: "₦20,000",
-        brand: "Bolden",
-        image: "/images/products/boldentoner.png",
-        link: "https://beautyhub.ng/product/bolden-brightening-toner-with-glycolic-acid/",
-        step: "toner",
-      },
-      {
-        id: 12377758,
-        name: "Ultra Repair Intensive Care Cream",
-        price_html: "₦30,500",
-        brand: "Illiyoon",
-        image: "/images/products/illyionmoisturizer.png",
-        link: "https://beautyhub.ng/product/illiyoon-ultra-repair-intensive-care-cream/",
-        step: "moisturizer",
-      },
-      {
-        id: 1958850,
-        name: "Anthelios UVMune 400 Invisible Fluid Spf50+",
-        price_html: "₦9,000",
-        brand: "La Roche Posay",
-        image: "/images/products/larocheinvisble.png",
-        link: "https://beautyhub.ng/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
-        step: "sunscreen",
-      },
-    ],
-    very_high: [
-      {
-        id: 635546,
-        name: "Blueberry Rebalancing 5.5 Cleanser",
-        price_html: "₦10,500",
-        brand: "Innisfree",
-        image: "/images/products/innisfreebluebrry.png",
-        link: "https://beautyhub.ng/product/ininnisfre-blueberry-rebalancing-5-5-cleanser/",
-        step: "cleanser",
-      },
-      {
-        id: 2545664,
-        name: "AC Fighting AHA BHA PHA Toner" ,
-        price_html: "₦16,000",
-        brand: "Tiam",
-        image: "/images/products/tiamahbha.png",
-        link: "https://beautyhub.ng/product/tiam-ac-fighting-aha-bha-pha-toner/",
-        step: "toner",
-      },
-      {
-        id: 857776,
-        name: "Hydra+ Protective Day Cream SPF50",
-        price_html: "₦27,000",
-        brand: "Topicrem",
-        image: "/images/products/topicremmoist.png",
-        link: "https://beautyhub.ng/product/topicrem-hydra-protective-day-cream-spf50-protective-day-cream/",
-        step: "moisturizer",
-      },
-      {
-        id: 657748,
-        name: "Super Moisture Gel SPF50+ PA++++",
-        price_html: "₦11,500",
-        brand: "Rohto Skin Aqua",
-        image: "/images/products/skinaqua.png",
-        link: "https://beautyhub.ng/product/rohto-skin-aqua-super-moisture-gel-spf50-pa/",
-        step: "sunscreen",
-      },
-    ],
-  },
-  pore: {
-    very_low: [
-      {
-        id: 568859,
-        name: "DermoPurifyer Oil Control Cleansing Gel",
-        price_html: "₦17,750",
-        brand: "Eucerin",
-        image: "/images/products/eucerindermopuri.png",
-        link: "https://beautyhub.ng/product/eucerin-dermopurifyer-oil-control-cleansing-gel/",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/cosrxsalicyliccleanser_qiujsc.png",
+        link: "https://beautyhub.ng/product/cosrx-salicylic-acid-daily-gentle-cleanser/",
         step: "cleanser",
       },
       {
         id: 567868,
-        name: "Madagascar Centella Tea-Trica Relief Ampoule",
-        price_html: "₦15,500",
-        brand: "Skin1004",
-        image: "/images/products/skin1004ampoule.png",
-        link: "https://beautyhub.ng/product/skin1004-madagascar-centella-tea-trica-relief-ampoule/",
+        name: "Licorice pH Balancing Cleansing Toner",
+        price_html: "₦12,500",
+        brand: "Acwell",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/acwelltoner_wdmx4y.png",
+        link: "https://beautyhub.ng/product/acwell-licorice-ph-balancing-cleansing-toner/",
         step: "toner",
       },
       {
-        id: 868996,
-        name: "Ultra-Low Molecular Hyaluronic Acid Zinc Aqua Cream",
-        price_html: "₦25,000",
-        brand: "Isntree",
-        image: "/images/products/isnteemoisturizer.png",
-        link: "https://beautyhub.ng/product/isntree-ultra-low-molecular-hyaluronic-acid-zinc-aqua-cream/",
+        id: 98598945665,
+        name: "Galactomyces Pure Vitamin C Glow Serum",
+        price_html: "₦15,000",
+        brand: "Some By Mi",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/somebymisogalactomyes_rvhusd.png",
+        link: "https://beautyhub.ng/product/some-by-mi-galactomyces-pure-vitamin-c-glow-serum-30ml/",
+        step: "serum",
+      },
+      {
+        id: 1890234,
+        name: "Moisturising Lotion",
+        price_html: "₦19,500",
+        brand: "CaraVe",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/ceravemoisturisinglotion_w6bnrr.png",
+        link: "https://beautyhub.ng/product/cerave-daily-moisturizing-lotion/",
         step: "moisturizer",
       },
       {
         id: 9058858,
         name: "Relief Sun : Rice + Probiotics",
-        price_html: "₦18,200",
+        price_html: "₦19,200",
         brand: "Beauty Of Joseon",
-        image: "/images/products/beautyofjoseonsunscreen.png",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/beautyofjoseonsunscreen_u3d1f5.png",
         link: "https://beautyhub.ng/product/beauty-of-josen-relief-sun-rice-probiotics/",
         step: "sunscreen",
       },
     ],
-    moderate: [
-      {
-        id: 5674847,
-        name: "Madagascar Centella Tone Brightening Cleansing Gel Foam",
-        price_html: "₦18,000",
-        brand: "Skin1004",
-        image: "/images/products/skin1004cleanser.png",
-        link: "https://beautyhub.ng/product/skin1004-madagascar-centella-tone-brightening-cleansing-gel-foam/",
-        step: "cleanser",
-      },
-      {
-        id: 7587586,
-        name: "Real Aqua Balancing Toner",
-        price_html: "₦16,400",
-        brand: "Acwell",
-        image: "/images/products/acwellbalncingtoner.png",
-        link: "https://beautyhub.ng/product/acwell-real-aqua-balancing-toner/",
-        step: "toner",
-      },
-      {
-        id: 566778,
-        name: "AHA BHA PHA 30 days Miracle Cream",
-        price_html: "₦15,000",
-        brand: "Some By Mi",
-        image: "/images/products/somebymisocream.png",
-        link: "https://beautyhub.ng/product/some-by-mi-aha-bha-pha-30-days-miracle-cream/",
-        step: "moisturizer",
-      },
-      {
-        id: 677588,
-        name: "Relief Sun : Rice + Probiotics",
-        price_html: "₦18,200",
-        brand: "Beauty Of Joseon",
-        image: "/images/products/beautyofjoseonsunscreen.png",
-        link: "https://beautyhub.ng/product/beauty-of-josen-relief-sun-rice-probiotics/",
-        step: "sunscreen",
-      },
-    ],
-    high: [
+  },
+
+  advanced: {
+    name: "Active Treatment Routine",
+    description:
+      "An active routine for those with multiple significant concerns. Includes stronger actives to treat persistent acne, visible signs of aging, rough texture, and enlarged pores.",
+    targets: ["persistent acne", "wrinkles", "rough texture", "enlarged pores"],
+    products: [
       {
         id: 5665747,
         name: "Skin Clarifying Cleanser",
         price_html: "₦20,000",
         brand: "Bolden",
-        image: "/images/products/boldencleanser.png",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/boldencleanser_xoicgo.png",
         link: "https://beautyhub.ng/product/bolden-skin-clarifying-cleanser/",
         step: "cleanser",
       },
@@ -568,66 +170,210 @@ export const skinProductMap: {
         name: "AHA BHA PHA 30 days Miracle Toner",
         price_html: "₦16,000",
         brand: "Some By Mi",
-        image: "/images/products/somebymisotoner.png",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/somebymisotoner_wwuwbn.png",
         link: "https://beautyhub.ng/product/some-by-mi-aha-bha-pha-30-days-miracle-toner/",
         step: "toner",
       },
       {
-        id: 5667885,
-        name: "Anti/Pigment Night Cream",
-        price_html: "₦32,800",
-        brand: "Eucerin",
-        image: "/images/products/eucerinnightcream.png",
-        link: "https://beautyhub.ng/product/eucerin-anti-pigment-night-cream/",
+        id: 5609712453868,
+        name: "Vitamin C Serum Anti-Aging",
+        price_html: "₦15,000",
+        brand: "Advanced Clinicals",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/advancedclinicalsvitc_n1tak9.png",
+        link: "https://beautyhub.ng/product/advanced-clinicals-vitamin-c-face-serum/",
+        step: "serum",
+      },
+      {
+        id: 12377758,
+        name: "Cica+ Soothing Cream",
+        price_html: "₦16,800",
+        brand: "TOPICREM",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341727/topicremcicasoothing_u8ckqf.png",
+        link: "https://beautyhub.ng/product/topicrem-cica-soothing-cream/",
         step: "moisturizer",
       },
       {
-        id: 354665,
+        id: 118,
         name: "Anthelios UVMune 400 Invisible Fluid Spf50+",
         price_html: "₦9,000",
         brand: "La Roche Posay",
-        image: "/images/products/larocheinvisble.png",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/larocheinvisble_g0vzhh.png",
         link: "https://beautyhub.ng/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
         step: "sunscreen",
       },
     ],
-    very_high: [
+  },
+
+  intensive: {
+    name: "Maximum Strength Routine",
+    description:
+      "A maximum-strength routine for severe, stubborn skin concerns. Formulated with the most potent actives to deliver deep treatment and visible transformation.",
+    targets: [
+      "severe acne",
+      "deep wrinkles",
+      "significant texture issues",
+      "stubborn pores",
+    ],
+    products: [
       {
-        id: 67575,
-        name: "Pore Clearing Cleansing Oil",
-        price_html: "₦25,000",
-        brand: "Jumiso",
-        image: "/images/products/jumisocleansingol.png",
-        link: "https://beautyhub.ng/product/jumiso-pore-clearing-cleansing-oil/",
+        id: 109,
+        name: "Acne Creamy Wash 4% Benzoyl Peroxide",
+        price_html: "₦17,800",
+        brand: "Panoxyl",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/panoxyl4_gqjufk.png",
+        link: "https://beautyhub.ng/product/panoxyl-acne-acne-creamy-wash-4-benzoyl-peroxide/",
         step: "cleanser",
       },
       {
         id: 24545665,
-        name: "Skin Perfecting 2% BHA Liquid Exfoliant",
-        price_html: "₦33,000",
-        brand: "Paula's Choice ",
-        image: "/images/products/paulaschoicebha.png",
-        link: "https://beautyhub.ng/product/paulas-choice-skin-perfecting-2-bha-liquid-exfoliant/",
+        name: "Ceramide Mochi Toner",
+        price_html: "₦15,000",
+        brand: "TonyMoly",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341724/tonymolytoner_opucrr.png",
+        link: "https://beautyhub.ng/product/tonymoly-ceramide-mochi-toner/",
         step: "toner",
       },
       {
-        id: 9805885,
-        name: "Lipikar Baume AP+ M",
-        price_html: "₦30,000",
-        brand: "La Roche Posay",
-        image: "/images/products/larocheposaylipikarbaume.png",
-        link: "https://beautyhub.ng/product/la-roche-posay-lipikar-baume-ap-m/",
+        id: 200000665,
+        name: "Alpha Arbutin 2% + HA",
+        price_html: "₦27,200",
+        brand: "The Ordinary",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/theordinaryalphaarbution_y0yfha.png",
+        link: "https://beautyhub.ng/product/the-ordinary-alpha-arbutin-2-ha/",
+        step: "serum",
+      },
+      {
+        id: 185995,
+        name: "Ceramide Ato Concentrate Cream",
+        price_html: "₦17,500",
+        brand: "Illiyoon",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/illiyionnconcemoisturizer_izp2oz.png",
+        link: "https://beautyhub.ng/product/illiyoon-ceramide-ato-concentrate-cream/",
         step: "moisturizer",
       },
       {
-        id: 564674,
+        id: 1029944,
         name: "Anthelios UVMune 400 Invisible Fluid Spf50+",
         price_html: "₦9,000",
         brand: "La Roche Posay",
-        image: "/images/products/larocheinvisble.png",
+        image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/larocheinvisble_g0vzhh.png",
         link: "https://beautyhub.ng/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
         step: "sunscreen",
       },
     ],
   },
 };
+
+// Helper function to get routine based on combined concern levels
+export function getRecommendedRoutine(concernLevels: {
+  acne?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  wrinkle?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  texture?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  pore?: "very_low" | "low" | "moderate" | "high" | "very_high";
+}): keyof typeof skinCareRoutines {
+  const levels = Object.values(concernLevels).filter(Boolean);
+
+  if (levels.length === 0) return "beginner";
+
+  const maxConcernLevel = levels.reduce((max, current) => {
+    const levelOrder = {
+      very_low: 1,
+      low: 2,
+      moderate: 3,
+      high: 4,
+      very_high: 5,
+    };
+    return levelOrder[current] > levelOrder[max] ? current : max;
+  });
+
+  const averageConcernLevel =
+    levels.reduce((sum, current) => {
+      const levelOrder = {
+        very_low: 1,
+        low: 2,
+        moderate: 3,
+        high: 4,
+        very_high: 5,
+      };
+      return sum + levelOrder[current];
+    }, 0) / levels.length;
+
+  if (maxConcernLevel === "very_high" && averageConcernLevel >= 3) {
+    return "intensive";
+  } else if (maxConcernLevel === "very_high" || averageConcernLevel >= 2.5) {
+    return "advanced";
+  } else if (maxConcernLevel === "high" || averageConcernLevel >= 2) {
+    return "intermediate";
+  } else {
+    return "beginner";
+  }
+}
+
+// Updated function to work with your existing ScoreInfo type
+export function getRecommendedProducts(scoreInfo: ScoreInfo | null): {
+  routineLevel: string;
+  routine: RoutineLevel;
+  totalCost: string;
+  concernsAddressed: string[];
+} | null {
+  if (!scoreInfo) return null;
+
+  const concerns = ["acne", "wrinkle", "texture", "pore"] as const;
+
+  // Convert UI scores to concern levels
+  const concernLevels: {
+    acne?: "very_low" | "low" | "moderate" | "high" | "very_high";
+    wrinkle?: "very_low" | "low" | "moderate" | "high" | "very_high";
+    texture?: "very_low" | "low" | "moderate" | "high" | "very_high";
+    pore?: "very_low" | "low" | "moderate" | "high" | "very_high";
+  } = {};
+
+  concerns.forEach((concern) => {
+    const uiScore = scoreInfo?.[concern]?.ui_score;
+    if (uiScore) {
+      const level = getGranularLevel(`${uiScore}%`);
+      concernLevels[concern] = level;
+    }
+  });
+
+  // Get the recommended routine
+  const routineLevel = getRecommendedRoutine(concernLevels);
+  const routine = skinCareRoutines[routineLevel];
+
+  if (!routine) return null;
+
+  // Calculate total cost
+  const totalCost = routine.products.reduce((sum, product) => {
+    const price = parseInt(product.price_html.replace(/[₦,]/g, ""));
+    return sum + price;
+  }, 0);
+
+  // Get concerns that are being addressed
+  const concernsAddressed = Object.keys(concernLevels).filter(
+    (concern) => concernLevels[concern as keyof typeof concernLevels]
+  );
+
+  return {
+    routineLevel,
+    routine,
+    totalCost: `₦${totalCost.toLocaleString()}`,
+    concernsAddressed,
+  };
+}
+
+// Alternative function if you want to keep the original format but with routine data
+export function getRecommendedProductsLegacy(scoreInfo: ScoreInfo | null): {
+  concern: string;
+  level: string;
+  products: Product[];
+}[] {
+  const result = getRecommendedProducts(scoreInfo);
+  if (!result) return [];
+
+  // Return in the original format for backward compatibility
+  return result.concernsAddressed.map((concern) => ({
+    concern,
+    level: result.routineLevel,
+    products: result.routine.products,
+  }));
+}

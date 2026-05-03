@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import axios from "axios";
 import { LRUCache } from "lru-cache";
-import { v4 as uuidv4 } from "uuid";
 
 const WC_BASE_URL = "https://beautyhub.ng/wp-json/wc/v3";
 const WC_AUTH = {
@@ -41,9 +40,17 @@ export default async function handler(
     req.socket.remoteAddress ||
     "unknown";
 
-  const deviceId = req.cookies.device_id || uuidv4();
+  const rawDeviceId = req.cookies.device_id?.trim();
+  if (!rawDeviceId || rawDeviceId === "") {
+    return res.status(400).json({
+      error: "Missing device ID. Please enable cookies to continue.",
+    });
+  }
+  const deviceId = rawDeviceId;
+
   const key = `access-check:${ip}`;
   const current = rateLimiter.get(key) || 0;
+  const userAgent = req.headers["user-agent"] || "unknown";
 
   if (current >= 5) {
     return res
@@ -56,8 +63,7 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { email, type, reference, source = "analysis" } = req.body;
-
+  const { email, type, reference } = req.body;
   if (!email || !type) {
     return res.status(400).json({ error: "Missing email or type" });
   }
@@ -74,9 +80,10 @@ export default async function handler(
       ip,
       device_id: deviceId,
       action: type,
+      user_agent: userAgent,
     });
 
-    // Trial limit logic
+    // Trial limit by IP and device
     const [{ data: ipAttempts }, { data: deviceAttempts }] = await Promise.all([
       supabaseAdmin
         .from("access_log")
@@ -84,7 +91,6 @@ export default async function handler(
         .eq("ip", ip)
         .eq("action", "check")
         .gte("created_at", twelveHoursAgo),
-
       supabaseAdmin
         .from("access_log")
         .select("email")
@@ -107,39 +113,63 @@ export default async function handler(
       });
     }
 
-    // Check if they've already accessed
-    const { data: alreadyUsed } = await supabaseAdmin
-      .from("free_access_once")
-      .select("email")
-      .eq("email", emailLower)
-      .maybeSingle();
+    // Fetch Paystack payments and usage logs separately
+    const [
+      paymentCountRes,
+      accessCountPaystackRes,
+      accessCountWooRes,
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("paystack_payment_log")
+        .select("*", { count: "exact", head: true })
+        .eq("email", emailLower),
 
-    const hasUsedAccess = !!alreadyUsed;
+      supabaseAdmin
+        .from("access_log_email")
+        .select("*", { count: "exact", head: true })
+        .eq("email", emailLower)
+        .eq("source", "paystack"),
+
+      supabaseAdmin
+        .from("access_log_email")
+        .select("*", { count: "exact", head: true })
+        .eq("email", emailLower)
+        .eq("source", "woocommerce"),
+    ]);
+
+    const paymentCount = paymentCountRes.count ?? 0;
+    const paystackAccessCount = accessCountPaystackRes.count ?? 0;
+    const wooAccessCount = accessCountWooRes.count ?? 0;
+    const hasWooOrder = await checkWooOrder(emailLower);
+
+    let accessAllowed = false;
+    let accessSource: string | undefined = undefined;
+    let reason: string | undefined = undefined;
+
+    if (paymentCount > 0) {
+      const allowedPaystackAccess = paymentCount * 2;
+      if (paystackAccessCount < allowedPaystackAccess) {
+        accessAllowed = true;
+        accessSource = "paystack";
+      } else {
+        reason = "limit_reached";
+      }
+    } else if (hasWooOrder) {
+      const allowedWooAccess = 2;
+      if (wooAccessCount < allowedWooAccess) {
+        accessAllowed = true;
+        accessSource = "woocommerce";
+      } else {
+        reason = "limit_reached";
+      }
+    }
 
     // 🔍 Handle "check"
     if (type === "check") {
-      const hasWoo = await checkWooOrder(emailLower);
-
-      const { data: paystackVerified } = await supabaseAdmin
-        .from("paystack_verified")
-        .select("email")
-        .eq("email", emailLower)
-        .maybeSingle();
-
-      const hasPaystack = !!paystackVerified;
-
-      // If they've already used access but still have Paystack payment, grant access again
-      const accessGranted =
-        (hasWoo || hasPaystack) && (!hasUsedAccess || !!paystackVerified);
-
       return res.status(200).json({
-        access_granted: accessGranted,
-        source: hasWoo ? "woocommerce" : hasPaystack ? "paystack" : undefined,
-        reason: !accessGranted
-          ? hasUsedAccess
-            ? "already_used"
-            : "requires_payment"
-          : undefined,
+        access_granted: accessAllowed,
+        source: accessSource,
+        reason,
       });
     }
 
@@ -150,6 +180,20 @@ export default async function handler(
       }
 
       try {
+        // 🔒 Check if reference already exists
+        const { count: existingPayment } = await supabaseAdmin
+          .from("paystack_payment_log")
+          .select("*", { count: "exact", head: true })
+          .eq("reference", reference);
+
+        if ((existingPayment ?? 0) > 0) {
+          return res.status(200).json({
+            access_granted: false,
+            reason: "duplicate_payment",
+          });
+        }
+
+        // 🔍 Verify payment with Paystack
         const verifyRes = await axios.get(
           `https://api.paystack.co/transaction/verify/${reference}`,
           {
@@ -159,22 +203,19 @@ export default async function handler(
           }
         );
 
-        console.log("🔍 Paystack verify response:", verifyRes.data);
-
         const isSuccessful =
           verifyRes.data?.status === true &&
           verifyRes.data?.data?.status === "success";
 
         if (isSuccessful) {
-          const { error } = await supabaseAdmin
-            .from("paystack_verified")
-            .upsert({
-              email: emailLower,
-              reference,
-              created_at: new Date().toISOString(),
-            })
-            .throwOnError();
-          console.log(error);
+          await supabaseAdmin.from("paystack_payment_log").insert({
+            email: emailLower,
+            reference,
+            amount: verifyRes.data.data.amount,
+            currency: verifyRes.data.data.currency,
+            created_at: new Date().toISOString(),
+          });
+
           return res.status(200).json({
             access_granted: true,
             source: "paystack",
@@ -196,49 +237,29 @@ export default async function handler(
 
     // ✅ Handle "mark-analysis"
     if (type === "mark-analysis") {
-      if (hasUsedAccess) {
+      if (!accessAllowed) {
         return res.status(200).json({
           success: false,
-          reason: "already_exists",
+          reason: reason || "not_allowed",
         });
       }
 
-      const hasWoo = await checkWooOrder(emailLower);
-
-      const { data: paystackVerified } = await supabaseAdmin
-        .from("paystack_verified")
-        .select("email")
-        .eq("email", emailLower)
-        .maybeSingle();
-
-      const hasPaystack = !!paystackVerified;
-
-      if (!hasWoo && !hasPaystack) {
-        return res.status(403).json({
-          success: false,
-          reason: "no_payment",
-        });
-      }
-
-      const { error: insertError } = await supabaseAdmin
-        .from("free_access_once")
-        .insert({
+      try {
+        await supabaseAdmin.from("access_log_email").insert({
           email: emailLower,
-          source,
-          payment_verified: hasPaystack,
+          source: accessSource,
           created_at: new Date().toISOString(),
         });
 
-      if (insertError) throw insertError;
-
-      if (hasPaystack) {
-        await supabaseAdmin
-          .from("paystack_verified")
-          .delete()
-          .eq("email", emailLower);
+        return res.status(200).json({ success: true });
+      } catch (insertError: any) {
+        console.error("🛑 Access insert failed:", insertError.message);
+        return res.status(200).json({
+          success: false,
+          reason: "insert_failed",
+          detail: insertError.message,
+        });
       }
-
-      return res.status(200).json({ success: true });
     }
 
     return res.status(400).json({ error: "Invalid type" });

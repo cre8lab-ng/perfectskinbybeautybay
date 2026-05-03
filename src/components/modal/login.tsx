@@ -17,17 +17,25 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
   const [email, setEmail] = useState("");
   const { checkAccess, loading, error: accessError } = useAccessManager();
   const [error, setError] = useState("");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setShowPayButton(false);
 
     const result = await checkAccess(email);
 
-    if (result.error?.toLowerCase().includes("trial limit")) {
+    if (!result) {
+      setError("Unexpected error. Please try again.");
+      return;
+    }
+
+    const errorText = result.error?.toLowerCase?.() ?? "";
+
+    if (errorText.includes("trial limit") || result.reason === "trial_limit") {
       setError(
         "You’ve reached the trial limit. Please try again in the next 12 hours."
       );
-      setShowPayButton(false);
       return;
     }
 
@@ -36,15 +44,23 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
       useResultAccess.getState().setHasAccess(true);
       onLoginSuccess(email, true);
     } else if (result.reason === "requires_payment") {
-      setError(
-        "You're not yet a customer, so you'll need to pay ₦5,000 to access your results. A refund will be issued when you complete an order with us."
-      );
+      setError("₦5,000 access fee required to continue.");
       setShowPayButton(true);
     } else if (result.reason === "already_used") {
-      setError("You've already used your free access. Please pay to continue.");
+      setError("You've used your free access. Payment is required.");
       setShowPayButton(true);
+    } else if (result.reason === "limit_reached") {
+      setError("You've used your free access. Payment is required.");
+      setShowPayButton(true);
+    } else if (result.error) {
+      setError(result.error);
+    } else if (result.accessGranted === false) {
+      setError("You're not yet a customer. Pay a fully refundable ₦5,000 to unlock your result.");
+      setShowPayButton(true);
+      console.warn("Access explicitly denied:", result);
     } else {
-      setError(result.error || "Something went wrong.");
+      setError("Something went wrong. Please try again.");
+      console.warn("Unexpected result from checkAccess:", result);
     }
   };
 
@@ -98,10 +114,40 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
           {(error || accessError) && (
             <div style={errorStyle}>
               <span style={errorIconStyle}>⚠️</span>
+
               {error === "Internal Server Error" ||
-              accessError === "Internal Server Error"
-                ? "Something went wrong. Please contact support on Instagram, WhatsApp, or email support@beautyhub.ng"
-                : error || accessError}
+              accessError === "Internal Server Error" ? (
+                <>
+                  Something went wrong. Please contact support on{" "}
+                  <a
+                    href="https://www.instagram.com/beautyhubco.ng/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#f847b4", textDecoration: "underline" }}
+                  >
+                    Instagram
+                  </a>
+                  ,{" "}
+                  <a
+                    href="https://wa.me/2348162598682"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#f847b4", textDecoration: "underline" }}
+                  >
+                    WhatsApp
+                  </a>
+                  , or{" "}
+                  <a
+                    href="mailto:support@beautyhub.ng"
+                    style={{ color: "#f847b4", textDecoration: "underline" }}
+                  >
+                    email
+                  </a>
+                  .
+                </>
+              ) : (
+                error || accessError
+              )}
             </div>
           )}
 

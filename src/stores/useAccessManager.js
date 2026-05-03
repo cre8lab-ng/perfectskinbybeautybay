@@ -15,25 +15,40 @@ export function useAccessManager() {
         body: JSON.stringify({ email, type: "check" }),
       });
 
-      const result = await res.json();
-
-      if (!res.ok) {
-        // Capture error message from API and return to UI
+      let result;
+      try {
+        result = await res.json();
+      } catch (e) {
+        console.error("Failed to parse JSON:", e);
         return {
           accessGranted: false,
-          error: result.error || "Something went wrong. Please try again.",
+          error: "Invalid response from server.",
+          reason: "invalid_json",
+        };
+      }
+
+      if (!res.ok || result.error) {
+        const errorMsg =
+          result.error ?? "Something went wrong. Please try again.";
+        return {
+          accessGranted: false,
+          error: errorMsg,
+          reason: result.reason ?? "unknown",
         };
       }
 
       return {
-        accessGranted: result.access_granted,
-        source: result.source,
-        reason: result.reason,
+        accessGranted: !!result.access_granted,
+        reason: result.access_granted ? null : result.reason ?? "unknown",
+        source: result.source ?? null,
       };
     } catch (err) {
-      console.error("Access check error:", err);
-      setError("Failed to check access.");
-      return { accessGranted: false, error: "Failed to check access." };
+      console.error("Network or server error:", err);
+      return {
+        accessGranted: false,
+        error: "Network error. Please check your internet and try again.",
+        reason: "network",
+      };
     } finally {
       setLoading(false);
     }

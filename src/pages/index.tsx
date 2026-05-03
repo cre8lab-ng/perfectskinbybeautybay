@@ -2,7 +2,6 @@ import Footer from "@/components/footer";
 import Header from "@/components/header";
 import PremiumSkincareSection from "@/components/PremiumSkincareSection";
 import WebPageTitle from "@/components/webpagetitle";
-import Image from "next/image";
 
 export default function Home() {
   return (
@@ -25,12 +24,19 @@ export default function Home() {
           {/* Step 1 */}
           <div className="flex flex-col items-center">
             <div className="relative w-64 h-96">
-              <Image
-                src="/images/step-1.png"
-                alt="Step 1 - Upload Selfie"
-                layout="fill"
-                objectFit="contain"
-              />
+              <video
+                className="w-full h-full object-contain"
+                autoPlay
+                loop
+                muted
+                playsInline
+              >
+                <source
+                  src="https://res.cloudinary.com/debcfaccq/video/upload/v1758842098/Perfect-Skin-Steps-sep1_khpet2.mp4"
+                  type="video/mp4"
+                />
+                Your browser does not support the video tag.
+              </video>
             </div>
             <p className="mt-6 text-lg font-semibold">
               UPLOAD OR TAKE A SELFIE
@@ -43,12 +49,19 @@ export default function Home() {
 
           <div className="flex flex-col items-center">
             <div className="relative w-64 h-96">
-              <Image
-                src="/images/step-2.png"
-                alt="Step 2 - Skin Analysis"
-                layout="fill"
-                objectFit="contain"
-              />
+              <video
+                className="w-full h-full object-contain"
+                autoPlay
+                loop
+                muted
+                playsInline
+              >
+                <source
+                  src="https://res.cloudinary.com/debcfaccq/video/upload/v1758842098/Perfect-Skin-Steps-sep2_oawpeg.mp4"
+                  type="video/mp4"
+                />
+                Your browser does not support the video tag.
+              </video>
             </div>
             <p className="mt-6 text-lg font-semibold">COMPLETE YOUR ANALYSIS</p>
             <p className="text-sm text-gray-600 mt-2">
@@ -60,12 +73,19 @@ export default function Home() {
           {/* Step 3 */}
           <div className="flex flex-col items-center">
             <div className="relative w-64 h-96">
-              <Image
-                src="/images/step-3.png"
-                alt="Step 3 - Discover Routine"
-                layout="fill"
-                objectFit="contain"
-              />
+              <video
+                className="w-full h-full object-contain"
+                autoPlay
+                loop
+                muted
+                playsInline
+              >
+                <source
+                  src="https://res.cloudinary.com/debcfaccq/video/upload/v1758842099/Perfect-Skin-Steps-sep3_o3iu82.mp4"
+                  type="video/mp4"
+                />
+                Your browser does not support the video tag.
+              </video>
             </div>
             <p className="mt-6 text-lg font-semibold">DISCOVER YOUR ROUTINE</p>
             <p className="text-sm text-gray-600 mt-2">

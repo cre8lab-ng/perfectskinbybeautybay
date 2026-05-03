@@ -80,7 +80,7 @@ const PremiumSkincareSection = () => {
               <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
                 {/* Video Content */}
                 <video
-                  src="https://res.cloudinary.com/debcfaccq/video/upload/v1751058191/Untitled_design_zgl0lx.mp4"
+                  src="https://res.cloudinary.com/debcfaccq/video/upload/v1758843048/header-psbbh_kcui8a.mp4"
                   autoPlay
                   muted
                   loop
