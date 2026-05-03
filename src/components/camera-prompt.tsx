@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import Image from "next/image";
 
@@ -9,6 +9,7 @@ interface Props {
 export default function CameraPrompt({ onCapture }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const brightnessCanvasRef = useRef<HTMLCanvasElement | null>(null);
   // const [captureFailed, setCaptureFailed] = useState(false);
   const [lightingOK, setLightingOK] = useState(false);
   const [facePositionOK, setFacePositionOK] = useState(false);
@@ -18,6 +19,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
+  const isCountingDownRef = useRef(false);
   const hasCapturedRef = useRef(false);
   const hasAutoSubmittedRef = useRef(false);
   const countdownRef = useRef<number | null>(null);
@@ -25,16 +27,58 @@ export default function CameraPrompt({ onCapture }: Props) {
   const streamRef = useRef<MediaStream | null>(null); // Track the stream
   const [eyesDetected, setEyesDetected] = useState(false);
   const [showCaptureButton, setShowCaptureButton] = useState(false);
-  console.log(faceValid);
+  const showCaptureButtonTimeoutRef = useRef<number | null>(null);
+  const modelsLoadedRef = useRef(false);
+  const validStreakRef = useRef(0);
+
+  const scheduleManualCaptureButton = useCallback(() => {
+    if (showCaptureButtonTimeoutRef.current) {
+      window.clearTimeout(showCaptureButtonTimeoutRef.current);
+    }
+    setShowCaptureButton(false);
+    showCaptureButtonTimeoutRef.current = window.setTimeout(() => {
+      if (!hasCapturedRef.current) setShowCaptureButton(true);
+    }, 5000);
+  }, []);
+
+  const ensureBrightnessCanvas = useCallback(() => {
+    if (brightnessCanvasRef.current) return brightnessCanvasRef.current;
+    if (typeof document === "undefined") return null;
+    const canvas = document.createElement("canvas");
+    brightnessCanvasRef.current = canvas;
+    return canvas;
+  }, []);
+
+  const captureFrame = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return null;
+    if (video.videoWidth === 0 || video.videoHeight === 0) return null;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.save();
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+    ctx.restore();
+
+    return canvas.toDataURL("image/jpeg");
+  }, []);
+
   useEffect(() => {
     if (!hasCapturedRef.current) {
-      const timeout = setTimeout(() => {
-        setShowCaptureButton(true);
-      }, 8000);
-
-      return () => clearTimeout(timeout);
+      scheduleManualCaptureButton();
+      return () => {
+        if (showCaptureButtonTimeoutRef.current) {
+          window.clearTimeout(showCaptureButtonTimeoutRef.current);
+        }
+      };
     }
-  }, []);
+  }, [scheduleManualCaptureButton]);
 
   useEffect(() => {
     if (!capturedImage || isCountingDown) return;
@@ -46,10 +90,91 @@ export default function CameraPrompt({ onCapture }: Props) {
     return () => window.clearTimeout(timeout);
   }, [capturedImage, isCountingDown, onCapture]);
 
-  // Replace your drawOvalFaceMesh function with this auto-detecting version
-  // @ts-expect-error: Supabase typing is too strict here
+  useEffect(() => {
+    isCountingDownRef.current = isCountingDown;
+  }, [isCountingDown]);
 
-  const drawOvalFaceMesh = (ctx, landmarks, faceBox) => {
+  const drawFacialFeatureGuides = useCallback((
+    ctx: CanvasRenderingContext2D,
+    centerX: number,
+    centerY: number,
+    radiusX: number,
+    radiusY: number
+  ) => {
+    ctx.strokeStyle = "#ff0000";
+    ctx.lineWidth = 1;
+
+    // Eye guidelines
+    const eyeY = centerY - radiusY * 0.2;
+    const eyeSpacing = radiusX * 0.3;
+
+    // Left eye area
+    ctx.beginPath();
+    ctx.ellipse(
+      centerX - eyeSpacing,
+      eyeY,
+      radiusX * 0.15,
+      radiusY * 0.08,
+      0,
+      0,
+      2 * Math.PI
+    );
+    ctx.stroke();
+
+    // Right eye area
+    ctx.beginPath();
+    ctx.ellipse(
+      centerX + eyeSpacing,
+      eyeY,
+      radiusX * 0.15,
+      radiusY * 0.08,
+      0,
+      0,
+      2 * Math.PI
+    );
+    ctx.stroke();
+
+    // Nose guideline
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY - radiusY * 0.1);
+    ctx.lineTo(centerX, centerY + radiusY * 0.1);
+    ctx.stroke();
+
+    // Nose bridge curves
+    ctx.beginPath();
+    ctx.moveTo(centerX - radiusX * 0.05, centerY);
+    ctx.quadraticCurveTo(
+      centerX,
+      centerY + radiusY * 0.05,
+      centerX + radiusX * 0.05,
+      centerY
+    );
+    ctx.stroke();
+
+    // Mouth area
+    const mouthY = centerY + radiusY * 0.3;
+    ctx.beginPath();
+    ctx.ellipse(centerX, mouthY, radiusX * 0.2, radiusY * 0.06, 0, 0, Math.PI);
+    ctx.stroke();
+
+    // Jaw line enhancement
+    ctx.beginPath();
+    ctx.moveTo(centerX - radiusX * 0.8, centerY + radiusY * 0.6);
+    ctx.quadraticCurveTo(
+      centerX,
+      centerY + radiusY * 0.9,
+      centerX + radiusX * 0.8,
+      centerY + radiusY * 0.6
+    );
+    ctx.stroke();
+  }, []);
+
+  // Replace your drawOvalFaceMesh function with this auto-detecting version
+  const drawOvalFaceMesh = useCallback((
+    ctx: CanvasRenderingContext2D,
+    landmarks: any,
+    faceBox: { x: number; y: number; width: number; height: number } | null
+  ) => {
     if (!landmarks || !faceBox) return;
 
     let centerX, centerY, radiusX, radiusY;
@@ -63,9 +188,7 @@ export default function CameraPrompt({ onCapture }: Props) {
         maxY = -Infinity;
 
       // Find actual bounds from ALL landmark points
-      // @ts-expect-error: Supabase typing is too strict here
-
-      landmarkPoints.forEach((point) => {
+      landmarkPoints.forEach((point: { x: number; y: number }) => {
         minX = Math.min(minX, point.x);
         maxX = Math.max(maxX, point.x);
         minY = Math.min(minY, point.y);
@@ -83,23 +206,12 @@ export default function CameraPrompt({ onCapture }: Props) {
       // Add extra padding to cover the full face (forehead, chin, cheeks)
       radiusX = (landmarkWidth / 2) * 1.4; // 40% extra width
       radiusY = (landmarkHeight / 2) * 1.6; // 60% extra height (for forehead/chin)
-
-      console.log("Using landmark bounds:", {
-        landmarkWidth,
-        landmarkHeight,
-        detectionWidth: faceBox.width,
-        detectionHeight: faceBox.height,
-        finalRadiusX: radiusX,
-        finalRadiusY: radiusY,
-      });
     } else {
       // Fallback to detection box if no landmarks
       centerX = faceBox.x + faceBox.width / 2;
       centerY = faceBox.y + faceBox.height / 2;
       radiusX = (faceBox.width / 2) * 1.8;
       radiusY = (faceBox.height / 2) * 1.8;
-
-      console.log("Using detection box fallback");
     }
 
     // Additional auto-adjustment based on canvas size
@@ -197,80 +309,10 @@ export default function CameraPrompt({ onCapture }: Props) {
     drawFacialFeatureGuides(ctx, centerX, centerY, radiusX, radiusY);
 
     ctx.globalAlpha = 1;
-  };
-
-  // @ts-expect-error: Supabase typing is too strict here
-  const drawFacialFeatureGuides = (ctx, centerX, centerY, radiusX, radiusY) => {
-    ctx.strokeStyle = "#ff0000";
-    ctx.lineWidth = 1;
-
-    // Eye guidelines
-    const eyeY = centerY - radiusY * 0.2;
-    const eyeSpacing = radiusX * 0.3;
-
-    // Left eye area
-    ctx.beginPath();
-    ctx.ellipse(
-      centerX - eyeSpacing,
-      eyeY,
-      radiusX * 0.15,
-      radiusY * 0.08,
-      0,
-      0,
-      2 * Math.PI
-    );
-    ctx.stroke();
-
-    // Right eye area
-    ctx.beginPath();
-    ctx.ellipse(
-      centerX + eyeSpacing,
-      eyeY,
-      radiusX * 0.15,
-      radiusY * 0.08,
-      0,
-      0,
-      2 * Math.PI
-    );
-    ctx.stroke();
-
-    // Nose guideline
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY - radiusY * 0.1);
-    ctx.lineTo(centerX, centerY + radiusY * 0.1);
-    ctx.stroke();
-
-    // Nose bridge curves
-    ctx.beginPath();
-    ctx.moveTo(centerX - radiusX * 0.05, centerY);
-    ctx.quadraticCurveTo(
-      centerX,
-      centerY + radiusY * 0.05,
-      centerX + radiusX * 0.05,
-      centerY
-    );
-    ctx.stroke();
-
-    // Mouth area
-    const mouthY = centerY + radiusY * 0.3;
-    ctx.beginPath();
-    ctx.ellipse(centerX, mouthY, radiusX * 0.2, radiusY * 0.06, 0, 0, Math.PI);
-    ctx.stroke();
-
-    // Jaw line enhancement
-    ctx.beginPath();
-    ctx.moveTo(centerX - radiusX * 0.8, centerY + radiusY * 0.6);
-    ctx.quadraticCurveTo(
-      centerX,
-      centerY + radiusY * 0.9,
-      centerX + radiusX * 0.8,
-      centerY + radiusY * 0.6
-    );
-    ctx.stroke();
-  };
+  }, [drawFacialFeatureGuides]);
 
   // Function to stop camera completely
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     // Stop animation loop
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
@@ -287,9 +329,54 @@ export default function CameraPrompt({ onCapture }: Props) {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-  };
+  }, []);
 
-  const analyze = async () => {
+  const cancelCountdown = useCallback(() => {
+    setIsCountingDown(false);
+    setCountdown(3);
+    validStreakRef.current = 0;
+    if (countdownRef.current) {
+      cancelAnimationFrame(countdownRef.current);
+    }
+    setTips(["Hold still and meet the checks to start the countdown again"]);
+  }, []);
+
+  const startCountdown = useCallback(() => {
+    setIsCountingDown(true);
+    setCountdown(3);
+    validStreakRef.current = 0;
+
+    let lastTime = performance.now();
+
+    const animate = (now: number) => {
+      if (now - lastTime >= 1000) {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            const image = captureFrame();
+            if (image) setCapturedImage(image);
+            setIsCountingDown(false);
+            hasCapturedRef.current = true;
+            stopCamera();
+            return 3;
+          }
+          return prev - 1;
+        });
+        lastTime = now;
+      }
+      countdownRef.current = requestAnimationFrame(animate);
+    };
+    countdownRef.current = requestAnimationFrame(animate);
+  }, [captureFrame, stopCamera]);
+
+  const isLookingStraight = useCallback((landmarks: faceapi.FaceLandmarks68) => {
+    const left = landmarks.getLeftEye()[0];
+    const right = landmarks.getRightEye()[3];
+    const nose = landmarks.getNose()[3];
+    const symmetry = Math.abs(nose.x - left.x - (right.x - nose.x));
+    return symmetry < 5;
+  }, []);
+
+  const analyze = useCallback(async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
@@ -366,16 +453,15 @@ export default function CameraPrompt({ onCapture }: Props) {
       const centerY = box.y + box.height / 2;
 
       const isCentered =
-        Math.abs(centerX - faceCanvasW / 2) < 15 && // Was 50
-        Math.abs(centerY - faceCanvasH / 2) < 30; // Was 50
+        Math.abs(centerX - faceCanvasW / 2) < 40 &&
+        Math.abs(centerY - faceCanvasH / 2) < 60;
 
       const isBigEnough =
-        box.width > 0.35 * faceCanvasW && // Was 0.5
-        box.height > 0.45 * faceCanvasH; // Was 0.5
+        box.width > 0.3 * faceCanvasW &&
+        box.height > 0.4 * faceCanvasH;
 
       const isTooClose =
-        box.width > 0.9 * faceCanvasW || // Optional: tighten if needed
-        box.height > 0.9 * faceCanvasH;
+        box.width > 0.92 * faceCanvasW || box.height > 0.92 * faceCanvasH;
 
       const isFullyInside =
         box.x > 30 &&
@@ -389,20 +475,26 @@ export default function CameraPrompt({ onCapture }: Props) {
         box.x + box.width < faceCanvasW * 0.9 &&
         box.y + box.height < faceCanvasH * 0.9;
 
-      const getGlobalBrightness = (ctx: CanvasRenderingContext2D) => {
-        const { width, height } = ctx.canvas;
-        const data = ctx.getImageData(0, 0, width, height).data;
-        let total = 0;
-        for (let i = 0; i < data.length; i += 4) {
-          total += (data[i] + data[i + 1] + data[i + 2]) / 3;
+      const brightnessCanvas = ensureBrightnessCanvas();
+      let brightness = 0;
+      if (brightnessCanvas) {
+        const sampleW = 64;
+        const sampleH = 64;
+        if (brightnessCanvas.width !== sampleW) brightnessCanvas.width = sampleW;
+        if (brightnessCanvas.height !== sampleH) brightnessCanvas.height = sampleH;
+        const bctx = brightnessCanvas.getContext("2d");
+        if (bctx) {
+          bctx.drawImage(video, 0, 0, sampleW, sampleH);
+          const data = bctx.getImageData(0, 0, sampleW, sampleH).data;
+          let total = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            total += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+          }
+          brightness = total / (data.length / 4);
         }
-        return total / (data.length / 4);
-      };
+      }
 
-      const brightness = getGlobalBrightness(ctx);
-      const lighting = brightness >= 3;
-
-      console.log(brightness, "bright");
+      const lighting = brightness >= 60;
       const leftEye = landmarks.getLeftEye();
       const rightEye = landmarks.getRightEye();
 
@@ -410,19 +502,6 @@ export default function CameraPrompt({ onCapture }: Props) {
       setEyesDetected(areEyesVisible);
 
       const straight = areEyesVisible && isLookingStraight(landmarks);
-
-      console.log("📏 Current Face Box Stats:");
-      console.log("Canvas size:", faceCanvasW, "x", faceCanvasH);
-      console.log("Face Box:", box);
-      console.log("Face center:", { centerX, centerY });
-      console.log("CenterX delta:", Math.abs(centerX - faceCanvasW / 2));
-      console.log("CenterY delta:", Math.abs(centerY - faceCanvasH / 2));
-      console.log("Face width %:", (box.width / faceCanvasW) * 100);
-      console.log("Face height %:", (box.height / faceCanvasH) * 100);
-      console.log("Margin left:", box.x);
-      console.log("Margin top:", box.y);
-      console.log("Margin right:", faceCanvasW - (box.x + box.width));
-      console.log("Margin bottom:", faceCanvasH - (box.y + box.height));
 
       const isValid =
         lighting &&
@@ -434,15 +513,15 @@ export default function CameraPrompt({ onCapture }: Props) {
         !isTooClose;
 
       const feedback: string[] = [];
-      if (!lighting) feedback.push("💡 Improve lighting on your face");
-      if (!straight) feedback.push("🧍 Look straight into the camera");
-      if (!(isCentered && isBigEnough)) feedback.push("🎯 Center your face");
-      if (!hasMargin) feedback.push("↔️ Add more space around your face");
-      if (isTooClose) feedback.push("↪️ Move back a little");
-      if (!isFullyInside)
-        feedback.push("🎯 Keep your full face within the frame");
-      if (feedback.length === 0) feedback.push("✅ Ready. Hold still...");
-      if (!areEyesVisible) feedback.push("👁️ Make sure both eyes are visible");
+      if (!areEyesVisible) feedback.push("Keep both eyes visible");
+      if (!lighting) feedback.push("Step into brighter, even light (avoid backlight)");
+      if (!straight) feedback.push("Hold the phone at eye level and look straight ahead");
+      if (!isCentered) feedback.push("Center your face in the frame");
+      if (!isBigEnough) feedback.push("Move a little closer");
+      if (isTooClose) feedback.push("Step back a touch");
+      if (!hasMargin) feedback.push("Leave a little space around your face");
+      if (!isFullyInside) feedback.push("Keep your full face inside the frame");
+      if (feedback.length === 0) feedback.push("Perfect — hold still");
 
       setTips(feedback);
       setLightingOK(lighting);
@@ -452,31 +531,19 @@ export default function CameraPrompt({ onCapture }: Props) {
       );
       setFaceValid(isValid);
 
-      if (isValid && !isCountingDown) {
-        const tmpCanvas = document.createElement("canvas");
-        tmpCanvas.width = video.videoWidth;
-        tmpCanvas.height = video.videoHeight;
-        const tmpCtx = tmpCanvas.getContext("2d");
-        if (tmpCtx) {
-          tmpCtx.save();
-          tmpCtx.translate(tmpCanvas.width, 0); // move to right edge
-          tmpCtx.scale(-1, 1); // flip horizontally
-          tmpCtx.drawImage(video, 0, 0); // draw flipped
-          tmpCtx.restore();
+      if (isValid) {
+        validStreakRef.current += 1;
+      } else {
+        validStreakRef.current = 0;
+      }
 
-          const image = tmpCanvas.toDataURL("image/jpeg");
-          setCapturedImage(image);
-
-          // Set all checks to green and stop camera before countdown
-          setLightingOK(true);
-          setStraightOK(true);
-          setFacePositionOK(true);
-          setFaceValid(true);
-          stopCamera();
-
-          startCountdown(image);
-        }
-      } else if (!isValid && isCountingDown) {
+      if (
+        validStreakRef.current >= 10 &&
+        !isCountingDownRef.current &&
+        !hasCapturedRef.current
+      ) {
+        startCountdown();
+      } else if (!isValid && isCountingDownRef.current) {
         cancelCountdown();
       }
     } else {
@@ -484,23 +551,33 @@ export default function CameraPrompt({ onCapture }: Props) {
       setLightingOK(false);
       setFacePositionOK(false);
       setStraightOK(false);
-      setTips(["❌ No face detected"]);
+      setTips(["No face detected — bring your face into view"]);
+      validStreakRef.current = 0;
     }
 
     // Only continue animation if we haven't captured yet
-    if (!capturedImage && !hasCapturedRef.current) {
+    if (!hasCapturedRef.current) {
       animationRef.current = requestAnimationFrame(analyze);
     }
-  };
+  }, [
+    cancelCountdown,
+    drawOvalFaceMesh,
+    ensureBrightnessCanvas,
+    isLookingStraight,
+    startCountdown,
+  ]);
 
   // Also update the useEffect to ensure proper video loading:
   useEffect(() => {
     const loadModelsAndStart = async () => {
       try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
-          faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models"),
-        ]);
+        if (!modelsLoadedRef.current) {
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
+            faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models"),
+          ]);
+          modelsLoadedRef.current = true;
+        }
 
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: 640, height: 480 },
@@ -514,7 +591,6 @@ export default function CameraPrompt({ onCapture }: Props) {
         const canvas = canvasRef.current;
 
         if (!video || !canvas) {
-          console.error("Video or canvas element not found");
           return;
         }
 
@@ -531,101 +607,86 @@ export default function CameraPrompt({ onCapture }: Props) {
         if (video.videoWidth > 0 && video.videoHeight > 0) {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
-          console.log("Canvas dimensions set:", {
-            width: canvas.width,
-            height: canvas.height,
-          });
 
           // Start analysis only after everything is properly set up
           analyze();
-        } else {
-          console.error("Video dimensions are invalid:", {
-            videoWidth: video.videoWidth,
-            videoHeight: video.videoHeight,
-          });
         }
-      } catch (error) {
-        console.error("Failed to initialize camera:", error);
-        setTips(["❌ Failed to access camera. Please check permissions."]);
+      } catch {
+        setTips([
+          "We couldn’t access your camera.",
+          "Allow camera permission, then refresh this page.",
+        ]);
       }
     };
 
     loadModelsAndStart();
 
     return () => {
-      stopCamera();
-    };
-  }, [isCountingDown]);
-
-  const startCountdown = (image: string) => {
-    console.log(image, tips);
-    setIsCountingDown(true);
-    setCountdown(3);
-
-    let lastTime = performance.now();
-
-    const animate = (now: number) => {
-      if (now - lastTime >= 1000) {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            setIsCountingDown(false);
-            hasCapturedRef.current = true;
-            return 3;
-          }
-          return prev - 1;
-        });
-        lastTime = now;
+      if (showCaptureButtonTimeoutRef.current) {
+        window.clearTimeout(showCaptureButtonTimeoutRef.current);
       }
-      countdownRef.current = requestAnimationFrame(animate);
+      stopCamera();
+      if (countdownRef.current) cancelAnimationFrame(countdownRef.current);
     };
-    countdownRef.current = requestAnimationFrame(animate);
-  };
-
-  const cancelCountdown = () => {
-    setIsCountingDown(false);
-    setCountdown(3);
-    if (countdownRef.current) {
-      cancelAnimationFrame(countdownRef.current);
-    }
-    setTips(["⚠️ Hold still and meet all conditions to capture."]);
-  };
-
-  const isLookingStraight = (landmarks: faceapi.FaceLandmarks68) => {
-    const left = landmarks.getLeftEye()[0];
-    const right = landmarks.getRightEye()[3];
-    const nose = landmarks.getNose()[3];
-    const symmetry = Math.abs(nose.x - left.x - (right.x - nose.x));
-    return symmetry < 5;
-  };
+  }, [analyze, stopCamera]);
 
   const handleForceCapture = () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.save();
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0);
-    ctx.restore();
-    const image = canvas.toDataURL("image/jpeg");
-
+    if (hasCapturedRef.current) return;
     setLightingOK(true);
     setStraightOK(true);
     setFacePositionOK(true);
     setFaceValid(true);
-    setTips(["✅ Force captured for testing purposes"]);
+    setTips(["Quick capture — hold still"]);
+    startCountdown();
+  };
 
-    setCapturedImage(image);
+  const handleRetake = async () => {
+    hasCapturedRef.current = false;
+    hasAutoSubmittedRef.current = false;
+    validStreakRef.current = 0;
+    setCapturedImage(null);
+    setIsCountingDown(false);
+    setCountdown(3);
+    setLightingOK(false);
+    setStraightOK(false);
+    setFacePositionOK(false);
+    setFaceValid(false);
+    setEyesDetected(false);
+    setTips(["Get ready — we’ll capture automatically when everything looks good"]);
+    scheduleManualCaptureButton();
 
-    // Stop camera before starting countdown
-    stopCamera();
-    startCountdown(image);
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: 640, height: 480 },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) return;
+
+      video.srcObject = stream;
+      await new Promise((resolve) => {
+        video.addEventListener("loadedmetadata", resolve, { once: true });
+      });
+      await video.play();
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
+      analyze();
+    } catch {
+      setTips([
+        "We couldn’t access your camera.",
+        "Allow camera permission, then refresh this page.",
+      ]);
+    }
   };
 
   return (
@@ -658,11 +719,56 @@ export default function CameraPrompt({ onCapture }: Props) {
         </div>
       </div>
 
+      <div className="text-center z-10 mb-6">
+        <div className="text-pink-900 font-semibold text-lg">
+          Face Scan
+        </div>
+        <div className="text-pink-900/70 text-sm">
+          Good light, face centered, eyes visible — we’ll capture automatically
+        </div>
+      </div>
+
       {/* Status indicators */}
       <div className="flex flex-wrap gap-3 mb-8 z-10">
         <StatusBox label="LIGHTING" active={lightingOK} icon="💡" />
         <StatusBox label="POSITION" active={facePositionOK} icon="🎯" />
         <StatusBox label="ALIGNMENT" active={straightOK} icon="👁️" />
+      </div>
+
+      <div
+        className={`w-full max-w-[380px] z-10 mb-6 rounded-2xl border backdrop-blur-sm shadow-lg px-5 py-4 ${
+          faceValid
+            ? "bg-white/80 border-pink-400/60"
+            : "bg-white/70 border-pink-300/50"
+        }`}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-semibold text-pink-900">
+            Live tips
+          </div>
+          <div
+            className={`text-xs font-semibold px-3 py-1 rounded-full ${
+              faceValid
+                ? "bg-pink-500 text-white"
+                : "bg-pink-100 text-pink-800"
+            }`}
+          >
+            {faceValid ? "Ready" : "Adjusting"}
+          </div>
+        </div>
+        <div className="text-sm text-pink-900/80 space-y-1">
+          {tips.length > 0 ? (
+            tips.slice(0, 3).map((t) => (
+              <div key={t} className="leading-snug">
+                {t}
+              </div>
+            ))
+          ) : (
+            <div className="leading-snug">
+              Get ready — we’ll guide you in real time
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Camera viewport */}
@@ -683,10 +789,13 @@ export default function CameraPrompt({ onCapture }: Props) {
             )}
             {capturedImage && (
               <div className="relative w-full h-full">
-                <img
+                <Image
                   src={capturedImage}
-                  className="w-full h-full object-cover rounded-2xl"
                   alt="Captured"
+                  fill
+                  sizes="350px"
+                  unoptimized
+                  className="object-cover rounded-2xl"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
               </div>
@@ -702,7 +811,7 @@ export default function CameraPrompt({ onCapture }: Props) {
                     className="group px-8 py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50 backdrop-blur-sm"
                   >
                     <span className="flex items-center space-x-2">
-                      <span>📸 Capture</span>
+                      <span>📸 Capture now</span>
                     </span>
                   </button>
                 </div>
@@ -744,7 +853,7 @@ export default function CameraPrompt({ onCapture }: Props) {
                   </span>
                 </button>
                 <button
-                  onClick={() => window.location.reload()}
+                  onClick={handleRetake}
                   className="group px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
                 >
                   <span className="flex items-center justify-center space-x-2">
