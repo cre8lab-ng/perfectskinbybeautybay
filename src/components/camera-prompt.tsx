@@ -1,20 +1,17 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import Image from "next/image";
+import { useRouter } from "next/router";
 
 interface Props {
   onCapture: (dataUrl: string) => void;
 }
 
 export default function CameraPrompt({ onCapture }: Props) {
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const brightnessCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  // const [captureFailed, setCaptureFailed] = useState(false);
-  const [lightingOK, setLightingOK] = useState(false);
-  const [facePositionOK, setFacePositionOK] = useState(false);
-  const [straightOK, setStraightOK] = useState(false);
-  const [sharpOK, setSharpOK] = useState(false);
   const [faceValid, setFaceValid] = useState(false);
   const [tips, setTips] = useState<string[]>([]);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -619,12 +616,6 @@ export default function CameraPrompt({ onCapture }: Props) {
       if (feedback.length === 0) feedback.push("Perfect — hold still");
 
       setTips(feedback);
-      setLightingOK(lighting);
-      setStraightOK(straight);
-      setSharpOK(isSharp);
-      setFacePositionOK(
-        isCentered && isFullyInside && isBigEnough && !isTooClose
-      );
       setFaceValid(isValid);
 
       if (!isValid && isCountingDownRef.current) {
@@ -638,10 +629,6 @@ export default function CameraPrompt({ onCapture }: Props) {
         setFaceValid(false);
       } else {
         setFaceValid(false);
-        setLightingOK(false);
-        setFacePositionOK(false);
-        setStraightOK(false);
-        setSharpOK(false);
         setTips(["We can’t see your face — move closer and face the light"]);
       }
 
@@ -746,11 +733,7 @@ export default function CameraPrompt({ onCapture }: Props) {
     setCapturedImage(null);
     setIsCountingDown(false);
     setCountdown(3);
-    setLightingOK(false);
-    setStraightOK(false);
-    setFacePositionOK(false);
     setFaceValid(false);
-    setSharpOK(false);
     setTips(["Get ready — tap Take photo when the checks show Ready"]);
 
     try {
@@ -824,25 +807,19 @@ export default function CameraPrompt({ onCapture }: Props) {
             alt="BH Logo"
             width={100}
             height={100}
+            className="cursor-pointer"
+            onClick={() => router.push("/")}
           />
         </div>
       </div>
 
-      <div className="text-center z-10 mb-6">
+      <div className="text-center z-10 mb-10">
         <div className="text-pink-900 font-semibold text-lg">
           Face Scan
         </div>
         <div className="text-pink-900/70 text-sm">
           Good light, face centered, eyes visible — then tap Take photo
         </div>
-      </div>
-
-      {/* Status indicators */}
-      <div className="flex flex-wrap gap-3 mb-8 z-10">
-        <StatusBox label="LIGHTING" active={lightingOK} icon="💡" />
-        <StatusBox label="POSITION" active={facePositionOK} icon="🎯" />
-        <StatusBox label="ALIGNMENT" active={straightOK} icon="👁️" />
-        <StatusBox label="SHARPNESS" active={sharpOK} icon="✨" />
       </div>
 
       <div
@@ -1045,52 +1022,6 @@ export default function CameraPrompt({ onCapture }: Props) {
           animation-delay: 4s;
         }
       `}</style>
-    </div>
-  );
-}
-
-function StatusBox({
-  label,
-  active,
-  icon,
-}: {
-  label: string;
-  active: boolean;
-  icon: string;
-}) {
-  return (
-    <div
-      className={`group relative p-1 rounded-xl font-semibold text-sm transition-all duration-300 backdrop-blur-sm border ${
-        active
-          ? "border-pink-400/50 text-pink-700 shadow-lg"
-          : "bg-white/60 border-pink-300/50 text-gray-600"
-      }`}
-      style={
-        active
-          ? {
-              backgroundColor: "rgba(248, 71, 180, 0.2)",
-              boxShadow: "0 10px 15px -3px rgba(248, 71, 180, 0.2)",
-            }
-          : {}
-      }
-    >
-      <div className="flex items-center space-x-2">
-        <span
-          className={`text-lg transition-transform duration-300 ${
-            active ? "animate-bounce" : ""
-          }`}
-        >
-          {active ? "✓" : icon}
-        </span>
-        <span className="font-medium">{label}</span>
-      </div>
-
-      {active && (
-        <div
-          className="absolute inset-0 rounded-xl animate-pulse"
-          style={{ backgroundColor: "rgba(248, 71, 180, 0.2)" }}
-        ></div>
-      )}
     </div>
   );
 }
