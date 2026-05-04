@@ -25,11 +25,12 @@ export default function CameraPrompt({ onCapture }: Props) {
   const countdownRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null); // Track the stream
-  const [eyesDetected, setEyesDetected] = useState(false);
   const [showCaptureButton, setShowCaptureButton] = useState(false);
   const showCaptureButtonTimeoutRef = useRef<number | null>(null);
   const modelsLoadedRef = useRef(false);
   const validStreakRef = useRef(0);
+  const lastFaceSeenAtRef = useRef(0);
+  const lastDetectAtRef = useRef(0);
 
   const scheduleManualCaptureButton = useCallback(() => {
     if (showCaptureButtonTimeoutRef.current) {
@@ -385,6 +386,13 @@ export default function CameraPrompt({ onCapture }: Props) {
       return;
     }
 
+    const now = performance.now();
+    if (now - lastDetectAtRef.current < 120) {
+      animationRef.current = requestAnimationFrame(analyze);
+      return;
+    }
+    lastDetectAtRef.current = now;
+
     // CRITICAL: Check if video has valid dimensions before proceeding
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       animationRef.current = requestAnimationFrame(analyze);
@@ -406,13 +414,32 @@ export default function CameraPrompt({ onCapture }: Props) {
       return;
     }
 
-    const result = await faceapi
-      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-      .withFaceLandmarks(true);
+    let bestResult: any = null;
+    try {
+      const detectorOptions = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 416,
+        scoreThreshold: 0.2,
+      });
+
+      const results = await faceapi
+        .detectAllFaces(video, detectorOptions)
+        .withFaceLandmarks(true);
+
+      if (results && results.length > 0) {
+        bestResult = results.reduce((best: any, curr: any) => {
+          const bestScore = best?.detection?.score ?? 0;
+          const currScore = curr?.detection?.score ?? 0;
+          return currScore > bestScore ? curr : best;
+        }, results[0]);
+      }
+    } catch {
+      bestResult = null;
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (result) {
+    if (bestResult) {
+      lastFaceSeenAtRef.current = now;
       // Double-check dimensions are valid before calling matchDimensions
       const videoHasValidDimensions =
         video.videoWidth > 0 && video.videoHeight > 0;
@@ -436,15 +463,15 @@ export default function CameraPrompt({ onCapture }: Props) {
         return;
       }
 
-      const resized = faceapi.resizeResults(result, dims);
+      const resized = faceapi.resizeResults(bestResult, dims);
 
       // Get face bounding box
-      const box = result.detection.box;
+      const box = bestResult.detection.box;
 
       // Draw the oval mesh
       drawOvalFaceMesh(ctx, resized.landmarks, box);
 
-      const landmarks = result.landmarks;
+      const landmarks = bestResult.landmarks;
 
       const faceCanvasW = canvas.width;
       const faceCanvasH = canvas.height;
@@ -499,7 +526,6 @@ export default function CameraPrompt({ onCapture }: Props) {
       const rightEye = landmarks.getRightEye();
 
       const areEyesVisible = leftEye.length > 0 && rightEye.length > 0;
-      setEyesDetected(areEyesVisible);
 
       const straight = areEyesVisible && isLookingStraight(landmarks);
 
@@ -547,11 +573,24 @@ export default function CameraPrompt({ onCapture }: Props) {
         cancelCountdown();
       }
     } else {
-      setFaceValid(false);
-      setLightingOK(false);
-      setFacePositionOK(false);
-      setStraightOK(false);
-      setTips(["No face detected — bring your face into view"]);
+      validStreakRef.current = 0;
+
+      const graceMs = 1200;
+      const withinGrace = now - lastFaceSeenAtRef.current < graceMs;
+
+      if (withinGrace) {
+        setFaceValid(false);
+      } else {
+        setFaceValid(false);
+        setLightingOK(false);
+        setFacePositionOK(false);
+        setStraightOK(false);
+        setTips(["We can’t see your face — move closer and face the light"]);
+      }
+
+      if (!withinGrace && isCountingDownRef.current) {
+        cancelCountdown();
+      }
       validStreakRef.current = 0;
     }
 
@@ -651,7 +690,6 @@ export default function CameraPrompt({ onCapture }: Props) {
     setStraightOK(false);
     setFacePositionOK(false);
     setFaceValid(false);
-    setEyesDetected(false);
     setTips(["Get ready — we’ll capture automatically when everything looks good"]);
     scheduleManualCaptureButton();
 
@@ -803,8 +841,7 @@ export default function CameraPrompt({ onCapture }: Props) {
             {!capturedImage &&
               showCaptureButton &&
               !hasCapturedRef.current &&
-              !isCountingDown &&
-              eyesDetected && (
+              !isCountingDown && (
                 <div className="absolute bottom-4 left-4 right-4 flex justify-center z-20">
                   <button
                     onClick={handleForceCapture}
