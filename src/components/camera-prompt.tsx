@@ -22,27 +22,13 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [countdown, setCountdown] = useState(3);
   const isCountingDownRef = useRef(false);
   const hasCapturedRef = useRef(false);
-  const hasAutoSubmittedRef = useRef(false);
   const countdownRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null); // Track the stream
-  const [showCaptureButton, setShowCaptureButton] = useState(false);
-  const showCaptureButtonTimeoutRef = useRef<number | null>(null);
   const modelsLoadedRef = useRef(false);
-  const validStreakRef = useRef(0);
   const lastFaceSeenAtRef = useRef(0);
   const lastDetectAtRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const scheduleManualCaptureButton = useCallback(() => {
-    if (showCaptureButtonTimeoutRef.current) {
-      window.clearTimeout(showCaptureButtonTimeoutRef.current);
-    }
-    setShowCaptureButton(false);
-    showCaptureButtonTimeoutRef.current = window.setTimeout(() => {
-      if (!hasCapturedRef.current) setShowCaptureButton(true);
-    }, 5000);
-  }, []);
 
   const ensureBrightnessCanvas = useCallback(() => {
     if (brightnessCanvasRef.current) return brightnessCanvasRef.current;
@@ -108,27 +94,6 @@ export default function CameraPrompt({ onCapture }: Props) {
     });
     return dataUrl;
   }, []);
-
-  useEffect(() => {
-    if (!hasCapturedRef.current) {
-      scheduleManualCaptureButton();
-      return () => {
-        if (showCaptureButtonTimeoutRef.current) {
-          window.clearTimeout(showCaptureButtonTimeoutRef.current);
-        }
-      };
-    }
-  }, [scheduleManualCaptureButton]);
-
-  useEffect(() => {
-    if (!capturedImage || isCountingDown) return;
-    if (!hasCapturedRef.current) return;
-    if (hasAutoSubmittedRef.current) return;
-
-    hasAutoSubmittedRef.current = true;
-    const timeout = window.setTimeout(() => onCapture(capturedImage), 300);
-    return () => window.clearTimeout(timeout);
-  }, [capturedImage, isCountingDown, onCapture]);
 
   useEffect(() => {
     isCountingDownRef.current = isCountingDown;
@@ -374,7 +339,6 @@ export default function CameraPrompt({ onCapture }: Props) {
   const cancelCountdown = useCallback(() => {
     setIsCountingDown(false);
     setCountdown(3);
-    validStreakRef.current = 0;
     if (countdownRef.current) {
       cancelAnimationFrame(countdownRef.current);
     }
@@ -384,7 +348,6 @@ export default function CameraPrompt({ onCapture }: Props) {
   const startCountdown = useCallback(() => {
     setIsCountingDown(true);
     setCountdown(3);
-    validStreakRef.current = 0;
 
     let lastTime = performance.now();
 
@@ -664,24 +627,10 @@ export default function CameraPrompt({ onCapture }: Props) {
       );
       setFaceValid(isValid);
 
-      if (isValid) {
-        validStreakRef.current += 1;
-      } else {
-        validStreakRef.current = 0;
-      }
-
-      if (
-        validStreakRef.current >= 10 &&
-        !isCountingDownRef.current &&
-        !hasCapturedRef.current
-      ) {
-        startCountdown();
-      } else if (!isValid && isCountingDownRef.current) {
+      if (!isValid && isCountingDownRef.current) {
         cancelCountdown();
       }
     } else {
-      validStreakRef.current = 0;
-
       const graceMs = 1200;
       const withinGrace = now - lastFaceSeenAtRef.current < graceMs;
 
@@ -699,7 +648,6 @@ export default function CameraPrompt({ onCapture }: Props) {
       if (!withinGrace && isCountingDownRef.current) {
         cancelCountdown();
       }
-      validStreakRef.current = 0;
     }
 
     // Only continue animation if we haven't captured yet
@@ -711,7 +659,6 @@ export default function CameraPrompt({ onCapture }: Props) {
     drawOvalFaceMesh,
     ensureBrightnessCanvas,
     isLookingStraight,
-    startCountdown,
   ]);
 
   const startCamera = useCallback(async () => {
@@ -782,28 +729,20 @@ export default function CameraPrompt({ onCapture }: Props) {
     loadModelsAndStart();
 
     return () => {
-      if (showCaptureButtonTimeoutRef.current) {
-        window.clearTimeout(showCaptureButtonTimeoutRef.current);
-      }
       stopCamera();
       if (countdownRef.current) cancelAnimationFrame(countdownRef.current);
     };
   }, [startCamera, stopCamera]);
 
-  const handleForceCapture = () => {
+  const handleTakePhoto = () => {
     if (hasCapturedRef.current) return;
-    setLightingOK(true);
-    setStraightOK(true);
-    setFacePositionOK(true);
-    setFaceValid(true);
-    setTips(["Quick capture — hold still"]);
+    if (!faceValid || isCountingDownRef.current) return;
+    setTips(["Hold still — capturing"]);
     startCountdown();
   };
 
   const handleRetake = async () => {
     hasCapturedRef.current = false;
-    hasAutoSubmittedRef.current = false;
-    validStreakRef.current = 0;
     setCapturedImage(null);
     setIsCountingDown(false);
     setCountdown(3);
@@ -812,8 +751,7 @@ export default function CameraPrompt({ onCapture }: Props) {
     setFacePositionOK(false);
     setFaceValid(false);
     setSharpOK(false);
-    setTips(["Get ready — we’ll capture automatically when everything looks good"]);
-    scheduleManualCaptureButton();
+    setTips(["Get ready — tap Take photo when the checks show Ready"]);
 
     try {
       if (streamRef.current) {
@@ -895,7 +833,7 @@ export default function CameraPrompt({ onCapture }: Props) {
           Face Scan
         </div>
         <div className="text-pink-900/70 text-sm">
-          Good light, face centered, eyes visible — we’ll capture automatically
+          Good light, face centered, eyes visible — then tap Take photo
         </div>
       </div>
 
@@ -908,7 +846,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       </div>
 
       <div
-        className={`w-full max-w-[380px] z-10 mb-6 rounded-2xl border backdrop-blur-sm shadow-lg px-5 py-4 ${
+        className={`w-full max-w-[380px] z-10 mb-6 rounded-2xl border backdrop-blur-sm shadow-lg px-5 py-4 h-[140px] flex flex-col ${
           faceValid
             ? "bg-white/80 border-pink-400/60"
             : "bg-white/70 border-pink-300/50"
@@ -928,7 +866,7 @@ export default function CameraPrompt({ onCapture }: Props) {
             {faceValid ? "Ready" : "Adjusting"}
           </div>
         </div>
-        <div className="text-sm text-pink-900/80 space-y-1">
+        <div className="text-sm text-pink-900/80 space-y-1 flex-1 overflow-hidden">
           {tips.length > 0 ? (
             tips.slice(0, 3).map((t) => (
               <div key={t} className="leading-snug">
@@ -977,16 +915,20 @@ export default function CameraPrompt({ onCapture }: Props) {
               </div>
             )}
             {!capturedImage &&
-              showCaptureButton &&
               !hasCapturedRef.current &&
               !isCountingDown && (
                 <div className="absolute bottom-4 left-4 right-4 flex justify-center z-20">
                   <button
-                    onClick={handleForceCapture}
-                    className="group px-8 py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-2xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-pink-600/50 backdrop-blur-sm"
+                    onClick={handleTakePhoto}
+                    disabled={!faceValid}
+                    className={`group px-8 py-4 rounded-2xl font-semibold shadow-xl transition-all duration-300 border backdrop-blur-sm ${
+                      faceValid
+                        ? "bg-pink-500 hover:bg-pink-600 text-white hover:scale-105 border-pink-600/50"
+                        : "bg-white/30 text-white/70 border-white/20 cursor-not-allowed"
+                    }`}
                   >
                     <span className="flex items-center space-x-2">
-                      <span>📸 Capture now</span>
+                      <span>{faceValid ? "📸 Take photo" : "Get ready"}</span>
                     </span>
                   </button>
                 </div>
