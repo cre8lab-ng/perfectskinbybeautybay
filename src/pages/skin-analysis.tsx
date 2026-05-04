@@ -1905,6 +1905,31 @@ export default function FaceDetectionComponent() {
                               >
                                 {heroProduct.brand} — {heroProduct.name}
                               </div>
+                              {heroProduct.expertRecommendation && (
+                                <div
+                                  style={{
+                                    fontSize: "0.8rem",
+                                    color: "#f847b4",
+                                    fontWeight: "700",
+                                    marginTop: "0.35rem",
+                                    fontStyle: "italic",
+                                  }}
+                                >
+                                  ✨ {heroProduct.expertRecommendation}
+                                </div>
+                              )}
+                              {heroProduct.proof && (
+                                <div
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "#27ae60",
+                                    fontWeight: "600",
+                                    marginTop: "0.2rem",
+                                  }}
+                                >
+                                  ✅ Evidence: {heroProduct.proof}
+                                </div>
+                              )}
                               <div style={{ color: "#666", marginTop: "0.35rem" }}>
                                 Why: {concernMeaning(topConcern)}
                               </div>
@@ -1976,6 +2001,7 @@ export default function FaceDetectionComponent() {
                                   "serum",
                                   "moisturizer",
                                   "sunscreen",
+                                  "treatment",
                                 ].map((step) => {
                                   const product = routineProducts.find(
                                     (p: any) => p.step === step
@@ -2033,6 +2059,31 @@ export default function FaceDetectionComponent() {
                                         >
                                           {product.brand} — {product.name}
                                         </div>
+                                        {product.expertRecommendation && (
+                                          <div
+                                            style={{
+                                              fontSize: "0.75rem",
+                                              color: "#f847b4",
+                                              fontWeight: "700",
+                                              marginTop: "0.35rem",
+                                              fontStyle: "italic",
+                                            }}
+                                          >
+                                            ✨ {product.expertRecommendation}
+                                          </div>
+                                        )}
+                                        {product.proof && (
+                                          <div
+                                            style={{
+                                              fontSize: "0.7rem",
+                                              color: "#27ae60",
+                                              fontWeight: "600",
+                                              marginTop: "0.2rem",
+                                            }}
+                                          >
+                                            ✅ Evidence: {product.proof}
+                                          </div>
+                                        )}
                                         <div style={{ color: "#666", marginTop: "0.35rem" }}>
                                           {stepHowToUse(
                                             step,

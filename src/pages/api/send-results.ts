@@ -478,6 +478,8 @@ export default async function handler(
                         brand?: string;
                         step?: string;
                         link?: string;
+                        proof?: string;
+                        expertRecommendation?: string;
                       }) => `
                       <div class="product-item">
                         <div class="product-step">${prod.step || "Product"}</div>
@@ -497,6 +499,16 @@ export default async function handler(
                           prod.brand || "Beauty Bay"
                         }</div>
                         <div class="product-price">${prod.price_html || "₦0"}</div>
+                        ${
+                          prod.expertRecommendation
+                            ? `<div style="font-size: 11px; color: #f847b4; font-style: italic; margin-top: 5px; font-weight: bold;">✨ ${prod.expertRecommendation}</div>`
+                            : ""
+                        }
+                        ${
+                          prod.proof
+                            ? `<div style="font-size: 10px; color: #27ae60; margin-top: 3px; font-weight: bold;">✅ Evidence: ${prod.proof}</div>`
+                            : ""
+                        }
                         <a href="${
                           prod.link || "https://beautybayafrica.com"
                         }" class="product-shop-btn">Shop Now</a>

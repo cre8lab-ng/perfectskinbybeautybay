@@ -167,11 +167,11 @@ export default function Footer() {
 
       <div className="mt-12 flex flex-col md:flex-row items-center justify-between text-sm ">
         <p className="text-center md:text-left mt-4 md:mt-0">
-          COPYRIGHT © 2025 CRE8LAB
+          COPYRIGHT © {new Date().getFullYear()} CRE8LAB
         </p>
         <div className="flex items-center gap-6 mt-4 md:mt-0">
           <a
-            href="https://www.tiktok.com/@beautyhubco.ng"
+            href="https://www.tiktok.com/beautybayafrica"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="TikTok"
@@ -180,7 +180,7 @@ export default function Footer() {
           </a>
 
           <a
-            href="https://x.com/beautyhubco_ng"
+            href="https://x.com/beautybayafrica"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Twitter"
@@ -189,7 +189,7 @@ export default function Footer() {
           </a>
 
           <a
-            href="https://www.instagram.com/beautyhubco.ng/"
+            href="https://www.instagram.com/beautybayafrica/"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Instagram"

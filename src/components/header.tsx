@@ -2,9 +2,6 @@ import { useState } from "react";
 import { MdOutlineKeyboardArrowDown, MdMenu, MdClose } from "react-icons/md";
 import { PiPhoneLight } from "react-icons/pi";
 import { VscMail } from "react-icons/vsc";
-import { FiSearch, FiHeart } from "react-icons/fi";
-import { RiUserLine } from "react-icons/ri";
-import { IoBagHandleOutline } from "react-icons/io5";
 import Image from "next/image";
 import Link from "next/link";
 import router from "next/router";
@@ -64,40 +61,20 @@ export default function Header() {
           priority
         />
 
-
         {/* Desktop Nav */}
-
-        <div className="hidden lg:flex gap-6 text-pink-600 font-medium text-lg">
+        <div className="hidden lg:flex gap-12 text-pink-600 font-medium text-lg">
           {navItems.map((item) => (
             <Link
               key={item.name}
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center cursor-pointer hover:underline"
+              className="flex items-center cursor-pointer hover:underline transition-all duration-300"
             >
               <span className="text-base">{item.name}</span>
               <MdOutlineKeyboardArrowDown />
             </Link>
           ))}
-        </div>
-
-        {/* Desktop Icons */}
-        <div className="hidden lg:flex items-center gap-4 text-darkpink text-xl relative">
-          <FiSearch className="cursor-pointer" />
-          <RiUserLine className="cursor-pointer" />
-          <div className="relative">
-            <FiHeart className="cursor-pointer" />
-            <span className="absolute -top-2 -right-2 bg-darkpink text-white text-xs w-5 h-5 flex justify-center items-center rounded-full">
-              0
-            </span>
-          </div>
-          <div className="relative">
-            <IoBagHandleOutline className="cursor-pointer" />
-            <span className="absolute -top-2 -right-2 bg-darkpink text-white text-xs w-5 h-5 flex justify-center items-center rounded-full">
-              1
-            </span>
-          </div>
         </div>
 
         {/* Hamburger - only on tablet & mobile */}
