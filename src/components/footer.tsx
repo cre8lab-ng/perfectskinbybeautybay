@@ -6,8 +6,42 @@ import { GoClock } from "react-icons/go";
 import { FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import router from "next/router";
+import { useState } from "react";
 
 export default function Footer() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setStatus("loading");
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setStatus("success");
+        setMessage(data.message || "Thank you for subscribing! ✨");
+        setEmail("");
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Something went wrong.");
+      }
+    } catch (err) {
+      console.error("Subscription error:", err);
+      setStatus("error");
+      setMessage("Failed to subscribe. Please try again.");
+    }
+  };
+
   return (
     <footer className="bg-white bh-container">
       <div className="mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 items-start mt-10">
@@ -153,16 +187,39 @@ export default function Footer() {
         <h4 className="mb-2 text-sm font-medium">
           Subscribe To Our Newsletter!
         </h4>
-        <div className="flex">
-          <input
-            type="email"
-            placeholder="Enter your email"
-            className="w-full px-4 py-2 border border-gray-300 rounded-l"
-          />
-          <button className="bg-black text-white px-6 py-2 rounded-r">
-            Send
-          </button>
-        </div>
+        <form onSubmit={handleSubscribe} className="flex flex-col">
+          <div className="flex">
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={status === "loading"}
+              className="w-full px-4 py-2 border border-gray-300 rounded-l focus:outline-none focus:ring-1 focus:ring-darkpink"
+              required
+            />
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className={`px-6 py-2 rounded-r transition-colors ${
+                status === "loading"
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-black hover:bg-gray-800 text-white"
+              }`}
+            >
+              {status === "loading" ? "..." : "Send"}
+            </button>
+          </div>
+          {message && (
+            <p
+              className={`mt-2 text-sm font-medium ${
+                status === "success" ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {message}
+            </p>
+          )}
+        </form>
       </div>
 
       <div className="mt-12 flex flex-col md:flex-row items-center justify-between text-sm ">
