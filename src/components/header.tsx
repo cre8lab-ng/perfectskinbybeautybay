@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MdOutlineKeyboardArrowDown, MdMenu, MdClose } from "react-icons/md";
+import { MdMenu, MdClose } from "react-icons/md";
 import { PiPhoneLight } from "react-icons/pi";
 import { VscMail } from "react-icons/vsc";
 import Image from "next/image";
@@ -72,7 +72,6 @@ export default function Header() {
               className="flex items-center cursor-pointer hover:underline transition-all duration-300"
             >
               <span className="text-base">{item.name}</span>
-              <MdOutlineKeyboardArrowDown />
             </Link>
           ))}
         </div>
@@ -114,7 +113,6 @@ export default function Header() {
                   className="flex justify-between items-center pb-2 cursor-pointer"
                 >
                   {item.name.toUpperCase()}
-                  <MdOutlineKeyboardArrowDown />
                 </Link>
               ))}
             </div>
