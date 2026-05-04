@@ -1010,7 +1010,7 @@ export default function FaceDetectionComponent() {
         />
       ) : (
         <>
-          <WebPageTitle title="Perfect Skin By BeautyHub" />
+          <WebPageTitle title="Perfect Skin By Beauty Bay" />
           <Header />
           <main
             style={{

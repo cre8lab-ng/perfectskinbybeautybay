@@ -10,19 +10,15 @@ import Link from "next/link";
 import router from "next/router";
 
 const navItems = [
-  { name: "Skincare", url: "https://beautybayafrica.com/product-category/skin-care/" },
-  { name: "Makeup", url: "https://beautybayafrica.com/product-category/make-up/" },
+  { name: "Skincare", url: "https://beautybayafrica.com/product-category/skincare/" },
+  { name: "Makeup", url: "https://beautybayafrica.com/product-category/makeup/" },
   {
     name: "Fragrance",
     url: "https://beautybayafrica.com/product-category/fragrance/",
   },
   {
-    name: "Haircare & Nails",
-    url: "https://beautybayafrica.com/product-category/hair-care-nails/",
-  },
-  {
-    name: "Wellness & Supplements",
-    url: "https://beautybayafrica.com/product-category/wellness-supplements/",
+    name: "Hair & Haircare",
+    url: "https://beautybayafrica.com/product-category/hair-haircare/",
   },
   {
     name: "Lighting & Content Tools",
@@ -76,6 +72,8 @@ export default function Header() {
             <Link
               key={item.name}
               href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center cursor-pointer hover:underline"
             >
               <span className="text-base">{item.name}</span>
@@ -134,6 +132,8 @@ export default function Header() {
                 <Link
                   key={item.name}
                   href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex justify-between items-center pb-2 cursor-pointer"
                 >
                   {item.name.toUpperCase()}

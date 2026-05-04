@@ -28,7 +28,7 @@ export default function Footer() {
           <ul className="space-y-2">
             <li>
               <a
-                href="https://beautybayafrica.com/about-us/"
+                href="https://beautybayafrica.com/about/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -38,7 +38,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautybayafrica.com/terms-conditions/"
+                href="https://beautybayafrica.com/terms-and-conditions/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
