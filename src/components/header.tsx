@@ -10,23 +10,23 @@ import Link from "next/link";
 import router from "next/router";
 
 const navItems = [
-  { name: "Skincare", url: "https://beautyhub.ng/product-category/skin-care/" },
-  { name: "Makeup", url: "https://beautyhub.ng/product-category/make-up/" },
+  { name: "Skincare", url: "https://beautybayafrica.com/product-category/skin-care/" },
+  { name: "Makeup", url: "https://beautybayafrica.com/product-category/make-up/" },
   {
     name: "Fragrance",
-    url: "https://beautyhub.ng/product-category/fragrance/",
+    url: "https://beautybayafrica.com/product-category/fragrance/",
   },
   {
     name: "Haircare & Nails",
-    url: "https://beautyhub.ng/product-category/hair-care-nails/",
+    url: "https://beautybayafrica.com/product-category/hair-care-nails/",
   },
   {
     name: "Wellness & Supplements",
-    url: "https://beautyhub.ng/product-category/wellness-supplements/",
+    url: "https://beautybayafrica.com/product-category/wellness-supplements/",
   },
   {
     name: "Lighting & Content Tools",
-    url: "https://beautyhub.ng/product-category/lighting-content-tools/",
+    url: "https://beautybayafrica.com/product-category/lighting-content-tools/",
   },
 ];
 
@@ -46,11 +46,11 @@ export default function Header() {
           </a>
           <span>|</span>
           <a
-            href="mailto:support@beautyhub.ng"
+            href="mailto:support@beautybayafrica.com"
             className="flex items-center gap-2"
           >
             <VscMail size={20} />
-            support@beautyhub.ng
+            support@beautybayafrica.com
           </a>
         </div>
       </div>
@@ -59,7 +59,7 @@ export default function Header() {
       <div className="bg-white lg:bg-lightpink flex justify-between items-center py-2 px-4 lg:px-6">
         {/* Logo */}
         <Image
-          src="/images/bh-logo.png"
+          src="/images/bb-logo.png"
           alt="BH Logo"
           width={100}
           height={100}

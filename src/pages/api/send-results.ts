@@ -434,8 +434,8 @@ export default async function handler(
         <div class="email-container">
           <!-- Header -->
           <div class="header">
-            <img src="https://res.cloudinary.com/debcfaccq/image/upload/v1753339613/Asset_12BH_n3ygpt.png" alt="Beauty Hub Logo" class="logo" />
-            <h1>Perfect Skin By Beauty Hub</h1>
+            <img src="https://res.cloudinary.com/debcfaccq/image/upload/v1753339613/Asset_12BH_n3ygpt.png" alt="Beauty Bay Logo" class="logo" />
+            <h1>Perfect Skin By Beauty Bay</h1>
             <p>AI-Powered Skin Analysis</p>
           </div>
           
@@ -494,11 +494,11 @@ export default async function handler(
                         />
                         <div class="product-name">${prod.name}</div>
                         <div class="product-brand">${
-                          prod.brand || "Beauty Hub"
+                          prod.brand || "Beauty Bay"
                         }</div>
                         <div class="product-price">${prod.price_html || "₦0"}</div>
                         <a href="${
-                          prod.link || "https://beautyhub.ng"
+                          prod.link || "https://beautybayafrica.com"
                         }" class="product-shop-btn">Shop Now</a>
                       </div>
                     `
@@ -512,14 +512,14 @@ export default async function handler(
             <div class="cta-section">
               <h3 class="cta-title">Ready to Transform Your Skin? 🚀</h3>
               <p class="cta-text">Visit our website to explore more products</p>
-              <a href="https://beautyhub.ng" class="cta-button">Shop Now</a>
+              <a href="https://beautybayafrica.com" class="cta-button">Shop Now</a>
             </div>
           </div>
           
           <!-- Footer -->
           <div class="footer">
             <div class="footer-content">
-              <img src="https://res.cloudinary.com/debcfaccq/image/upload/v1753339613/Asset_12BH_n3ygpt.png" alt="Beauty Hub Logo" class="footer-logo" />
+              <img src="https://res.cloudinary.com/debcfaccq/image/upload/v1753339613/Asset_12BH_n3ygpt.png" alt="Beauty Bay Logo" class="footer-logo" />
               <p>Your ultimate destination for authentic skincare, fragrances, makeup, and more, all under one virtual roof.</p>
               <p class="powered-by">Powered by CRE8LAB</p>
             </div>
@@ -527,13 +527,13 @@ export default async function handler(
             <div class="social-links">
               <a href="https://www.instagram.com/beautyhubco.ng/">Instagram</a>
               <a href="https://wa.me/2348162598682">WhatsApp</a>
-              <a href="mailto:hello@beautyhub.ng">Email</a>
+              <a href="mailto:hello@beautybayafrica.com">Email</a>
             </div>
             
             <div class="footer-text">
-              <p>© 2025 Beauty Hub. All rights reserved.</p>
+              <p>© 2025 Beauty Bay. All rights reserved.</p>
               <p>This email was sent to you because you requested a skin analysis report.</p>
-              <p>www.beautyhub.ng</p>
+              <p>www.beautybayafrica.com</p>
             </div>
           </div>
         </div>
@@ -545,8 +545,8 @@ export default async function handler(
   try {
     await sendgrid.send({
       to,
-      from: "hello@beautyhub.ng",
-      subject: "✨ Your Personalized Skin Analysis Results - Beauty Hub",
+      from: "hello@beautybayafrica.com",
+      subject: "✨ Your Personalized Skin Analysis Results - Beauty Bay",
       html: emailTemplate,
     });
 

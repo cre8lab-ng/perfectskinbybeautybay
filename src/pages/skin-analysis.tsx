@@ -847,7 +847,7 @@ export default function FaceDetectionComponent() {
           <>
             We couldn&apos;t analyze your skin. Please retake your photo or{" "}
             <a
-              href="mailto:support@beautyhub.ng"
+              href="mailto:support@beautybayafrica.com"
               style={{
                 color: "#f847b4",
                 textDecoration: "underline",

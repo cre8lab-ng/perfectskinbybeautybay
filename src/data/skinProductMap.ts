@@ -49,7 +49,7 @@ export const skinCareRoutines: {
         price_html: "₦16,600",
         brand: "CeraVe",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753342063/foamingcleansercerave_tfyjce.png",
-        link: "https://beautyhub.ng/product/cerave-foaming-facial-cleanser/",
+        link: "https://beautybayafrica.com/product/cerave-foaming-facial-cleanser/",
         step: "cleanser",
       },
       {
@@ -58,7 +58,7 @@ export const skinCareRoutines: {
         price_html: "₦13,500",
         brand: "Cosrx",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/cosrx-ahabha-toner_r9tfjf.png",
-        link: "https://beautyhub.ng/product/cosrx-aha-bha-clarifying-treatment-toner/",
+        link: "https://beautybayafrica.com/product/cosrx-aha-bha-clarifying-treatment-toner/",
         step: "toner",
       },
       {
@@ -67,7 +67,7 @@ export const skinCareRoutines: {
         price_html: "₦18,500",
         brand: "Beauty Of Joseon",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/beautyofjoseonniacinamide_zn5czx.png",
-        link: "https://beautyhub.ng/product/beauty-of-joseon-glow-serum-propolis-niacinamide/",
+        link: "https://beautybayafrica.com/product/beauty-of-joseon-glow-serum-propolis-niacinamide/",
         step: "serum",
       },
       {
@@ -76,7 +76,7 @@ export const skinCareRoutines: {
         price_html: "₦16,500",
         brand: "Cosrx",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/cosrx-allinonecream_f4fxcn.png",
-        link: "https://beautyhub.ng/product/cosrx-advanced-snail-92-all-in-one-cream/",
+        link: "https://beautybayafrica.com/product/cosrx-advanced-snail-92-all-in-one-cream/",
         step: "moisturizer",
       },
       {
@@ -85,7 +85,7 @@ export const skinCareRoutines: {
         price_html: "₦11,500",
         brand: "Rohto Skin Aqua",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/skinaqua_b8fnel.png",
-        link: "https://beautyhub.ng/product/rohto-skin-aqua-super-moisture-gel-spf50-pa/",
+        link: "https://beautybayafrica.com/product/rohto-skin-aqua-super-moisture-gel-spf50-pa/",
         step: "sunscreen",
       },
     ],
@@ -108,7 +108,7 @@ export const skinCareRoutines: {
         price_html: "₦11,600",
         brand: "Cosrx",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/cosrxsalicyliccleanser_qiujsc.png",
-        link: "https://beautyhub.ng/product/cosrx-salicylic-acid-daily-gentle-cleanser/",
+        link: "https://beautybayafrica.com/product/cosrx-salicylic-acid-daily-gentle-cleanser/",
         step: "cleanser",
       },
       {
@@ -117,7 +117,7 @@ export const skinCareRoutines: {
         price_html: "₦12,500",
         brand: "Acwell",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/acwelltoner_wdmx4y.png",
-        link: "https://beautyhub.ng/product/acwell-licorice-ph-balancing-cleansing-toner/",
+        link: "https://beautybayafrica.com/product/acwell-licorice-ph-balancing-cleansing-toner/",
         step: "toner",
       },
       {
@@ -126,7 +126,7 @@ export const skinCareRoutines: {
         price_html: "₦15,000",
         brand: "Some By Mi",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/somebymisogalactomyes_rvhusd.png",
-        link: "https://beautyhub.ng/product/some-by-mi-galactomyces-pure-vitamin-c-glow-serum-30ml/",
+        link: "https://beautybayafrica.com/product/some-by-mi-galactomyces-pure-vitamin-c-glow-serum-30ml/",
         step: "serum",
       },
       {
@@ -135,7 +135,7 @@ export const skinCareRoutines: {
         price_html: "₦19,500",
         brand: "CaraVe",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/ceravemoisturisinglotion_w6bnrr.png",
-        link: "https://beautyhub.ng/product/cerave-daily-moisturizing-lotion/",
+        link: "https://beautybayafrica.com/product/cerave-daily-moisturizing-lotion/",
         step: "moisturizer",
       },
       {
@@ -144,7 +144,7 @@ export const skinCareRoutines: {
         price_html: "₦19,200",
         brand: "Beauty Of Joseon",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/beautyofjoseonsunscreen_u3d1f5.png",
-        link: "https://beautyhub.ng/product/beauty-of-josen-relief-sun-rice-probiotics/",
+        link: "https://beautybayafrica.com/product/beauty-of-josen-relief-sun-rice-probiotics/",
         step: "sunscreen",
       },
     ],
@@ -162,7 +162,7 @@ export const skinCareRoutines: {
         price_html: "₦20,000",
         brand: "Bolden",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/boldencleanser_xoicgo.png",
-        link: "https://beautyhub.ng/product/bolden-skin-clarifying-cleanser/",
+        link: "https://beautybayafrica.com/product/bolden-skin-clarifying-cleanser/",
         step: "cleanser",
       },
       {
@@ -171,7 +171,7 @@ export const skinCareRoutines: {
         price_html: "₦16,000",
         brand: "Some By Mi",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/somebymisotoner_wwuwbn.png",
-        link: "https://beautyhub.ng/product/some-by-mi-aha-bha-pha-30-days-miracle-toner/",
+        link: "https://beautybayafrica.com/product/some-by-mi-aha-bha-pha-30-days-miracle-toner/",
         step: "toner",
       },
       {
@@ -180,7 +180,7 @@ export const skinCareRoutines: {
         price_html: "₦15,000",
         brand: "Advanced Clinicals",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/advancedclinicalsvitc_n1tak9.png",
-        link: "https://beautyhub.ng/product/advanced-clinicals-vitamin-c-face-serum/",
+        link: "https://beautybayafrica.com/product/advanced-clinicals-vitamin-c-face-serum/",
         step: "serum",
       },
       {
@@ -189,7 +189,7 @@ export const skinCareRoutines: {
         price_html: "₦16,800",
         brand: "TOPICREM",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341727/topicremcicasoothing_u8ckqf.png",
-        link: "https://beautyhub.ng/product/topicrem-cica-soothing-cream/",
+        link: "https://beautybayafrica.com/product/topicrem-cica-soothing-cream/",
         step: "moisturizer",
       },
       {
@@ -198,7 +198,7 @@ export const skinCareRoutines: {
         price_html: "₦9,000",
         brand: "La Roche Posay",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/larocheinvisble_g0vzhh.png",
-        link: "https://beautyhub.ng/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
+        link: "https://beautybayafrica.com/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
         step: "sunscreen",
       },
     ],
@@ -221,7 +221,7 @@ export const skinCareRoutines: {
         price_html: "₦17,800",
         brand: "Panoxyl",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/panoxyl4_gqjufk.png",
-        link: "https://beautyhub.ng/product/panoxyl-acne-acne-creamy-wash-4-benzoyl-peroxide/",
+        link: "https://beautybayafrica.com/product/panoxyl-acne-acne-creamy-wash-4-benzoyl-peroxide/",
         step: "cleanser",
       },
       {
@@ -230,7 +230,7 @@ export const skinCareRoutines: {
         price_html: "₦15,000",
         brand: "TonyMoly",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341724/tonymolytoner_opucrr.png",
-        link: "https://beautyhub.ng/product/tonymoly-ceramide-mochi-toner/",
+        link: "https://beautybayafrica.com/product/tonymoly-ceramide-mochi-toner/",
         step: "toner",
       },
       {
@@ -239,7 +239,7 @@ export const skinCareRoutines: {
         price_html: "₦27,200",
         brand: "The Ordinary",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/theordinaryalphaarbution_y0yfha.png",
-        link: "https://beautyhub.ng/product/the-ordinary-alpha-arbutin-2-ha/",
+        link: "https://beautybayafrica.com/product/the-ordinary-alpha-arbutin-2-ha/",
         step: "serum",
       },
       {
@@ -248,7 +248,7 @@ export const skinCareRoutines: {
         price_html: "₦17,500",
         brand: "Illiyoon",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/illiyionnconcemoisturizer_izp2oz.png",
-        link: "https://beautyhub.ng/product/illiyoon-ceramide-ato-concentrate-cream/",
+        link: "https://beautybayafrica.com/product/illiyoon-ceramide-ato-concentrate-cream/",
         step: "moisturizer",
       },
       {
@@ -257,7 +257,7 @@ export const skinCareRoutines: {
         price_html: "₦9,000",
         brand: "La Roche Posay",
         image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341723/larocheinvisble_g0vzhh.png",
-        link: "https://beautyhub.ng/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
+        link: "https://beautybayafrica.com/product/la-roche-posay-anthelios-uvmune-400-invisible-fluid-spf50/",
         step: "sunscreen",
       },
     ],

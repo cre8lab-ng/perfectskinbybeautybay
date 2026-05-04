@@ -94,7 +94,7 @@ export function generateSkinAnalysisResult({
   logo.crossOrigin = "anonymous";
   productImage.crossOrigin = "anonymous";
 
-  logo.src = "/images/bh-logo.png";
+  logo.src = "/images/bb-logo.png";
   productImage.src = originalImageSrc;
 
   Promise.all([
@@ -543,7 +543,7 @@ export function generateSkinAnalysisResult({
     ctx.font = "bold 28px Inconsolata, monospace";
     ctx.shadowOffsetY = 1;
     ctx.fillStyle = textDark;
-    ctx.fillText("www.beautyhub.ng", canvas.width / 2, footerY + 55);
+    ctx.fillText("www.beautybayafrica.com", canvas.width / 2, footerY + 55);
 
     // Timestamp
     const now = new Date();
@@ -576,13 +576,13 @@ export function generateSkinAnalysisResult({
         fetch(resultImage)
           .then((res) => res.blob())
           .then((blob) => {
-            const file = new File([blob], "beautyhub-skin-analysis.png", {
+            const file = new File([blob], "beautybayafrica-skin-analysis.png", {
               type: "image/png",
             });
             navigator
               .share({
-                title: "Perfect Skin By Beauty Hub",
-                text: "My personalized AI skin analysis from Beauty Hub! 💎",
+                title: "Perfect Skin By Beauty Bay",
+                text: "My personalized AI skin analysis from Beauty Bay! 💎",
                 files: [file],
               })
               .catch((err) => {
@@ -637,7 +637,7 @@ export function generateSkinAnalysisResult({
           backdrop-filter: blur(10px);
         `;
         instruction.innerHTML = `
-          <h3 style="margin: 0 0 20px 0; font-size: 24px; text-shadow: 0 3px 6px rgba(0,0,0,0.3);"> Beauty Hub Premium</h3>
+          <h3 style="margin: 0 0 20px 0; font-size: 24px; text-shadow: 0 3px 6px rgba(0,0,0,0.3);"> Beauty Bay Premium</h3>
           <p style="margin: 0 0 15px 0; font-size: 16px; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">Your Instagram-worthy skin analysis is ready! 💎</p>
           <p style="margin: 0 0 20px 0; font-size: 14px; opacity: 0.95; line-height: 1.5; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">
             <strong>Android:</strong> Check Downloads → Move to Gallery<br>

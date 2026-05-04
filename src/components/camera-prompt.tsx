@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import Image from "next/image";
 
@@ -14,6 +14,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [lightingOK, setLightingOK] = useState(false);
   const [facePositionOK, setFacePositionOK] = useState(false);
   const [straightOK, setStraightOK] = useState(false);
+  const [sharpOK, setSharpOK] = useState(false);
   const [faceValid, setFaceValid] = useState(false);
   const [tips, setTips] = useState<string[]>([]);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const validStreakRef = useRef(0);
   const lastFaceSeenAtRef = useRef(0);
   const lastDetectAtRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const scheduleManualCaptureButton = useCallback(() => {
     if (showCaptureButtonTimeoutRef.current) {
@@ -68,6 +70,43 @@ export default function CameraPrompt({ onCapture }: Props) {
     ctx.restore();
 
     return canvas.toDataURL("image/jpeg");
+  }, []);
+
+  const fileToJpegDataUrl = useCallback(async (file: File) => {
+    const maxSide = 1600;
+    if (typeof document === "undefined") return null;
+
+    if (typeof createImageBitmap === "function") {
+      let bitmap: ImageBitmap;
+      try {
+        bitmap = await createImageBitmap(file, {
+          imageOrientation: "from-image" as any,
+        });
+      } catch {
+        bitmap = await createImageBitmap(file);
+      }
+
+      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+      const w = Math.max(1, Math.round(bitmap.width * scale));
+      const h = Math.max(1, Math.round(bitmap.height * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(bitmap, 0, 0, w, h);
+      bitmap.close?.();
+      return canvas.toDataURL("image/jpeg", 0.92);
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+    return dataUrl;
   }, []);
 
   useEffect(() => {
@@ -370,11 +409,19 @@ export default function CameraPrompt({ onCapture }: Props) {
   }, [captureFrame, stopCamera]);
 
   const isLookingStraight = useCallback((landmarks: faceapi.FaceLandmarks68) => {
-    const left = landmarks.getLeftEye()[0];
-    const right = landmarks.getRightEye()[3];
+    const leftEye = landmarks.getLeftEye();
+    const rightEye = landmarks.getRightEye();
+    if (leftEye.length < 4 || rightEye.length < 4) return false;
+
+    const left = leftEye[0];
+    const right = rightEye[3];
     const nose = landmarks.getNose()[3];
-    const symmetry = Math.abs(nose.x - left.x - (right.x - nose.x));
-    return symmetry < 5;
+
+    const eyeWidth = Math.max(1, Math.abs(right.x - left.x));
+    const leftToNose = Math.abs(nose.x - left.x);
+    const noseToRight = Math.abs(right.x - nose.x);
+    const symmetry = Math.abs(leftToNose - noseToRight) / eyeWidth;
+    return symmetry < 0.18;
   }, []);
 
   const analyze = useCallback(async () => {
@@ -479,9 +526,11 @@ export default function CameraPrompt({ onCapture }: Props) {
       const centerX = box.x + box.width / 2;
       const centerY = box.y + box.height / 2;
 
+      const centerTolX = faceCanvasW * 0.12;
+      const centerTolY = faceCanvasH * 0.14;
       const isCentered =
-        Math.abs(centerX - faceCanvasW / 2) < 40 &&
-        Math.abs(centerY - faceCanvasH / 2) < 60;
+        Math.abs(centerX - faceCanvasW / 2) < centerTolX &&
+        Math.abs(centerY - faceCanvasH / 2) < centerTolY;
 
       const isBigEnough =
         box.width > 0.3 * faceCanvasW &&
@@ -490,11 +539,12 @@ export default function CameraPrompt({ onCapture }: Props) {
       const isTooClose =
         box.width > 0.92 * faceCanvasW || box.height > 0.92 * faceCanvasH;
 
+      const edgeMargin = Math.round(Math.min(faceCanvasW, faceCanvasH) * 0.06);
       const isFullyInside =
-        box.x > 30 &&
-        box.y > 30 &&
-        box.x + box.width < faceCanvasW - 30 &&
-        box.y + box.height < faceCanvasH - 30;
+        box.x > edgeMargin &&
+        box.y > edgeMargin &&
+        box.x + box.width < faceCanvasW - edgeMargin &&
+        box.y + box.height < faceCanvasH - edgeMargin;
 
       const hasMargin =
         box.x > faceCanvasW * 0.1 &&
@@ -504,24 +554,78 @@ export default function CameraPrompt({ onCapture }: Props) {
 
       const brightnessCanvas = ensureBrightnessCanvas();
       let brightness = 0;
+      let isSharp = true;
       if (brightnessCanvas) {
-        const sampleW = 64;
-        const sampleH = 64;
+        const sampleW = 180;
+        const sampleH = Math.max(
+          1,
+          Math.round(sampleW * (video.videoHeight / video.videoWidth))
+        );
         if (brightnessCanvas.width !== sampleW) brightnessCanvas.width = sampleW;
         if (brightnessCanvas.height !== sampleH) brightnessCanvas.height = sampleH;
         const bctx = brightnessCanvas.getContext("2d");
         if (bctx) {
           bctx.drawImage(video, 0, 0, sampleW, sampleH);
-          const data = bctx.getImageData(0, 0, sampleW, sampleH).data;
+
+          const sx = Math.max(0, Math.floor((box.x / video.videoWidth) * sampleW));
+          const sy = Math.max(0, Math.floor((box.y / video.videoHeight) * sampleH));
+          const sw = Math.max(
+            1,
+            Math.floor((box.width / video.videoWidth) * sampleW)
+          );
+          const sh = Math.max(
+            1,
+            Math.floor((box.height / video.videoHeight) * sampleH)
+          );
+
+          const rx = Math.min(sampleW - 1, sx);
+          const ry = Math.min(sampleH - 1, sy);
+          const rw = Math.min(sampleW - rx, sw);
+          const rh = Math.min(sampleH - ry, sh);
+
+          const { data } = bctx.getImageData(rx, ry, rw, rh);
+
           let total = 0;
+          let lCount = 0;
           for (let i = 0; i < data.length; i += 4) {
             total += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+            lCount += 1;
           }
-          brightness = total / (data.length / 4);
+          brightness = lCount > 0 ? total / lCount : 0;
+
+          if (rw >= 12 && rh >= 12) {
+            const w = rw;
+            const h = rh;
+            const idx = (x: number, y: number) => (y * w + x) * 4;
+            const lumaAt = (x: number, y: number) => {
+              const i = idx(x, y);
+              return (
+                0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]
+              );
+            };
+
+            const stride = 2;
+            let n = 0;
+            let sum = 0;
+            let sum2 = 0;
+            for (let y = 1; y < h - 1; y += stride) {
+              for (let x = 1; x < w - 1; x += stride) {
+                const c = lumaAt(x, y);
+                const lap =
+                  4 * c - lumaAt(x - 1, y) - lumaAt(x + 1, y) - lumaAt(x, y - 1) - lumaAt(x, y + 1);
+                n += 1;
+                sum += lap;
+                sum2 += lap * lap;
+              }
+            }
+            const mean = n > 0 ? sum / n : 0;
+            const variance = n > 0 ? sum2 / n - mean * mean : 0;
+            isSharp = variance >= 35;
+          }
         }
       }
 
-      const lighting = brightness >= 60;
+      const lighting = brightness >= 60 && brightness <= 210;
       const leftEye = landmarks.getLeftEye();
       const rightEye = landmarks.getRightEye();
 
@@ -531,6 +635,7 @@ export default function CameraPrompt({ onCapture }: Props) {
 
       const isValid =
         lighting &&
+        isSharp &&
         straight &&
         isFullyInside &&
         isBigEnough &&
@@ -541,6 +646,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       const feedback: string[] = [];
       if (!areEyesVisible) feedback.push("Keep both eyes visible");
       if (!lighting) feedback.push("Step into brighter, even light (avoid backlight)");
+      if (!isSharp) feedback.push("Hold still — the image looks a bit blurry");
       if (!straight) feedback.push("Hold the phone at eye level and look straight ahead");
       if (!isCentered) feedback.push("Center your face in the frame");
       if (!isBigEnough) feedback.push("Move a little closer");
@@ -552,6 +658,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       setTips(feedback);
       setLightingOK(lighting);
       setStraightOK(straight);
+      setSharpOK(isSharp);
       setFacePositionOK(
         isCentered && isFullyInside && isBigEnough && !isTooClose
       );
@@ -585,6 +692,7 @@ export default function CameraPrompt({ onCapture }: Props) {
         setLightingOK(false);
         setFacePositionOK(false);
         setStraightOK(false);
+        setSharpOK(false);
         setTips(["We can’t see your face — move closer and face the light"]);
       }
 
@@ -606,6 +714,51 @@ export default function CameraPrompt({ onCapture }: Props) {
     startCountdown,
   ]);
 
+  const startCamera = useCallback(async () => {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      setTips(["Camera isn’t available on this device/browser. Use Upload instead."]);
+      return;
+    }
+
+    const constraints: MediaStreamConstraints = {
+      video: {
+        facingMode: { ideal: "user" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30 },
+      },
+      audio: false,
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    streamRef.current = stream;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    video.srcObject = stream;
+    await new Promise((resolve) => {
+      video.addEventListener("loadedmetadata", resolve, { once: true });
+    });
+
+    try {
+      await video.play();
+    } catch {
+      setTips([
+        "Tap anywhere on the screen, then try again.",
+        "If it still won’t start, use Upload instead.",
+      ]);
+      return;
+    }
+
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      analyze();
+    }
+  }, [analyze]);
+
   // Also update the useEffect to ensure proper video loading:
   useEffect(() => {
     const loadModelsAndStart = async () => {
@@ -617,39 +770,7 @@ export default function CameraPrompt({ onCapture }: Props) {
           ]);
           modelsLoadedRef.current = true;
         }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: 640, height: 480 },
-          audio: false,
-        });
-
-        // Store stream reference
-        streamRef.current = stream;
-
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-
-        if (!video || !canvas) {
-          return;
-        }
-
-        video.srcObject = stream;
-
-        // Wait for video metadata to load completely
-        await new Promise((resolve) => {
-          video.addEventListener("loadedmetadata", resolve, { once: true });
-        });
-
-        await video.play();
-
-        // Ensure video has valid dimensions before setting canvas
-        if (video.videoWidth > 0 && video.videoHeight > 0) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-
-          // Start analysis only after everything is properly set up
-          analyze();
-        }
+        await startCamera();
       } catch {
         setTips([
           "We couldn’t access your camera.",
@@ -667,7 +788,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       stopCamera();
       if (countdownRef.current) cancelAnimationFrame(countdownRef.current);
     };
-  }, [analyze, stopCamera]);
+  }, [startCamera, stopCamera]);
 
   const handleForceCapture = () => {
     if (hasCapturedRef.current) return;
@@ -690,6 +811,7 @@ export default function CameraPrompt({ onCapture }: Props) {
     setStraightOK(false);
     setFacePositionOK(false);
     setFaceValid(false);
+    setSharpOK(false);
     setTips(["Get ready — we’ll capture automatically when everything looks good"]);
     scheduleManualCaptureButton();
 
@@ -698,32 +820,43 @@ export default function CameraPrompt({ onCapture }: Props) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: 640, height: 480 },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!video || !canvas) return;
-
-      video.srcObject = stream;
-      await new Promise((resolve) => {
-        video.addEventListener("loadedmetadata", resolve, { once: true });
-      });
-      await video.play();
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-      }
-      analyze();
+      await startCamera();
     } catch {
       setTips([
         "We couldn’t access your camera.",
         "Allow camera permission, then refresh this page.",
       ]);
+    }
+  };
+
+  const handleUploadInstead = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    stopCamera();
+    hasCapturedRef.current = true;
+    setIsCountingDown(false);
+    setCountdown(3);
+
+    try {
+      const dataUrl = await fileToJpegDataUrl(file);
+      if (!dataUrl) {
+        setTips(["Couldn’t read that photo. Please try another one."]);
+        hasCapturedRef.current = false;
+        await startCamera();
+        return;
+      }
+      setCapturedImage(dataUrl);
+      setTips(["Photo ready — continue when you’re happy"]);
+    } catch {
+      setTips(["Couldn’t read that photo. Please try another one."]);
+      hasCapturedRef.current = false;
+      await startCamera();
     }
   };
 
@@ -749,7 +882,7 @@ export default function CameraPrompt({ onCapture }: Props) {
         {/* Brand Logo */}
         <div className="flex justify-center">
           <Image
-            src="/images/bh-logo.png"
+            src="/images/bb-logo.png"
             alt="BH Logo"
             width={100}
             height={100}
@@ -771,6 +904,7 @@ export default function CameraPrompt({ onCapture }: Props) {
         <StatusBox label="LIGHTING" active={lightingOK} icon="💡" />
         <StatusBox label="POSITION" active={facePositionOK} icon="🎯" />
         <StatusBox label="ALIGNMENT" active={straightOK} icon="👁️" />
+        <StatusBox label="SHARPNESS" active={sharpOK} icon="✨" />
       </div>
 
       <div
@@ -818,11 +952,15 @@ export default function CameraPrompt({ onCapture }: Props) {
                 <video
                   ref={videoRef}
                   className="absolute w-full h-full object-cover transform -scale-x-100"
+                  autoPlay
                   playsInline
                   muted
                 />
 
-                <canvas ref={canvasRef} className="absolute w-full h-full" />
+                <canvas
+                  ref={canvasRef}
+                  className="absolute w-full h-full transform -scale-x-100"
+                />
               </>
             )}
             {capturedImage && (
@@ -853,6 +991,25 @@ export default function CameraPrompt({ onCapture }: Props) {
                   </button>
                 </div>
               )}
+
+            {!capturedImage && !isCountingDown && (
+              <div className="absolute top-4 right-4 z-20">
+                <button
+                  onClick={handleUploadInstead}
+                  className="px-4 py-2 bg-black/50 hover:bg-black/70 text-white rounded-xl text-sm font-semibold border border-white/20 backdrop-blur-sm"
+                >
+                  Upload instead
+                </button>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
             {/* Action buttons - Now as overlay */}
             {capturedImage && !isCountingDown && (
               <div className="absolute bottom-4 left-4 right-4 flex gap-3 z-20">

@@ -13,7 +13,7 @@ export default function Footer() {
       <div className="mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 items-start mt-10">
         <div className="flex flex-col items-start">
           <Image
-            src="/images/bh-logo.png"
+            src="/images/bb-logo.png"
             alt="BH Logo"
             width={100}
             height={100}
@@ -28,7 +28,7 @@ export default function Footer() {
           <ul className="space-y-2">
             <li>
               <a
-                href="https://beautyhub.ng/about-us/"
+                href="https://beautybayafrica.com/about-us/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -38,7 +38,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/terms-conditions/"
+                href="https://beautybayafrica.com/terms-conditions/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -48,7 +48,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/privacy-policy/"
+                href="https://beautybayafrica.com/privacy-policy/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -58,7 +58,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/refund_returns/"
+                href="https://beautybayafrica.com/refund_returns/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -74,7 +74,7 @@ export default function Footer() {
           <ul className="space-y-2">
             <li>
               <a
-                href="https://beautyhub.ng/order-tracking/"
+                href="https://beautybayafrica.com/order-tracking/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -84,7 +84,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/faq/"
+                href="https://beautybayafrica.com/faq/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -94,7 +94,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/my-account/"
+                href="https://beautybayafrica.com/my-account/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -104,7 +104,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/wishlist/"
+                href="https://beautybayafrica.com/wishlist/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -120,8 +120,8 @@ export default function Footer() {
           <ul className="space-y-3 text-sm">
             <li className="flex items-center gap-2">
               <PiPhoneLight size="20" />
-              <a href="mailto:support@beautyhub.ng" className="hover:underline">
-                support@beautyhub.ng
+              <a href="mailto:support@beautybayafrica.com" className="hover:underline">
+                support@beautybayafrica.com
               </a>
             </li>
 
@@ -139,11 +139,11 @@ export default function Footer() {
 
             <li className="flex items-center gap-2">
               <IoMdPin size={20} />
-              41a Industrial Avenue, Sabo Yaba.
+              112 Herbert Macaulay Way,Ebute Metta East,Lagos Nigeria.
             </li>
             <li className="flex items-center gap-2">
               <GoClock size={20} />
-              Mon - Sat / 9:00 AM - 5:00 PM
+              Mon - Sat / 9:00 AM - 6:00 PM
             </li>
           </ul>
         </div>
