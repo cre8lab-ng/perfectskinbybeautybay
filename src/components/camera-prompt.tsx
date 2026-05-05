@@ -1,7 +1,8 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
-import * as faceapi from "face-api.js";
 import Image from "next/image";
 import { useRouter } from "next/router";
+import { getFaceMesh } from "@/util/faceValidation";
+import { Results } from "@mediapipe/face_mesh";
 
 interface Props {
   onCapture: (dataUrl: string) => void;
@@ -19,12 +20,12 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [countdown, setCountdown] = useState(3);
   const isCountingDownRef = useRef(false);
   const hasCapturedRef = useRef(false);
-  const countdownRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
+  const countdownRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null); // Track the stream
-  const modelsLoadedRef = useRef(false);
   const lastFaceSeenAtRef = useRef(0);
   const lastDetectAtRef = useRef(0);
+  const faceMeshRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const ensureBrightnessCanvas = useCallback(() => {
@@ -96,240 +97,70 @@ export default function CameraPrompt({ onCapture }: Props) {
     isCountingDownRef.current = isCountingDown;
   }, [isCountingDown]);
 
-  const drawFacialFeatureGuides = useCallback((
+  // Advanced MediaPipe Mesh drawing
+  const drawMediaPipeMesh = useCallback((
     ctx: CanvasRenderingContext2D,
-    centerX: number,
-    centerY: number,
-    radiusX: number,
-    radiusY: number
+    results: Results
   ) => {
-    ctx.strokeStyle = "#ff0000";
-    ctx.lineWidth = 1;
+    if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
 
-    // Eye guidelines
-    const eyeY = centerY - radiusY * 0.2;
-    const eyeSpacing = radiusX * 0.3;
+    const landmarks = results.multiFaceLandmarks[0];
+    const width = ctx.canvas.width;
+    const height = ctx.canvas.height;
 
-    // Left eye area
-    ctx.beginPath();
-    ctx.ellipse(
-      centerX - eyeSpacing,
-      eyeY,
-      radiusX * 0.15,
-      radiusY * 0.08,
-      0,
-      0,
-      2 * Math.PI
-    );
-    ctx.stroke();
-
-    // Right eye area
-    ctx.beginPath();
-    ctx.ellipse(
-      centerX + eyeSpacing,
-      eyeY,
-      radiusX * 0.15,
-      radiusY * 0.08,
-      0,
-      0,
-      2 * Math.PI
-    );
-    ctx.stroke();
-
-    // Nose guideline
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY - radiusY * 0.1);
-    ctx.lineTo(centerX, centerY + radiusY * 0.1);
-    ctx.stroke();
-
-    // Nose bridge curves
-    ctx.beginPath();
-    ctx.moveTo(centerX - radiusX * 0.05, centerY);
-    ctx.quadraticCurveTo(
-      centerX,
-      centerY + radiusY * 0.05,
-      centerX + radiusX * 0.05,
-      centerY
-    );
-    ctx.stroke();
-
-    // Mouth area
-    const mouthY = centerY + radiusY * 0.3;
-    ctx.beginPath();
-    ctx.ellipse(centerX, mouthY, radiusX * 0.2, radiusY * 0.06, 0, 0, Math.PI);
-    ctx.stroke();
-
-    // Jaw line enhancement
-    ctx.beginPath();
-    ctx.moveTo(centerX - radiusX * 0.8, centerY + radiusY * 0.6);
-    ctx.quadraticCurveTo(
-      centerX,
-      centerY + radiusY * 0.9,
-      centerX + radiusX * 0.8,
-      centerY + radiusY * 0.6
-    );
-    ctx.stroke();
-  }, []);
-
-  // Replace your drawOvalFaceMesh function with this auto-detecting version
-  const drawOvalFaceMesh = useCallback((
-    ctx: CanvasRenderingContext2D,
-    landmarks: any,
-    faceBox: { x: number; y: number; width: number; height: number } | null
-  ) => {
-    if (!landmarks || !faceBox) return;
-
-    let centerX, centerY, radiusX, radiusY;
-
-    // Use landmarks to get ACTUAL face bounds (more accurate than detection box)
-    if (landmarks && landmarks.positions) {
-      const landmarkPoints = landmarks.positions;
-      let minX = Infinity,
-        maxX = -Infinity,
-        minY = Infinity,
-        maxY = -Infinity;
-
-      // Find actual bounds from ALL landmark points
-      landmarkPoints.forEach((point: { x: number; y: number }) => {
-        minX = Math.min(minX, point.x);
-        maxX = Math.max(maxX, point.x);
-        minY = Math.min(minY, point.y);
-        maxY = Math.max(maxY, point.y);
-      });
-
-      // Calculate actual face dimensions from landmarks
-      const landmarkWidth = maxX - minX;
-      const landmarkHeight = maxY - minY;
-
-      // Use landmark-based center
-      centerX = minX + landmarkWidth / 2;
-      centerY = minY + landmarkHeight / 2;
-
-      // Add extra padding to cover the full face (forehead, chin, cheeks)
-      radiusX = (landmarkWidth / 2) * 1.4; // 40% extra width
-      radiusY = (landmarkHeight / 2) * 1.6; // 60% extra height (for forehead/chin)
-    } else {
-      // Fallback to detection box if no landmarks
-      centerX = faceBox.x + faceBox.width / 2;
-      centerY = faceBox.y + faceBox.height / 2;
-      radiusX = (faceBox.width / 2) * 1.8;
-      radiusY = (faceBox.height / 2) * 1.8;
-    }
-
-    // Additional auto-adjustment based on canvas size
-    const canvas = ctx.canvas;
-    const minRadius = Math.min(canvas.width, canvas.height) * 0.15; // Minimum 15% of canvas
-    const maxRadius = Math.min(canvas.width, canvas.height) * 0.45; // Maximum 45% of canvas
-
-    // Ensure reasonable bounds
-    radiusX = Math.max(minRadius, Math.min(maxRadius, radiusX));
-    radiusY = Math.max(minRadius, Math.min(maxRadius, radiusY));
-
-    // Set mesh style
-    ctx.strokeStyle = "#ff0000";
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = 0.8;
-
-    // Adaptive grid density based on face size
-    const faceArea = radiusX * radiusY;
-    const horizontalLines = Math.max(
-      10,
-      Math.min(20, Math.floor(faceArea / 1000))
-    );
-    const verticalLines = Math.max(
-      8,
-      Math.min(16, Math.floor(faceArea / 1200))
-    );
-
-    // Draw horizontal curved lines following face contour
-    for (let i = 0; i <= horizontalLines; i++) {
-      const t = i / horizontalLines;
-      const y = centerY - radiusY + 2 * radiusY * t;
-
-      // Calculate the width of the oval at this height
-      const distanceFromCenter = Math.abs(y - centerY);
-      const normalizedDistance = distanceFromCenter / radiusY;
-
-      if (normalizedDistance <= 1) {
-        const widthAtHeight =
-          radiusX * Math.sqrt(1 - normalizedDistance * normalizedDistance);
-
-        ctx.beginPath();
-        ctx.moveTo(centerX - widthAtHeight, y);
-
-        // Create smooth curved line
-        const segments = 20;
-        for (let j = 0; j <= segments; j++) {
-          const segmentT = j / segments;
-          const x = centerX - widthAtHeight + 2 * widthAtHeight * segmentT;
-
-          // Subtle curve for natural face shape
-          const curve = Math.sin(segmentT * Math.PI) * 2;
-          ctx.lineTo(x, y + curve);
-        }
-        ctx.stroke();
-      }
-    }
-
-    // Draw vertical curved lines
-    for (let i = 0; i <= verticalLines; i++) {
-      const t = i / verticalLines;
-      const angle = -Math.PI / 2 + Math.PI * t;
-
+    // Draw high-tech mesh dots
+    ctx.fillStyle = "rgba(248, 71, 180, 0.7)";
+    for (const landmark of landmarks) {
+      const x = landmark.x * width;
+      const y = landmark.y * height;
       ctx.beginPath();
-
-      const segments = 25;
-      for (let j = 0; j <= segments; j++) {
-        const segmentT = j / segments;
-        const currentAngle = -Math.PI / 2 + Math.PI * segmentT;
-
-        // Calculate position on oval
-        let x =
-          centerX +
-          radiusX * Math.cos(angle) * Math.sin(currentAngle + Math.PI / 2);
-        const y = centerY + radiusY * Math.sin(currentAngle);
-
-        // Face shape adjustment
-        const faceAdjustment = Math.sin(currentAngle + Math.PI / 2) * 0.85;
-        x = centerX + radiusX * Math.cos(angle) * faceAdjustment;
-
-        if (j === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-      }
-      ctx.stroke();
+      ctx.arc(x, y, 0.7, 0, 2 * Math.PI);
+      ctx.fill();
     }
 
-    // Draw the main oval outline
+    // Draw glowing silhouette
+    let minX = 1, maxX = 0, minY = 1, maxY = 0;
+    for (const lm of landmarks) {
+      minX = Math.min(minX, lm.x);
+      maxX = Math.max(maxX, lm.x);
+      minY = Math.min(minY, lm.y);
+      maxY = Math.max(maxY, lm.y);
+    }
+
+    const centerX = ((minX + maxX) / 2) * width;
+    const centerY = ((minY + maxY) / 2) * height;
+    const radiusX = ((maxX - minX) / 2) * width * 1.15;
+    const radiusY = ((maxY - minY) / 2) * height * 1.3;
+
+    ctx.strokeStyle = "rgba(248, 71, 180, 0.8)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 8]);
     ctx.beginPath();
     ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
     ctx.stroke();
+    ctx.setLineDash([]);
 
-    // Add facial feature guides
-    drawFacialFeatureGuides(ctx, centerX, centerY, radiusX, radiusY);
-
-    ctx.globalAlpha = 1;
-  }, [drawFacialFeatureGuides]);
-
-  // Function to stop camera completely
-  const stopCamera = useCallback(() => {
-    // Stop animation loop
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
+    // Add scanning line effect
+    const time = Date.now() / 1000;
+    const scanPos = (Math.sin(time * 1.5) * 0.5 + 0.5); // 0 to 1
+    const scanY = (centerY - radiusY) + (radiusY * 2 * scanPos);
+    
+    ctx.strokeStyle = "rgba(248, 71, 180, 0.4)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const dy = Math.abs(scanY - centerY);
+    if (dy < radiusY) {
+      const scanWidth = radiusX * Math.sqrt(1 - (dy * dy) / (radiusY * radiusY));
+      ctx.moveTo(centerX - scanWidth, scanY);
+      ctx.lineTo(centerX + scanWidth, scanY);
+      ctx.stroke();
     }
+  }, []);
 
-    // Stop video stream
+  const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
-    }
-
-    // Clear video source
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
     }
   }, []);
 
@@ -368,21 +199,6 @@ export default function CameraPrompt({ onCapture }: Props) {
     countdownRef.current = requestAnimationFrame(animate);
   }, [captureFrame, stopCamera]);
 
-  const isLookingStraight = useCallback((landmarks: faceapi.FaceLandmarks68) => {
-    const leftEye = landmarks.getLeftEye();
-    const rightEye = landmarks.getRightEye();
-    if (leftEye.length < 4 || rightEye.length < 4) return false;
-
-    const left = leftEye[0];
-    const right = rightEye[3];
-    const nose = landmarks.getNose()[3];
-
-    const eyeWidth = Math.max(1, Math.abs(right.x - left.x));
-    const leftToNose = Math.abs(nose.x - left.x);
-    const noseToRight = Math.abs(right.x - nose.x);
-    const symmetry = Math.abs(leftToNose - noseToRight) / eyeWidth;
-    return symmetry < 0.18;
-  }, []);
 
   const analyze = useCallback(async () => {
     const video = videoRef.current;
@@ -394,23 +210,18 @@ export default function CameraPrompt({ onCapture }: Props) {
     }
 
     const now = performance.now();
-    if (now - lastDetectAtRef.current < 120) {
+    if (now - lastDetectAtRef.current < 60) {
       animationRef.current = requestAnimationFrame(analyze);
       return;
     }
     lastDetectAtRef.current = now;
 
-    // CRITICAL: Check if video has valid dimensions before proceeding
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       animationRef.current = requestAnimationFrame(analyze);
       return;
     }
 
-    // Ensure canvas has the correct dimensions
-    if (
-      canvas.width !== video.videoWidth ||
-      canvas.height !== video.videoHeight
-    ) {
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
     }
@@ -421,231 +232,99 @@ export default function CameraPrompt({ onCapture }: Props) {
       return;
     }
 
-    let bestResult: any = null;
     try {
-      const detectorOptions = new faceapi.TinyFaceDetectorOptions({
-        inputSize: 416,
-        scoreThreshold: 0.2,
+      if (!faceMeshRef.current) {
+        faceMeshRef.current = await getFaceMesh();
+      }
+      
+      const faceMesh = faceMeshRef.current;
+      
+      const results = await new Promise<Results>((resolve) => {
+        faceMesh.onResults((res: Results) => resolve(res));
+        faceMesh.send({ image: video });
       });
 
-      const results = await faceapi
-        .detectAllFaces(video, detectorOptions)
-        .withFaceLandmarks(true);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (results && results.length > 0) {
-        bestResult = results.reduce((best: any, curr: any) => {
-          const bestScore = best?.detection?.score ?? 0;
-          const currScore = curr?.detection?.score ?? 0;
-          return currScore > bestScore ? curr : best;
-        }, results[0]);
-      }
-    } catch {
-      bestResult = null;
-    }
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        lastFaceSeenAtRef.current = now;
+        const landmarks = results.multiFaceLandmarks[0];
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawMediaPipeMesh(ctx, results);
 
-    if (bestResult) {
-      lastFaceSeenAtRef.current = now;
-      // Double-check dimensions are valid before calling matchDimensions
-      const videoHasValidDimensions =
-        video.videoWidth > 0 && video.videoHeight > 0;
-      const canvasHasValidDimensions = canvas.width > 0 && canvas.height > 0;
+        let minX = 1, maxX = 0, minY = 1, maxY = 0;
+        for (const lm of landmarks) {
+          minX = Math.min(minX, lm.x);
+          maxX = Math.max(maxX, lm.x);
+          minY = Math.min(minY, lm.y);
+          maxY = Math.max(maxY, lm.y);
+        }
 
-      if (!videoHasValidDimensions || !canvasHasValidDimensions) {
-        console.warn("Invalid dimensions detected:", {
-          video: { width: video.videoWidth, height: video.videoHeight },
-          canvas: { width: canvas.width, height: canvas.height },
-        });
-        animationRef.current = requestAnimationFrame(analyze);
-        return;
-      }
+        const boxWidth = (maxX - minX) * canvas.width;
+        const boxHeight = (maxY - minY) * canvas.height;
+        const centerX = ((minX + maxX) / 2) * canvas.width;
 
-      const dims = faceapi.matchDimensions(canvas, video, true);
+        const isCentered = Math.abs(centerX - canvas.width / 2) < canvas.width * 0.15;
+        const isBigEnough = boxWidth > canvas.width * 0.3 && boxHeight > canvas.height * 0.4;
+        const isTooClose = boxWidth > canvas.width * 0.9;
+        const isFullyInside = minX > 0 && maxX < 1 && minY > 0 && maxY < 1;
 
-      // Additional safety check after matchDimensions
-      if (dims.width === 0 || dims.height === 0) {
-        console.warn("matchDimensions returned invalid dimensions:", dims);
-        animationRef.current = requestAnimationFrame(analyze);
-        return;
-      }
-
-      const resized = faceapi.resizeResults(bestResult, dims);
-
-      // Get face bounding box
-      const box = bestResult.detection.box;
-
-      // Draw the oval mesh
-      drawOvalFaceMesh(ctx, resized.landmarks, box);
-
-      const landmarks = bestResult.landmarks;
-
-      const faceCanvasW = canvas.width;
-      const faceCanvasH = canvas.height;
-
-      const centerX = box.x + box.width / 2;
-      const centerY = box.y + box.height / 2;
-
-      const centerTolX = faceCanvasW * 0.12;
-      const centerTolY = faceCanvasH * 0.14;
-      const isCentered =
-        Math.abs(centerX - faceCanvasW / 2) < centerTolX &&
-        Math.abs(centerY - faceCanvasH / 2) < centerTolY;
-
-      const isBigEnough =
-        box.width > 0.3 * faceCanvasW &&
-        box.height > 0.4 * faceCanvasH;
-
-      const isTooClose =
-        box.width > 0.92 * faceCanvasW || box.height > 0.92 * faceCanvasH;
-
-      const edgeMargin = Math.round(Math.min(faceCanvasW, faceCanvasH) * 0.06);
-      const isFullyInside =
-        box.x > edgeMargin &&
-        box.y > edgeMargin &&
-        box.x + box.width < faceCanvasW - edgeMargin &&
-        box.y + box.height < faceCanvasH - edgeMargin;
-
-      const hasMargin =
-        box.x > faceCanvasW * 0.1 &&
-        box.y > faceCanvasH * 0.1 &&
-        box.x + box.width < faceCanvasW * 0.9 &&
-        box.y + box.height < faceCanvasH * 0.9;
-
-      const brightnessCanvas = ensureBrightnessCanvas();
-      let brightness = 0;
-      let isSharp = true;
-      if (brightnessCanvas) {
-        const sampleW = 180;
-        const sampleH = Math.max(
-          1,
-          Math.round(sampleW * (video.videoHeight / video.videoWidth))
-        );
-        if (brightnessCanvas.width !== sampleW) brightnessCanvas.width = sampleW;
-        if (brightnessCanvas.height !== sampleH) brightnessCanvas.height = sampleH;
-        const bctx = brightnessCanvas.getContext("2d");
-        if (bctx) {
-          bctx.drawImage(video, 0, 0, sampleW, sampleH);
-
-          const sx = Math.max(0, Math.floor((box.x / video.videoWidth) * sampleW));
-          const sy = Math.max(0, Math.floor((box.y / video.videoHeight) * sampleH));
-          const sw = Math.max(
-            1,
-            Math.floor((box.width / video.videoWidth) * sampleW)
-          );
-          const sh = Math.max(
-            1,
-            Math.floor((box.height / video.videoHeight) * sampleH)
-          );
-
-          const rx = Math.min(sampleW - 1, sx);
-          const ry = Math.min(sampleH - 1, sy);
-          const rw = Math.min(sampleW - rx, sw);
-          const rh = Math.min(sampleH - ry, sh);
-
-          const { data } = bctx.getImageData(rx, ry, rw, rh);
-
-          let total = 0;
-          let lCount = 0;
-          for (let i = 0; i < data.length; i += 4) {
-            total += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
-            lCount += 1;
-          }
-          brightness = lCount > 0 ? total / lCount : 0;
-
-          if (rw >= 12 && rh >= 12) {
-            const w = rw;
-            const h = rh;
-            const idx = (x: number, y: number) => (y * w + x) * 4;
-            const lumaAt = (x: number, y: number) => {
-              const i = idx(x, y);
-              return (
-                0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]
-              );
-            };
-
-            const stride = 2;
-            let n = 0;
+        const bCanvas = ensureBrightnessCanvas();
+        let lighting = true;
+        if (bCanvas) {
+          bCanvas.width = 40;
+          bCanvas.height = 40;
+          const bCtx = bCanvas.getContext("2d");
+          if (bCtx) {
+            bCtx.drawImage(video, 0, 0, 40, 40);
+            const bData = bCtx.getImageData(0, 0, 40, 40).data;
             let sum = 0;
-            let sum2 = 0;
-            for (let y = 1; y < h - 1; y += stride) {
-              for (let x = 1; x < w - 1; x += stride) {
-                const c = lumaAt(x, y);
-                const lap =
-                  4 * c - lumaAt(x - 1, y) - lumaAt(x + 1, y) - lumaAt(x, y - 1) - lumaAt(x, y + 1);
-                n += 1;
-                sum += lap;
-                sum2 += lap * lap;
-              }
+            for (let i = 0; i < bData.length; i += 4) {
+              sum += (bData[i] + bData[i + 1] + bData[i + 2]) / 3;
             }
-            const mean = n > 0 ? sum / n : 0;
-            const variance = n > 0 ? sum2 / n - mean * mean : 0;
-            isSharp = variance >= 35;
+            const avg = sum / (40 * 40);
+            lighting = avg > 40 && avg < 250;
           }
         }
-      }
 
-      const lighting = brightness >= 60 && brightness <= 210;
-      const leftEye = landmarks.getLeftEye();
-      const rightEye = landmarks.getRightEye();
+        const feedback: string[] = [];
+        if (!lighting) feedback.push("Improve your lighting");
+        if (!isCentered) feedback.push("Center your face");
+        if (!isBigEnough) feedback.push("Move closer");
+        if (isTooClose) feedback.push("Move back a bit");
+        if (!isFullyInside) feedback.push("Keep face inside frame");
 
-      const areEyesVisible = leftEye.length > 0 && rightEye.length > 0;
+        if (feedback.length === 0) feedback.push("Perfect — hold still");
+        setTips(feedback);
 
-      const straight = areEyesVisible && isLookingStraight(landmarks);
+        const isPerfect = feedback.length === 1 && feedback[0] === "Perfect — hold still";
+        setFaceValid(true); 
 
-      const isValid =
-        lighting &&
-        isSharp &&
-        straight &&
-        isFullyInside &&
-        isBigEnough &&
-        isCentered &&
-        hasMargin &&
-        !isTooClose;
-
-      const feedback: string[] = [];
-      if (!areEyesVisible) feedback.push("Keep both eyes visible");
-      if (!lighting) feedback.push("Step into brighter, even light (avoid backlight)");
-      if (!isSharp) feedback.push("Hold still — the image looks a bit blurry");
-      if (!straight) feedback.push("Hold the phone at eye level and look straight ahead");
-      if (!isCentered) feedback.push("Center your face in the frame");
-      if (!isBigEnough) feedback.push("Move a little closer");
-      if (isTooClose) feedback.push("Step back a touch");
-      if (!hasMargin) feedback.push("Leave a little space around your face");
-      if (!isFullyInside) feedback.push("Keep your full face inside the frame");
-      if (feedback.length === 0) feedback.push("Perfect — hold still");
-
-      setTips(feedback);
-      setFaceValid(isValid);
-
-      if (!isValid && isCountingDownRef.current) {
-        cancelCountdown();
-      }
-    } else {
-      const graceMs = 1200;
-      const withinGrace = now - lastFaceSeenAtRef.current < graceMs;
-
-      if (withinGrace) {
-        setFaceValid(false);
+        if (isPerfect && !isCountingDownRef.current) {
+          startCountdown();
+        } else if (!isPerfect && isCountingDownRef.current) {
+          cancelCountdown();
+        }
       } else {
-        setFaceValid(false);
-        setTips(["We can’t see your face — move closer and face the light"]);
+        const graceMs = 1500;
+        if (now - lastFaceSeenAtRef.current > graceMs) {
+          setFaceValid(false);
+          setTips(["Position your face in the frame"]);
+          if (isCountingDownRef.current) cancelCountdown();
+        }
       }
-
-      if (!withinGrace && isCountingDownRef.current) {
-        cancelCountdown();
-      }
+    } catch (err) {
+      console.error("MediaPipe error:", err);
     }
 
-    // Only continue animation if we haven't captured yet
     if (!hasCapturedRef.current) {
       animationRef.current = requestAnimationFrame(analyze);
     }
   }, [
     cancelCountdown,
-    drawOvalFaceMesh,
+    drawMediaPipeMesh,
     ensureBrightnessCanvas,
-    isLookingStraight,
+    startCountdown,
   ]);
 
   const startCamera = useCallback(async () => {
@@ -693,17 +372,9 @@ export default function CameraPrompt({ onCapture }: Props) {
     }
   }, [analyze]);
 
-  // Also update the useEffect to ensure proper video loading:
   useEffect(() => {
-    const loadModelsAndStart = async () => {
+    const start = async () => {
       try {
-        if (!modelsLoadedRef.current) {
-          await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
-            faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models"),
-          ]);
-          modelsLoadedRef.current = true;
-        }
         await startCamera();
       } catch {
         setTips([
@@ -713,7 +384,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       }
     };
 
-    loadModelsAndStart();
+    start();
 
     return () => {
       stopCamera();
