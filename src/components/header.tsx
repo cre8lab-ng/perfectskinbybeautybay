@@ -1,32 +1,25 @@
 import { useState } from "react";
-import { MdOutlineKeyboardArrowDown, MdMenu, MdClose } from "react-icons/md";
+import { MdMenu, MdClose } from "react-icons/md";
 import { PiPhoneLight } from "react-icons/pi";
 import { VscMail } from "react-icons/vsc";
-import { FiSearch, FiHeart } from "react-icons/fi";
-import { RiUserLine } from "react-icons/ri";
-import { IoBagHandleOutline } from "react-icons/io5";
 import Image from "next/image";
 import Link from "next/link";
 import router from "next/router";
 
 const navItems = [
-  { name: "Skincare", url: "https://beautyhub.ng/product-category/skin-care/" },
-  { name: "Makeup", url: "https://beautyhub.ng/product-category/make-up/" },
+  { name: "Skincare", url: "https://beautybayafrica.com/product-category/skincare/" },
+  { name: "Makeup", url: "https://beautybayafrica.com/product-category/makeup/" },
   {
     name: "Fragrance",
-    url: "https://beautyhub.ng/product-category/fragrance/",
+    url: "https://beautybayafrica.com/product-category/fragrance/",
   },
   {
-    name: "Haircare & Nails",
-    url: "https://beautyhub.ng/product-category/hair-care-nails/",
-  },
-  {
-    name: "Wellness & Supplements",
-    url: "https://beautyhub.ng/product-category/wellness-supplements/",
+    name: "Hair & Haircare",
+    url: "https://beautybayafrica.com/product-category/hair-haircare/",
   },
   {
     name: "Lighting & Content Tools",
-    url: "https://beautyhub.ng/product-category/lighting-content-tools/",
+    url: "https://beautybayafrica.com/product-category/lighting-content-tools/",
   },
 ];
 
@@ -46,11 +39,11 @@ export default function Header() {
           </a>
           <span>|</span>
           <a
-            href="mailto:support@beautyhub.ng"
+            href="mailto:support@beautybayafrica.com"
             className="flex items-center gap-2"
           >
             <VscMail size={20} />
-            support@beautyhub.ng
+            support@beautybayafrica.com
           </a>
         </div>
       </div>
@@ -59,7 +52,7 @@ export default function Header() {
       <div className="bg-white lg:bg-lightpink flex justify-between items-center py-2 px-4 lg:px-6">
         {/* Logo */}
         <Image
-          src="/images/bh-logo.png"
+          src="/images/bb-logo.png"
           alt="BH Logo"
           width={100}
           height={100}
@@ -68,38 +61,19 @@ export default function Header() {
           priority
         />
 
-
         {/* Desktop Nav */}
-
-        <div className="hidden lg:flex gap-6 text-pink-600 font-medium text-lg">
+        <div className="hidden lg:flex gap-12 text-pink-600 font-medium text-lg">
           {navItems.map((item) => (
             <Link
               key={item.name}
               href={item.url}
-              className="flex items-center cursor-pointer hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center cursor-pointer hover:underline transition-all duration-300"
             >
               <span className="text-base">{item.name}</span>
-              <MdOutlineKeyboardArrowDown />
             </Link>
           ))}
-        </div>
-
-        {/* Desktop Icons */}
-        <div className="hidden lg:flex items-center gap-4 text-darkpink text-xl relative">
-          <FiSearch className="cursor-pointer" />
-          <RiUserLine className="cursor-pointer" />
-          <div className="relative">
-            <FiHeart className="cursor-pointer" />
-            <span className="absolute -top-2 -right-2 bg-darkpink text-white text-xs w-5 h-5 flex justify-center items-center rounded-full">
-              0
-            </span>
-          </div>
-          <div className="relative">
-            <IoBagHandleOutline className="cursor-pointer" />
-            <span className="absolute -top-2 -right-2 bg-darkpink text-white text-xs w-5 h-5 flex justify-center items-center rounded-full">
-              1
-            </span>
-          </div>
         </div>
 
         {/* Hamburger - only on tablet & mobile */}
@@ -134,10 +108,11 @@ export default function Header() {
                 <Link
                   key={item.name}
                   href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex justify-between items-center pb-2 cursor-pointer"
                 >
                   {item.name.toUpperCase()}
-                  <MdOutlineKeyboardArrowDown />
                 </Link>
               ))}
             </div>

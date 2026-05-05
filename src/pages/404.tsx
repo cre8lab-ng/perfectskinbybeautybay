@@ -7,7 +7,7 @@ import React from "react";
 export default function NotFound() {
   return (
     <>
-      <WebPageTitle title="Perfect Skin By BeautyHub | 404 Page " />
+      <WebPageTitle title="Perfect Skin By Beauty Bay | 404 Page " />
       <Header />
 
       {/* Main 404 Content */}

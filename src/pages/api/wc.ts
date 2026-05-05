@@ -46,7 +46,7 @@ function extractErrorMessage(error: unknown): string {
 
 
 // WooCommerce base
-const BASE_URL = "https://beautyhub.ng/wp-json/wc/v3";
+const BASE_URL = "https://beautybayafrica.com/wp-json/wc/v3";
 const auth = {
   username: process.env.WC_KEY!,
   password: process.env.WC_SECRET!,

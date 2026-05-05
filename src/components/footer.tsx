@@ -6,14 +6,48 @@ import { GoClock } from "react-icons/go";
 import { FaTiktok, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import router from "next/router";
+import { useState } from "react";
 
 export default function Footer() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setStatus("loading");
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setStatus("success");
+        setMessage(data.message || "Thank you for subscribing! ✨");
+        setEmail("");
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Something went wrong.");
+      }
+    } catch (err) {
+      console.error("Subscription error:", err);
+      setStatus("error");
+      setMessage("Failed to subscribe. Please try again.");
+    }
+  };
+
   return (
     <footer className="bg-white bh-container">
       <div className="mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 items-start mt-10">
         <div className="flex flex-col items-start">
           <Image
-            src="/images/bh-logo.png"
+            src="/images/bb-logo.png"
             alt="BH Logo"
             width={100}
             height={100}
@@ -28,7 +62,7 @@ export default function Footer() {
           <ul className="space-y-2">
             <li>
               <a
-                href="https://beautyhub.ng/about-us/"
+                href="https://beautybayafrica.com/about/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -38,7 +72,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/terms-conditions/"
+                href="https://beautybayafrica.com/terms-and-conditions/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -48,7 +82,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/privacy-policy/"
+                href="https://beautybayafrica.com/privacy-policy/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -58,7 +92,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/refund_returns/"
+                href="https://beautybayafrica.com/refund_returns/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -74,7 +108,7 @@ export default function Footer() {
           <ul className="space-y-2">
             <li>
               <a
-                href="https://beautyhub.ng/order-tracking/"
+                href="https://beautybayafrica.com/order-tracking/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -84,7 +118,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/faq/"
+                href="https://beautybayafrica.com/faq/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -94,7 +128,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/my-account/"
+                href="https://beautybayafrica.com/my-account/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -104,7 +138,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="https://beautyhub.ng/wishlist/"
+                href="https://beautybayafrica.com/wishlist/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -120,8 +154,8 @@ export default function Footer() {
           <ul className="space-y-3 text-sm">
             <li className="flex items-center gap-2">
               <PiPhoneLight size="20" />
-              <a href="mailto:support@beautyhub.ng" className="hover:underline">
-                support@beautyhub.ng
+              <a href="mailto:support@beautybayafrica.com" className="hover:underline">
+                support@beautybayafrica.com
               </a>
             </li>
 
@@ -139,11 +173,11 @@ export default function Footer() {
 
             <li className="flex items-center gap-2">
               <IoMdPin size={20} />
-              41a Industrial Avenue, Sabo Yaba.
+              112 Herbert Macaulay Way,Ebute Metta East,Lagos Nigeria.
             </li>
             <li className="flex items-center gap-2">
               <GoClock size={20} />
-              Mon - Sat / 9:00 AM - 5:00 PM
+              Mon - Sat / 9:00 AM - 6:00 PM
             </li>
           </ul>
         </div>
@@ -153,25 +187,48 @@ export default function Footer() {
         <h4 className="mb-2 text-sm font-medium">
           Subscribe To Our Newsletter!
         </h4>
-        <div className="flex">
-          <input
-            type="email"
-            placeholder="Enter your email"
-            className="w-full px-4 py-2 border border-gray-300 rounded-l"
-          />
-          <button className="bg-black text-white px-6 py-2 rounded-r">
-            Send
-          </button>
-        </div>
+        <form onSubmit={handleSubscribe} className="flex flex-col">
+          <div className="flex">
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={status === "loading"}
+              className="w-full px-4 py-2 border border-gray-300 rounded-l focus:outline-none focus:ring-1 focus:ring-darkpink"
+              required
+            />
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className={`px-6 py-2 rounded-r transition-colors ${
+                status === "loading"
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-black hover:bg-gray-800 text-white"
+              }`}
+            >
+              {status === "loading" ? "..." : "Send"}
+            </button>
+          </div>
+          {message && (
+            <p
+              className={`mt-2 text-sm font-medium ${
+                status === "success" ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {message}
+            </p>
+          )}
+        </form>
       </div>
 
       <div className="mt-12 flex flex-col md:flex-row items-center justify-between text-sm ">
         <p className="text-center md:text-left mt-4 md:mt-0">
-          COPYRIGHT © 2025 CRE8LAB
+          COPYRIGHT © {new Date().getFullYear()} CRE8LAB
         </p>
         <div className="flex items-center gap-6 mt-4 md:mt-0">
           <a
-            href="https://www.tiktok.com/@beautyhubco.ng"
+            href="https://www.tiktok.com/beautybayafrica"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="TikTok"
@@ -180,7 +237,7 @@ export default function Footer() {
           </a>
 
           <a
-            href="https://x.com/beautyhubco_ng"
+            href="https://x.com/beautybayafrica"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Twitter"
@@ -189,7 +246,7 @@ export default function Footer() {
           </a>
 
           <a
-            href="https://www.instagram.com/beautyhubco.ng/"
+            href="https://www.instagram.com/beautybayafrica/"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Instagram"

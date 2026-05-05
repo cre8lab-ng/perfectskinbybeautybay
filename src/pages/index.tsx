@@ -6,7 +6,7 @@ import WebPageTitle from "@/components/webpagetitle";
 export default function Home() {
   return (
     <>
-      <WebPageTitle title="Perfect Skin By BeautyHub" />
+      <WebPageTitle title="Perfect Skin By Beauty Bay" />
       <Header />
       <PremiumSkincareSection />
 

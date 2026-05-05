@@ -138,7 +138,7 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
                   </a>
                   , or{" "}
                   <a
-                    href="mailto:support@beautyhub.ng"
+                    href="mailto:support@beautybayafrica.com"
                     style={{ color: "#f847b4", textDecoration: "underline" }}
                   >
                     email
@@ -240,7 +240,7 @@ export default function LoginModal({ onClose, onLoginSuccess }: Props) {
   );
 }
 
-// Enhanced Styles with Beauty Hub Theme
+// Enhanced Styles with Beauty Bay Theme
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   top: 0,
