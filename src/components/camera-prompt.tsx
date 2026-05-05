@@ -14,10 +14,12 @@ export default function CameraPrompt({ onCapture }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const brightnessCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [faceValid, setFaceValid] = useState(false);
+  const [isPerfect, setIsPerfect] = useState(false);
   const [tips, setTips] = useState<string[]>([]);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
+  const [showFlash, setShowFlash] = useState(false);
   const isCountingDownRef = useRef(false);
   const hasCapturedRef = useRef(false);
   const animationRef = useRef<number | null>(null);
@@ -100,7 +102,8 @@ export default function CameraPrompt({ onCapture }: Props) {
   // Advanced MediaPipe Mesh drawing
   const drawMediaPipeMesh = useCallback((
     ctx: CanvasRenderingContext2D,
-    results: Results
+    results: Results,
+    isPerfect: boolean
   ) => {
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
 
@@ -108,14 +111,22 @@ export default function CameraPrompt({ onCapture }: Props) {
     const width = ctx.canvas.width;
     const height = ctx.canvas.height;
 
+    const themeColor = isPerfect ? "rgba(34, 197, 94, 0.9)" : "rgba(248, 71, 180, 0.9)";
+    const themeColorSubtle = isPerfect ? "rgba(34, 197, 94, 0.4)" : "rgba(248, 71, 180, 0.4)";
+    const themeColorGlow = isPerfect ? "rgba(34, 197, 94, 0.8)" : "rgba(248, 71, 180, 0.8)";
+
     // Draw high-tech mesh dots
-    ctx.fillStyle = "rgba(248, 71, 180, 0.7)";
-    for (const landmark of landmarks) {
-      const x = landmark.x * width;
-      const y = landmark.y * height;
-      ctx.beginPath();
-      ctx.arc(x, y, 0.7, 0, 2 * Math.PI);
-      ctx.fill();
+    ctx.fillStyle = themeColor;
+    for (let i = 0; i < landmarks.length; i++) {
+      // Only draw key landmarks for a cleaner but still "techy" look
+      if (i % 5 === 0) {
+        const landmark = landmarks[i];
+        const x = landmark.x * width;
+        const y = landmark.y * height;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.2, 0, 2 * Math.PI);
+        ctx.fill();
+      }
     }
 
     // Draw glowing silhouette
@@ -132,21 +143,59 @@ export default function CameraPrompt({ onCapture }: Props) {
     const radiusX = ((maxX - minX) / 2) * width * 1.15;
     const radiusY = ((maxY - minY) / 2) * height * 1.3;
 
-    ctx.strokeStyle = "rgba(248, 71, 180, 0.8)";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8, 8]);
+    // Pulse effect for the target
+    const time = Date.now() / 1000;
+    const pulse = Math.sin(time * 4) * 0.05 + 1;
+    
+    // Draw target brackets
+    const bracketSize = 40;
+    const bracketGap = 10;
+    ctx.strokeStyle = themeColor;
+    ctx.lineWidth = 3;
+    
+    // Top Left
     ctx.beginPath();
-    ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+    ctx.moveTo(centerX - radiusX * pulse - bracketGap, centerY - radiusY * pulse + bracketSize);
+    ctx.lineTo(centerX - radiusX * pulse - bracketGap, centerY - radiusY * pulse - bracketGap);
+    ctx.lineTo(centerX - radiusX * pulse + bracketSize, centerY - radiusY * pulse - bracketGap);
+    ctx.stroke();
+
+    // Top Right
+    ctx.beginPath();
+    ctx.moveTo(centerX + radiusX * pulse + bracketGap, centerY - radiusY * pulse + bracketSize);
+    ctx.lineTo(centerX + radiusX * pulse + bracketGap, centerY - radiusY * pulse - bracketGap);
+    ctx.lineTo(centerX + radiusX * pulse - bracketSize, centerY - radiusY * pulse - bracketGap);
+    ctx.stroke();
+
+    // Bottom Left
+    ctx.beginPath();
+    ctx.moveTo(centerX - radiusX * pulse - bracketGap, centerY + radiusY * pulse - bracketSize);
+    ctx.lineTo(centerX - radiusX * pulse - bracketGap, centerY + radiusY * pulse + bracketGap);
+    ctx.lineTo(centerX - radiusX * pulse + bracketSize, centerY + radiusY * pulse + bracketGap);
+    ctx.stroke();
+
+    // Bottom Right
+    ctx.beginPath();
+    ctx.moveTo(centerX + radiusX * pulse + bracketGap, centerY + radiusY * pulse - bracketSize);
+    ctx.lineTo(centerX + radiusX * pulse + bracketGap, centerY + radiusY * pulse + bracketGap);
+    ctx.lineTo(centerX + radiusX * pulse - bracketSize, centerY + radiusY * pulse + bracketGap);
+    ctx.stroke();
+
+    // Draw subtle ellipse
+    ctx.strokeStyle = themeColorSubtle;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, radiusX * pulse, radiusY * pulse, 0, 0, 2 * Math.PI);
     ctx.stroke();
     ctx.setLineDash([]);
 
     // Add scanning line effect
-    const time = Date.now() / 1000;
     const scanPos = (Math.sin(time * 1.5) * 0.5 + 0.5); // 0 to 1
     const scanY = (centerY - radiusY) + (radiusY * 2 * scanPos);
     
-    ctx.strokeStyle = "rgba(248, 71, 180, 0.4)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = themeColorGlow;
+    ctx.lineWidth = 2;
     ctx.beginPath();
     const dy = Math.abs(scanY - centerY);
     if (dy < radiusY) {
@@ -154,6 +203,12 @@ export default function CameraPrompt({ onCapture }: Props) {
       ctx.moveTo(centerX - scanWidth, scanY);
       ctx.lineTo(centerX + scanWidth, scanY);
       ctx.stroke();
+      
+      // Add a small glow to the scan line
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = themeColorGlow;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
     }
   }, []);
 
@@ -166,6 +221,7 @@ export default function CameraPrompt({ onCapture }: Props) {
 
   const cancelCountdown = useCallback(() => {
     setIsCountingDown(false);
+    setIsPerfect(false);
     setCountdown(3);
     if (countdownRef.current) {
       cancelAnimationFrame(countdownRef.current);
@@ -183,11 +239,18 @@ export default function CameraPrompt({ onCapture }: Props) {
       if (now - lastTime >= 1000) {
         setCountdown((prev) => {
           if (prev <= 1) {
+            // Flash effect start
+            setShowFlash(true);
+            
             const image = captureFrame();
             if (image) setCapturedImage(image);
             setIsCountingDown(false);
             hasCapturedRef.current = true;
             stopCamera();
+
+            // Clear flash after a brief moment
+            setTimeout(() => setShowFlash(false), 300);
+            
             return 3;
           }
           return prev - 1;
@@ -250,7 +313,7 @@ export default function CameraPrompt({ onCapture }: Props) {
         lastFaceSeenAtRef.current = now;
         const landmarks = results.multiFaceLandmarks[0];
 
-        drawMediaPipeMesh(ctx, results);
+        const feedback: string[] = [];
 
         let minX = 1, maxX = 0, minY = 1, maxY = 0;
         for (const lm of landmarks) {
@@ -287,28 +350,31 @@ export default function CameraPrompt({ onCapture }: Props) {
           }
         }
 
-        const feedback: string[] = [];
         if (!lighting) feedback.push("Improve your lighting");
         if (!isCentered) feedback.push("Center your face");
         if (!isBigEnough) feedback.push("Move closer");
         if (isTooClose) feedback.push("Move back a bit");
         if (!isFullyInside) feedback.push("Keep face inside frame");
 
-        if (feedback.length === 0) feedback.push("Perfect — hold still");
+        if (feedback.length === 0) feedback.push("✨ Perfect! Keep still...");
         setTips(feedback);
 
-        const isPerfect = feedback.length === 1 && feedback[0] === "Perfect — hold still";
+        const perfect = feedback.length === 1 && feedback[0] === "✨ Perfect! Keep still...";
+        setIsPerfect(perfect);
         setFaceValid(true); 
 
-        if (isPerfect && !isCountingDownRef.current) {
+        drawMediaPipeMesh(ctx, results, perfect);
+
+        if (perfect && !isCountingDownRef.current) {
           startCountdown();
-        } else if (!isPerfect && isCountingDownRef.current) {
+        } else if (!perfect && isCountingDownRef.current) {
           cancelCountdown();
         }
       } else {
         const graceMs = 1500;
         if (now - lastFaceSeenAtRef.current > graceMs) {
           setFaceValid(false);
+          setIsPerfect(false);
           setTips(["Position your face in the frame"]);
           if (isCountingDownRef.current) cancelCountdown();
         }
@@ -405,6 +471,7 @@ export default function CameraPrompt({ onCapture }: Props) {
     setIsCountingDown(false);
     setCountdown(3);
     setFaceValid(false);
+    setIsPerfect(false);
     setTips(["Get ready — tap Take photo when the checks show Ready"]);
 
     try {
@@ -433,6 +500,7 @@ export default function CameraPrompt({ onCapture }: Props) {
     stopCamera();
     hasCapturedRef.current = true;
     setIsCountingDown(false);
+    setIsPerfect(false);
     setCountdown(3);
 
     try {
@@ -494,8 +562,10 @@ export default function CameraPrompt({ onCapture }: Props) {
       </div>
 
       <div
-        className={`w-full max-w-[380px] z-10 mb-6 rounded-2xl border backdrop-blur-sm shadow-lg px-5 py-4 h-[140px] flex flex-col ${
-          faceValid
+        className={`w-full max-w-[380px] z-10 mb-6 rounded-2xl border backdrop-blur-sm shadow-lg px-5 py-4 h-[140px] flex flex-col transition-colors duration-300 ${
+          isPerfect
+            ? "bg-green-50/80 border-green-400/60"
+            : faceValid
             ? "bg-white/80 border-pink-400/60"
             : "bg-white/70 border-pink-300/50"
         }`}
@@ -505,13 +575,15 @@ export default function CameraPrompt({ onCapture }: Props) {
             Live tips
           </div>
           <div
-            className={`text-xs font-semibold px-3 py-1 rounded-full ${
-              faceValid
+            className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors duration-300 ${
+              isPerfect
+                ? "bg-green-500 text-white"
+                : faceValid
                 ? "bg-pink-500 text-white"
                 : "bg-pink-100 text-pink-800"
             }`}
           >
-            {faceValid ? "Ready" : "Adjusting"}
+            {isPerfect ? "Perfect" : faceValid ? "Ready" : "Adjusting"}
           </div>
         </div>
         <div className="text-sm text-pink-900/80 space-y-1 flex-1 overflow-hidden">
@@ -662,17 +734,57 @@ export default function CameraPrompt({ onCapture }: Props) {
 
             {/* Countdown overlay */}
             {isCountingDown && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-2xl">
-                <div className="text-8xl font-bold text-white animate-bounce drop-shadow-2xl">
-                  {countdown}
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm rounded-2xl z-30">
+                <div className="relative flex items-center justify-center">
+                  {/* Circular progress background */}
+                  <svg className="w-48 h-48 transform -rotate-90">
+                    <circle
+                      cx="96"
+                      cy="96"
+                      r="88"
+                      stroke="rgba(255, 255, 255, 0.2)"
+                      strokeWidth="8"
+                      fill="transparent"
+                    />
+                    <circle
+                      cx="96"
+                      cy="96"
+                      r="88"
+                      stroke="white"
+                      strokeWidth="8"
+                      fill="transparent"
+                      strokeDasharray={552.92}
+                      strokeDashoffset={552.92 * (countdown / 3)}
+                      className="transition-all duration-1000 ease-linear"
+                    />
+                  </svg>
+                  <div className="absolute text-8xl font-bold text-white drop-shadow-2xl">
+                    {countdown}
+                  </div>
+                </div>
+                <div className="mt-8 px-6 py-2 bg-pink-500 text-white rounded-full font-bold animate-pulse shadow-lg">
+                  {countdown === 3 ? "Get ready..." : countdown === 2 ? "Hold still..." : "Capturing!"}
                 </div>
               </div>
+            )}
+
+            {/* Flash effect overlay */}
+            {showFlash && (
+              <div className="absolute inset-0 bg-white z-50 animate-flash" />
             )}
           </div>
         </div>
       </div>
 
       <style jsx>{`
+        @keyframes flash {
+          0% { opacity: 0; }
+          10% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        .animate-flash {
+          animation: flash 0.3s ease-out forwards;
+        }
         @keyframes fadeIn {
           from {
             opacity: 0;

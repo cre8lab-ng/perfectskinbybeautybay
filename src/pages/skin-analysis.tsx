@@ -1,5 +1,6 @@
 import React from "react";
 import { useEffect, useState, ChangeEvent, useRef } from "react";
+import NextImage from "next/image";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import InstructionModal from "@/components/modal/instruction-modal";
@@ -11,7 +12,10 @@ import {
 } from "@/util/utils";
 import WebPageTitle from "@/components/webpagetitle";
 import { runMediaPipeFaceDetection } from "@/util/faceValidation";
-import { getRecommendedProducts } from "@/data/skinProductMap";
+import {
+  getRecommendedProducts,
+  getLiveRecommendedProducts,
+} from "@/data/skinProductMap";
 import SendResultModal from "@/components/modal/send-email";
 
 interface ScoreEntry {
@@ -396,6 +400,8 @@ export default function FaceDetectionComponent() {
   const [topConcern, setTopConcern] = useState<
     "acne" | "pore" | "texture" | "wrinkle" | null
   >(null);
+  const [liveRoutine, setLiveRoutine] = useState<any>(null);
+  const [loadingLiveRoutine, setLoadingLiveRoutine] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
   const [showSendModal, setShowSendModal] = useState(false);
@@ -950,7 +956,23 @@ export default function FaceDetectionComponent() {
     return canvas.toDataURL("image/png");
   };
 
-  const finalRoutine = scoreInfo
+  useEffect(() => {
+    if (scoreInfo) {
+      setLoadingLiveRoutine(true);
+      getLiveRecommendedProducts(scoreInfo)
+        .then((res) => {
+          setLiveRoutine(res);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch live routine:", err);
+        })
+        .finally(() => {
+          setLoadingLiveRoutine(false);
+        });
+    }
+  }, [scoreInfo]);
+
+  const finalRoutine = liveRoutine || (scoreInfo
     ? getRecommendedProducts({
         acne: { ui_score: scoreInfo.acne?.ui_score ?? 0 },
         pore: { ui_score: scoreInfo.pore?.ui_score ?? 0 },
@@ -958,10 +980,10 @@ export default function FaceDetectionComponent() {
         wrinkle: { ui_score: scoreInfo.wrinkle?.ui_score ?? 0 },
         all: { score: scoreInfo.all?.score ?? 0 },
       })
-    : null;
+    : null);
   const topConcernScore =
     topConcern && scoreInfo ? (scoreInfo as any)[topConcern]?.ui_score ?? 0 : 0;
-  const routine = (finalRoutine || routineRecommendation)?.routine ?? null;
+  const routine = finalRoutine?.routine ?? null;
   const routineProducts = routine?.products ?? [];
 
   return (
@@ -1322,6 +1344,7 @@ export default function FaceDetectionComponent() {
                       marginBottom: "2rem",
                     }}
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       ref={imageRef}
                       src={originalImagePreview}
@@ -1361,16 +1384,13 @@ export default function FaceDetectionComponent() {
                         }
 
                         return (
-                          <img
+                          <NextImage
                             key={i}
                             src={mask.url}
                             alt={mask.name}
+                            fill
+                            unoptimized
                             style={{
-                              position: "absolute",
-                              top: 0,
-                              left: 0,
-                              width: "100%",
-                              height: "100%",
                               opacity: 1,
                               filter,
                               // @ts-expect-error: Supabase typing is too strict here
@@ -1880,15 +1900,15 @@ export default function FaceDetectionComponent() {
                               alignItems: "center",
                             }}
                           >
-                            <div style={{ textAlign: "center" }}>
-                              <img
+                            <div style={{ textAlign: "center", position: "relative", width: "160px", height: "160px", margin: "0 auto" }}>
+                              <NextImage
                                 src={heroProduct.image}
                                 alt={heroProduct.name}
+                                width={160}
+                                height={160}
+                                unoptimized
                                 style={{
-                                  width: "160px",
-                                  height: "160px",
                                   objectFit: "contain",
-                                  margin: "0 auto",
                                   borderRadius: "12px",
                                   background: "white",
                                   border: "1px solid rgba(0,0,0,0.06)",
@@ -1905,6 +1925,35 @@ export default function FaceDetectionComponent() {
                               >
                                 {heroProduct.brand} — {heroProduct.name}
                               </div>
+                              <div
+                                style={{
+                                  fontWeight: 900,
+                                  color: "#f847b4",
+                                  marginTop: "0.25rem",
+                                  fontSize: "1rem"
+                                }}
+                                dangerouslySetInnerHTML={{ __html: heroProduct.price_html }}
+                              />
+                              <a
+                                href={heroProduct.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: "inline-block",
+                                  marginTop: "0.75rem",
+                                  padding: "0.5rem 1.25rem",
+                                  background: "linear-gradient(135deg, #f847b4, #ec4899)",
+                                  color: "white",
+                                  borderRadius: "10px",
+                                  fontSize: "0.85rem",
+                                  fontWeight: "800",
+                                  textTransform: "uppercase",
+                                  textDecoration: "none",
+                                  boxShadow: "0 4px 12px rgba(248, 71, 180, 0.3)"
+                                }}
+                              >
+                                Shop Now
+                              </a>
                               {heroProduct.expertRecommendation && (
                                 <div
                                   style={{
@@ -1974,6 +2023,15 @@ export default function FaceDetectionComponent() {
                             </div>
                           </div>
 
+                          {loadingLiveRoutine && (
+                            <div style={{ textAlign: "center", padding: "2rem" }}>
+                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
+                              <p style={{ marginTop: "1rem", color: "#f847b4", fontWeight: 800 }}>
+                                Fetching live products from Beauty Hub...
+                              </p>
+                            </div>
+                          )}
+
                           {analysisBreakdown && routineProducts.length > 0 && (
                             <div style={{ marginTop: "1.5rem" }}>
                               <h5
@@ -2025,18 +2083,21 @@ export default function FaceDetectionComponent() {
                                         textDecoration: "none",
                                       }}
                                     >
-                                      <img
-                                        src={product.image}
-                                        alt={product.name}
-                                        style={{
-                                          width: "80px",
-                                          height: "80px",
-                                          objectFit: "contain",
-                                          borderRadius: "12px",
-                                          background: "white",
-                                          border: "1px solid rgba(0,0,0,0.06)",
-                                        }}
-                                      />
+                                      <div style={{ position: "relative", width: "80px", height: "80px" }}>
+                                        <NextImage
+                                          src={product.image}
+                                          alt={product.name}
+                                          width={80}
+                                          height={80}
+                                          unoptimized
+                                          style={{
+                                            objectFit: "contain",
+                                            borderRadius: "12px",
+                                            background: "white",
+                                            border: "1px solid rgba(0,0,0,0.06)",
+                                          }}
+                                        />
+                                      </div>
                                       <div>
                                         <div
                                           style={{
@@ -2058,6 +2119,30 @@ export default function FaceDetectionComponent() {
                                           }}
                                         >
                                           {product.brand} — {product.name}
+                                        </div>
+                                        <div
+                                          style={{
+                                            fontWeight: 900,
+                                            color: "#f847b4",
+                                            marginTop: "0.25rem",
+                                            fontSize: "0.9rem"
+                                          }}
+                                          dangerouslySetInnerHTML={{ __html: product.price_html }}
+                                        />
+                                        <div
+                                          style={{
+                                            display: "inline-block",
+                                            marginTop: "0.5rem",
+                                            padding: "0.4rem 0.8rem",
+                                            background: "linear-gradient(135deg, #f847b4, #ec4899)",
+                                            color: "white",
+                                            borderRadius: "8px",
+                                            fontSize: "0.75rem",
+                                            fontWeight: "800",
+                                            textTransform: "uppercase"
+                                          }}
+                                        >
+                                          Shop Now
                                         </div>
                                         {product.expertRecommendation && (
                                           <div

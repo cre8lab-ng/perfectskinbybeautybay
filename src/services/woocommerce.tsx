@@ -78,6 +78,17 @@ export async function getProductsByTagName(tagName: string): Promise<MappedProdu
   }
 }
 
+export async function searchProducts(query: string): Promise<MappedProduct[]> {
+  try {
+    const res = await fetch(`/api/wc?action=productsBySearch&q=${encodeURIComponent(query)}`);
+    const data: MappedProduct[] = await res.json();
+    return data || [];
+  } catch (error) {
+    console.error(`❌ Failed to search products for "${query}":`, error);
+    return [];
+  }
+}
+
 export async function getCompletedOrdersByEmail(email: string): Promise<WooOrder[]> {
   try {
     const res = await fetch(`/api/wc?action=completedOrders&email=${encodeURIComponent(email)}`);
