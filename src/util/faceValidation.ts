@@ -1,25 +1,67 @@
 // utils/faceValidation.ts
 
-import { FaceMesh } from "@mediapipe/face_mesh";
+import * as faceMeshModule from "@mediapipe/face_mesh";
 
-let faceMeshInstance: FaceMesh | null = null;
+let faceMeshInstance: any = null;
+let faceMeshPromise: Promise<any> | null = null;
 
-export async function getFaceMesh(): Promise<FaceMesh> {
+export async function getFaceMesh(): Promise<any> {
   if (faceMeshInstance) return faceMeshInstance;
+  if (faceMeshPromise) return faceMeshPromise;
 
-  faceMeshInstance = new FaceMesh({
-    locateFile: (file) =>
-      `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-  });
+  faceMeshPromise = (async () => {
+    try {
+      // Next.js/Webpack sometimes struggle with MediaPipe's CJS/ESM hybrid exports.
+      // Using a dynamic import inside the function can help resolve the constructor correctly on the client side.
+      const mpFaceMesh = await import("@mediapipe/face_mesh");
+      
+      let FaceMeshConstructor: any = null;
 
-  faceMeshInstance.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: true,
-    minDetectionConfidence: 0.7,
-    minTrackingConfidence: 0.7,
-  });
+      // Try all possible ways the constructor might be exported
+      if (mpFaceMesh.FaceMesh) {
+        FaceMeshConstructor = mpFaceMesh.FaceMesh;
+      } else if ((mpFaceMesh as any).default?.FaceMesh) {
+        FaceMeshConstructor = (mpFaceMesh as any).default.FaceMesh;
+      } else if (typeof (mpFaceMesh as any).default === "function") {
+        FaceMeshConstructor = (mpFaceMesh as any).default;
+      } else if (faceMeshModule.FaceMesh) {
+        FaceMeshConstructor = faceMeshModule.FaceMesh;
+      } else if ((faceMeshModule as any).default?.FaceMesh) {
+        FaceMeshConstructor = (faceMeshModule as any).default.FaceMesh;
+      } else if (typeof (faceMeshModule as any).default === "function") {
+        FaceMeshConstructor = (faceMeshModule as any).default;
+      } else if (typeof window !== "undefined" && (window as any).FaceMesh) {
+        FaceMeshConstructor = (window as any).FaceMesh;
+      }
 
-  return faceMeshInstance;
+      if (!FaceMeshConstructor || typeof FaceMeshConstructor !== "function") {
+        console.error("MediaPipe Debug - mpFaceMesh keys:", Object.keys(mpFaceMesh));
+        throw new Error("Could not find a valid FaceMesh constructor in @mediapipe/face_mesh");
+      }
+
+      const instance = new FaceMeshConstructor({
+        locateFile: (file: string) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`,
+      });
+
+      instance.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.7,
+      });
+
+      // Wait for the instance to initialize its WASM if possible, 
+      // though FaceMesh usually initializes on the first .send() call.
+      faceMeshInstance = instance;
+      return instance;
+    } catch (err) {
+      faceMeshPromise = null; // Reset promise so we can try again
+      throw err;
+    }
+  })();
+
+  return faceMeshPromise;
 }
 
 export function getAverageBrightness(
@@ -61,7 +103,10 @@ export async function runMediaPipeFaceDetection(
   const faceMesh = await getFaceMesh();
 
   return new Promise((resolve, reject) => {
-    faceMesh.onResults((results) => {
+    const timeout = setTimeout(() => reject(new Error("MediaPipe detection timeout")), 5000);
+
+    faceMesh.onResults((results: any) => {
+      clearTimeout(timeout);
       if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
         resolve(results.multiFaceLandmarks[0]);
       } else {
@@ -69,7 +114,10 @@ export async function runMediaPipeFaceDetection(
       }
     });
 
-    faceMesh.send({ image }).catch(reject);
+    faceMesh.send({ image }).catch((err: any) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
   });
 }
 

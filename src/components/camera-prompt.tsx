@@ -19,7 +19,6 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
-  const [showFlash, setShowFlash] = useState(false);
   const isCountingDownRef = useRef(false);
   const hasCapturedRef = useRef(false);
   const animationRef = useRef<number | null>(null);
@@ -27,7 +26,12 @@ export default function CameraPrompt({ onCapture }: Props) {
   const streamRef = useRef<MediaStream | null>(null); // Track the stream
   const lastFaceSeenAtRef = useRef(0);
   const lastDetectAtRef = useRef(0);
+  const prevTipsRef = useRef<string[]>([]);
+  const prevFaceValidRef = useRef(false);
+  const prevIsPerfectRef = useRef(false);
+  const perfectScoreRef = useRef(0); // Track consecutive "perfect" frames
   const faceMeshRef = useRef<any>(null);
+  const cameraStartedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const ensureBrightnessCanvas = useCallback(() => {
@@ -204,11 +208,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       ctx.lineTo(centerX + scanWidth, scanY);
       ctx.stroke();
       
-      // Add a small glow to the scan line
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = themeColorGlow;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+      // Removed shadowBlur as it can cause flickering/performance issues
     }
   }, []);
 
@@ -229,9 +229,9 @@ export default function CameraPrompt({ onCapture }: Props) {
     setTips(["Hold still and meet the checks to start the countdown again"]);
   }, []);
 
-  const startCountdown = useCallback(() => {
+  const startCountdown = useCallback((seconds: number = 3) => {
     setIsCountingDown(true);
-    setCountdown(3);
+    setCountdown(seconds);
 
     let lastTime = performance.now();
 
@@ -239,19 +239,13 @@ export default function CameraPrompt({ onCapture }: Props) {
       if (now - lastTime >= 1000) {
         setCountdown((prev) => {
           if (prev <= 1) {
-            // Flash effect start
-            setShowFlash(true);
-            
             const image = captureFrame();
             if (image) setCapturedImage(image);
             setIsCountingDown(false);
             hasCapturedRef.current = true;
             stopCamera();
-
-            // Clear flash after a brief moment
-            setTimeout(() => setShowFlash(false), 300);
             
-            return 3;
+            return seconds;
           }
           return prev - 1;
         });
@@ -263,11 +257,13 @@ export default function CameraPrompt({ onCapture }: Props) {
   }, [captureFrame, stopCamera]);
 
 
+  const isProcessingRef = useRef(false);
+
   const analyze = useCallback(async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    if (!video || video.readyState < 2 || !canvas) {
+    if (!video || video.readyState < 2 || !canvas || isProcessingRef.current) {
       animationRef.current = requestAnimationFrame(analyze);
       return;
     }
@@ -296,15 +292,25 @@ export default function CameraPrompt({ onCapture }: Props) {
     }
 
     try {
+      isProcessingRef.current = true;
       if (!faceMeshRef.current) {
         faceMeshRef.current = await getFaceMesh();
       }
       
       const faceMesh = faceMeshRef.current;
       
-      const results = await new Promise<Results>((resolve) => {
-        faceMesh.onResults((res: Results) => resolve(res));
-        faceMesh.send({ image: video });
+      const results = await new Promise<Results>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("MediaPipe timeout")), 3000);
+        
+        faceMesh.onResults((res: Results) => {
+          clearTimeout(timeout);
+          resolve(res);
+        });
+
+        faceMesh.send({ image: video }).catch((err: any) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
       });
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -356,31 +362,73 @@ export default function CameraPrompt({ onCapture }: Props) {
         if (isTooClose) feedback.push("Move back a bit");
         if (!isFullyInside) feedback.push("Keep face inside frame");
 
-        if (feedback.length === 0) feedback.push("✨ Perfect! Keep still...");
-        setTips(feedback);
+        if (feedback.length === 0) feedback.push("✨ Perfect! Capturing in 1s...");
+        
+        const isCurrentlyPerfect = feedback.length === 1 && feedback[0] === "✨ Perfect! Capturing in 1s...";
+        
+        // Stability logic for "perfect" state
+        if (isCurrentlyPerfect) {
+          perfectScoreRef.current = Math.min(perfectScoreRef.current + 1, 5);
+        } else {
+          perfectScoreRef.current = Math.max(perfectScoreRef.current - 1, 0);
+        }
+        
+        // Only consider it "perfect" if we've had at least 2 consecutive perfect frames
+        // and only lose "perfect" if we've had 2 consecutive non-perfect frames
+        const perfect = perfectScoreRef.current >= 2;
 
-        const perfect = feedback.length === 1 && feedback[0] === "✨ Perfect! Keep still...";
-        setIsPerfect(perfect);
-        setFaceValid(true); 
+        // Only update tips if they actually changed
+        const feedbackChanged = 
+          feedback.length !== prevTipsRef.current.length ||
+          feedback.some((tip, i) => tip !== prevTipsRef.current[i]);
+        
+        if (feedbackChanged) {
+          setTips(feedback);
+          prevTipsRef.current = feedback;
+        }
+
+        if (perfect !== prevIsPerfectRef.current) {
+          setIsPerfect(perfect);
+          prevIsPerfectRef.current = perfect;
+        }
+
+        if (!prevFaceValidRef.current) {
+          setFaceValid(true); 
+          prevFaceValidRef.current = true;
+        }
 
         drawMediaPipeMesh(ctx, results, perfect);
 
         if (perfect && !isCountingDownRef.current) {
-          startCountdown();
+          startCountdown(1); // Auto-capture faster (1s)
         } else if (!perfect && isCountingDownRef.current) {
           cancelCountdown();
         }
       } else {
         const graceMs = 1500;
         if (now - lastFaceSeenAtRef.current > graceMs) {
-          setFaceValid(false);
-          setIsPerfect(false);
-          setTips(["Position your face in the frame"]);
+          if (prevFaceValidRef.current) {
+            setFaceValid(false);
+            prevFaceValidRef.current = false;
+          }
+          if (prevIsPerfectRef.current) {
+            setIsPerfect(false);
+            prevIsPerfectRef.current = false;
+          }
+          
+          const noFaceTips = ["Position your face in the frame"];
+          if (prevTipsRef.current[0] !== noFaceTips[0]) {
+            setTips(noFaceTips);
+            prevTipsRef.current = noFaceTips;
+          }
+          
           if (isCountingDownRef.current) cancelCountdown();
         }
       }
     } catch (err) {
       console.error("MediaPipe error:", err);
+    } finally {
+      isProcessingRef.current = false;
     }
 
     if (!hasCapturedRef.current) {
@@ -394,11 +442,14 @@ export default function CameraPrompt({ onCapture }: Props) {
   ]);
 
   const startCamera = useCallback(async () => {
+    if (cameraStartedRef.current) return;
+    
     if (!navigator?.mediaDevices?.getUserMedia) {
       setTips(["Camera isn’t available on this device/browser. Use Upload instead."]);
       return;
     }
-
+    
+    // ... constraints ...
     const constraints: MediaStreamConstraints = {
       video: {
         facingMode: { ideal: "user" },
@@ -409,52 +460,45 @@ export default function CameraPrompt({ onCapture }: Props) {
       audio: false,
     };
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    streamRef.current = stream;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-
-    video.srcObject = stream;
-    await new Promise((resolve) => {
-      video.addEventListener("loadedmetadata", resolve, { once: true });
-    });
-
     try {
-      await video.play();
-    } catch {
-      setTips([
-        "Tap anywhere on the screen, then try again.",
-        "If it still won’t start, use Upload instead.",
-      ]);
-      return;
-    }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
 
-    if (video.videoWidth > 0 && video.videoHeight > 0) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      analyze();
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) return;
+
+      video.srcObject = stream;
+      await new Promise((resolve) => {
+        video.addEventListener("loadedmetadata", resolve, { once: true });
+      });
+
+      await video.play();
+      cameraStartedRef.current = true;
+
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        analyze();
+      }
+    } catch (err) {
+      console.error("Error starting camera:", err);
+      setTips([
+        "We couldn’t access your camera.",
+        "Allow camera permission, then refresh this page.",
+      ]);
     }
   }, [analyze]);
 
   useEffect(() => {
-    const start = async () => {
-      try {
-        await startCamera();
-      } catch {
-        setTips([
-          "We couldn’t access your camera.",
-          "Allow camera permission, then refresh this page.",
-        ]);
-      }
-    };
-
-    start();
+    startCamera();
 
     return () => {
       stopCamera();
+      cameraStartedRef.current = false;
       if (countdownRef.current) cancelAnimationFrame(countdownRef.current);
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
     };
   }, [startCamera, stopCamera]);
 
@@ -462,11 +506,12 @@ export default function CameraPrompt({ onCapture }: Props) {
     if (hasCapturedRef.current) return;
     if (!faceValid || isCountingDownRef.current) return;
     setTips(["Hold still — capturing"]);
-    startCountdown();
+    startCountdown(1); // Manual capture also fast (1s)
   };
 
   const handleRetake = async () => {
     hasCapturedRef.current = false;
+    cameraStartedRef.current = false;
     setCapturedImage(null);
     setIsCountingDown(false);
     setCountdown(3);
@@ -562,7 +607,7 @@ export default function CameraPrompt({ onCapture }: Props) {
       </div>
 
       <div
-        className={`w-full max-w-[380px] z-10 mb-6 rounded-2xl border backdrop-blur-sm shadow-lg px-5 py-4 h-[140px] flex flex-col transition-colors duration-300 ${
+        className={`w-full max-w-[380px] z-10 mb-6 rounded-2xl border backdrop-blur-sm shadow-lg px-5 py-4 h-[140px] flex flex-col ${
           isPerfect
             ? "bg-green-50/80 border-green-400/60"
             : faceValid
@@ -575,7 +620,7 @@ export default function CameraPrompt({ onCapture }: Props) {
             Live tips
           </div>
           <div
-            className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors duration-300 ${
+            className={`text-xs font-semibold px-3 py-1 rounded-full ${
               isPerfect
                 ? "bg-green-500 text-white"
                 : faceValid
@@ -767,24 +812,11 @@ export default function CameraPrompt({ onCapture }: Props) {
                 </div>
               </div>
             )}
-
-            {/* Flash effect overlay */}
-            {showFlash && (
-              <div className="absolute inset-0 bg-white z-50 animate-flash" />
-            )}
           </div>
         </div>
       </div>
 
       <style jsx>{`
-        @keyframes flash {
-          0% { opacity: 0; }
-          10% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        .animate-flash {
-          animation: flash 0.3s ease-out forwards;
-        }
         @keyframes fadeIn {
           from {
             opacity: 0;
