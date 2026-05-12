@@ -1865,17 +1865,6 @@ export default function FaceDetectionComponent() {
                               "linear-gradient(135deg, rgba(248, 71, 180, 0.06), rgba(255, 255, 255, 0.8))",
                           }}
                         >
-                          <h4
-                            style={{
-                              margin: "0 0 0.5rem",
-                              fontSize: "1.3rem",
-                              fontWeight: "800",
-                              color: "#2c3e50",
-                              textAlign: "center",
-                            }}
-                          >
-                            Best Pick For You (Derm‑style)
-                          </h4>
                           <p
                             style={{
                               margin: "0 0 1rem",
