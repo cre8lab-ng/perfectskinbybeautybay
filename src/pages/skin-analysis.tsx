@@ -2070,6 +2070,10 @@ export default function FaceDetectionComponent() {
                                 ui_score: scoreInfo.texture?.ui_score,
                               },
                             },
+                            routine: {
+                              morning: ["Cleanser", "Toner (gentle)", "Serum", "Moisturizer", "Sunscreen"],
+                              night: ["Cleanser", "Toner", "Serum", "Moisturizer"]
+                            }
                           });
                         } catch (error) {
                           console.error(
@@ -2084,34 +2088,29 @@ export default function FaceDetectionComponent() {
                         background: "linear-gradient(135deg, #f847b4, #ff6bc7)",
                         color: "white",
                         border: "none",
-                        padding: "1rem 2rem",
-                        borderRadius: "10px",
-                        fontSize: "1rem",
-                        fontWeight: "600",
+                        padding: "1.2rem 2.5rem",
+                        borderRadius: "16px",
+                        fontSize: "1.1rem",
+                        fontWeight: "800",
                         cursor: "pointer",
-                        boxShadow: "0 6px 20px rgba(248, 71, 180, 0.3)",
-                        transition: "all 0.3s ease",
+                        boxShadow: "0 8px 25px rgba(248, 71, 180, 0.35)",
+                        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.8rem",
+                        margin: "0 auto"
                       }}
                       onMouseEnter={(e) => {
-                        // @ts-expect-error: Supabase typing is too strict here
-
-                        e.target.style.transform = "translateY(-2px)";
-                        // @ts-expect-error: Supabase typing is too strict here
-
-                        e.target.style.boxShadow =
-                          "0 8px 25px rgba(248, 71, 180, 0.4)";
-                      }}
-                      onMouseLeave={(e) => {
-                        // @ts-expect-error: Supabase typing is too strict here
-
-                        e.target.style.transform = "translateY(0)";
-                        // @ts-expect-error: Supabase typing is too strict here
-
-                        e.target.style.boxShadow =
-                          "0 6px 20px rgba(248, 71, 180, 0.3)";
-                      }}
+                          e.currentTarget.style.transform = "translateY(-3px) scale(1.02)";
+                          e.currentTarget.style.boxShadow = "0 12px 30px rgba(248, 71, 180, 0.45)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0) scale(1)";
+                          e.currentTarget.style.boxShadow = "0 8px 25px rgba(248, 71, 180, 0.35)";
+                        }}
                     >
-                      Download Result
+                      <span style={{ fontSize: "1.4rem" }}>📥</span>
+                      Download Analysis Result
                     </button>
                   </div>
                 )}
