@@ -142,15 +142,6 @@ type AnalysisBreakdown = {
   qualityNote: string;
 };
 
-type Severity = "minimal" | "mild" | "moderate" | "high";
-
-function severityFromConcernScore(score: number): Severity {
-  if (score < 20) return "minimal";
-  if (score < 40) return "mild";
-  if (score < 65) return "moderate";
-  return "high";
-}
-
 function toQualityScore(m: ImageMetrics) {
   const brightnessScore =
     m.brightness < 15
@@ -241,35 +232,6 @@ async function computeImageMetrics(img: HTMLImageElement, faceBox: FaceBox) {
   const edge = clamp((sumEdge / Math.max(1, count)) / 35 * 100, 0, 100);
 
   return { brightness, contrast, redness, edge };
-}
-
-function concernMeaning(concern: "acne" | "pore" | "texture" | "wrinkle") {
-  if (concern === "acne")
-    return "This reflects tendency toward breakouts and congestion. It is not a diagnosis.";
-  if (concern === "pore")
-    return "This reflects the visibility of pores (often influenced by oil production, elasticity, and texture).";
-  if (concern === "texture")
-    return "This reflects surface roughness/unevenness (often influenced by dryness, buildup, and irritation).";
-  return "This reflects the likelihood of fine lines being visible (often influenced by age, sun exposure, and hydration).";
-}
-
-function whatToDo(concern: "acne" | "pore" | "texture" | "wrinkle", q: SkinQuestionnaire) {
-  if (concern === "acne") {
-    const base =
-      q.sensitivity === "high"
-        ? "Prioritize barrier-first acne care: gentle cleanse, moisturize, and introduce exfoliants slowly."
-        : "Use an acne-targeting cleanser and keep the rest of the routine gentle and consistent.";
-    return `${base} Avoid scrubbing, and use sunscreen daily to prevent dark marks.`;
-  }
-  if (concern === "pore") {
-    return "Focus on oil control + gentle exfoliation: a BHA/clarifying toner a few nights a week and daily sunscreen. Avoid harsh stripping cleansers.";
-  }
-  if (concern === "texture") {
-    return q.sensitivity === "high"
-      ? "Texture often improves when the skin barrier is calm: moisturize consistently and avoid over-exfoliating."
-      : "Texture usually improves with controlled exfoliation (AHA/BHA) plus hydration. Start slowly (2–3 nights/week).";
-  }
-  return "The most evidence-based anti-aging step is daily broad-spectrum sunscreen. Add antioxidants (like vitamin C) as tolerated and keep the barrier well-hydrated.";
 }
 
 function isExfoliatingProductName(productName: string) {
@@ -1771,10 +1733,31 @@ export default function FaceDetectionComponent() {
                       }}
                     >
                       {loadingLiveRoutine && (
-                        <div style={{ textAlign: "center", padding: "2rem" }}>
-                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
-                          <p style={{ marginTop: "1rem", color: "#f847b4", fontWeight: 800 }}>
-                            Fetching live products from Beauty Hub...
+                        <div style={{ textAlign: "center", padding: "3rem 2rem" }}>
+                          <div
+                            style={{
+                              width: "50px",
+                              height: "50px",
+                              border: "4px solid rgba(248, 71, 180, 0.2)",
+                              borderTop: "4px solid #f847b4",
+                              borderRadius: "50%",
+                              animation: "spin 1s linear infinite",
+                              margin: "0 auto 1.5rem",
+                              boxShadow: "0 8px 25px rgba(248, 71, 180, 0.2)",
+                            }}
+                          />
+                          <p
+                            style={{
+                              color: "#f847b4",
+                              fontWeight: "800",
+                              fontSize: "1.2rem",
+                              letterSpacing: "0.5px",
+                            }}
+                          >
+                            Curating your personalized routine...
+                          </p>
+                          <p style={{ marginTop: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
+                            Fetching live products from Beauty Hub store
                           </p>
                         </div>
                       )}
@@ -1928,255 +1911,115 @@ export default function FaceDetectionComponent() {
                               );
                             })}
                           </div>
-                          <div style={{ color: "#666", marginTop: "1rem" }}>
-                            Morning: cleanser → (toner if gentle) → serum → moisturizer →
-                            sunscreen. Night: cleanser → toner (if exfoliating, use on
-                            alternate nights) → serum → moisturizer.
+                          <div style={{ 
+                            marginTop: "1.5rem", 
+                            padding: "1.2rem", 
+                            backgroundColor: "#fff", 
+                            borderRadius: "16px",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                            border: "1px solid #f0f0f0",
+                            fontSize: "0.85rem"
+                          }}>
+                            <h4 style={{ 
+                              margin: "0 0 1rem 0", 
+                              color: "#333", 
+                              fontSize: "1rem", 
+                              fontWeight: "800",
+                              textAlign: "center"
+                            }}>
+                              Your Recommended Routine 🧖‍♀️
+                            </h4>
+                            
+                            {/* Morning Routine */}
+                            <div style={{ marginBottom: "1.2rem" }}>
+                              <div style={{ 
+                                display: "flex", 
+                                alignItems: "center", 
+                                gap: "0.5rem", 
+                                marginBottom: "0.6rem", 
+                                fontWeight: "700", 
+                                color: "#f847b4" 
+                              }}>
+                                <span style={{ fontSize: "1.1rem" }}>☀️</span> Morning
+                              </div>
+                              <div style={{ 
+                                display: "flex", 
+                                flexWrap: "wrap", 
+                                alignItems: "center", 
+                                gap: "0.4rem" 
+                              }}>
+                                {["Cleanser", "Toner (gentle)", "Serum", "Moisturizer", "Sunscreen"].map((step, i, arr) => (
+                                  <React.Fragment key={step}>
+                                    <span style={{ 
+                                      padding: "0.35rem 0.7rem", 
+                                      backgroundColor: "#fff1f8", 
+                                      borderRadius: "8px",
+                                      color: "#c026d3",
+                                      fontSize: "0.75rem",
+                                      fontWeight: "600",
+                                      border: "1px solid #fdf4ff"
+                                    }}>
+                                      {step}
+                                    </span>
+                                    {i < arr.length - 1 && <span style={{ color: "#fbcfe8", fontWeight: "bold" }}>→</span>}
+                                  </React.Fragment>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            {/* Night Routine */}
+                            <div>
+                              <div style={{ 
+                                display: "flex", 
+                                alignItems: "center", 
+                                gap: "0.5rem", 
+                                marginBottom: "0.6rem", 
+                                fontWeight: "700", 
+                                color: "#7c3aed" 
+                              }}>
+                                <span style={{ fontSize: "1.1rem" }}>🌙</span> Night
+                              </div>
+                              <div style={{ 
+                                display: "flex", 
+                                flexWrap: "wrap", 
+                                alignItems: "center", 
+                                gap: "0.4rem" 
+                              }}>
+                                {["Cleanser", "Toner", "Serum", "Moisturizer"].map((step, i, arr) => (
+                                  <React.Fragment key={step}>
+                                    <span style={{ 
+                                      padding: "0.35rem 0.7rem", 
+                                      backgroundColor: "#f5f3ff", 
+                                      borderRadius: "8px",
+                                      color: "#6d28d9",
+                                      fontSize: "0.75rem",
+                                      fontWeight: "600",
+                                      border: "1px solid #ede9fe"
+                                    }}>
+                                      {step}
+                                    </span>
+                                    {i < arr.length - 1 && <span style={{ color: "#ddd6fe", fontWeight: "bold" }}>→</span>}
+                                  </React.Fragment>
+                                ))}
+                                <div style={{ 
+                                  fontSize: "0.7rem", 
+                                  color: "#6b7280", 
+                                  width: "100%", 
+                                  marginTop: "0.4rem", 
+                                  fontStyle: "italic",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.3rem"
+                                }}>
+                                  <span>ℹ️</span> Use exfoliating toner on alternate nights
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
 
-                      {analysisBreakdown && (
-                        <div
-                          style={{
-                            marginBottom: "2rem",
-                            padding: "1.5rem",
-                            borderRadius: "16px",
-                            border: "1px solid rgba(248, 71, 180, 0.12)",
-                            background: "rgba(255, 255, 255, 0.9)",
-                          }}
-                        >
-                          <h4
-                            style={{
-                              margin: "0 0 0.75rem",
-                              fontSize: "1.2rem",
-                              fontWeight: "800",
-                              color: "#2c3e50",
-                            }}
-                          >
-                            Explanation (based on your answers + your photo)
-                          </h4>
-                          <div style={{ color: "#666", marginBottom: "0.75rem" }}>
-                            {analysisBreakdown.qualityNote}
-                          </div>
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns:
-                                "repeat(auto-fit, minmax(240px, 1fr))",
-                              gap: "1rem",
-                              marginBottom: "1rem",
-                            }}
-                          >
-                            <div
-                              style={{
-                                padding: "1rem",
-                                borderRadius: "14px",
-                                border: "1px solid rgba(0,0,0,0.06)",
-                                background: "rgba(255, 255, 255, 0.85)",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontWeight: 900,
-                                  color: "#2c3e50",
-                                  marginBottom: "0.5rem",
-                                }}
-                              >
-                                Your answers
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Skin type:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.questionnaire.skinType.replace("_", " ")}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Sensitivity:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.questionnaire.sensitivity}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Acne frequency:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.questionnaire.acneFrequency.replace(
-                                    "_",
-                                    " "
-                                  )}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Pores:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.questionnaire.poreVisibility.replace(
-                                    "_",
-                                    " "
-                                  )}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Texture feel:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.questionnaire.textureFeel.replace(
-                                    "_",
-                                    " "
-                                  )}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Sunscreen use:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.questionnaire.sunscreenUse}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Sun exposure:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.questionnaire.sunExposure}
-                                </span>
-                              </div>
-                            </div>
-                            <div
-                              style={{
-                                padding: "1rem",
-                                borderRadius: "14px",
-                                border: "1px solid rgba(0,0,0,0.06)",
-                                background: "rgba(255, 255, 255, 0.85)",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontWeight: 900,
-                                  color: "#2c3e50",
-                                  marginBottom: "0.5rem",
-                                }}
-                              >
-                                Photo signals (not a diagnosis)
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Lighting:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.metrics.brightness >= 35
-                                    ? "good"
-                                    : analysisBreakdown.metrics.brightness >= 20
-                                    ? "okay"
-                                    : "low"}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Redness signal:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.metrics.redness >= 60
-                                    ? "high"
-                                    : analysisBreakdown.metrics.redness >= 35
-                                    ? "moderate"
-                                    : "low"}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Texture signal:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.metrics.edge >= 60
-                                    ? "high"
-                                    : analysisBreakdown.metrics.edge >= 35
-                                    ? "moderate"
-                                    : "low"}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666" }}>
-                                Contrast detail:{" "}
-                                <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                  {analysisBreakdown.metrics.contrast >= 45
-                                    ? "high"
-                                    : analysisBreakdown.metrics.contrast >= 25
-                                    ? "moderate"
-                                    : "low"}
-                                </span>
-                              </div>
-                              <div style={{ color: "#666", marginTop: "0.75rem" }}>
-                                The algorithm uses your answers as the primary driver and uses
-                                the photo only as a small adjustment when quality is good.
-                              </div>
-                            </div>
-                          </div>
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns:
-                                "repeat(auto-fit, minmax(240px, 1fr))",
-                              gap: "1rem",
-                            }}
-                          >
-                            {(
-                              [
-                                ["acne", "Acne"],
-                                ["pore", "Pores"],
-                                ["texture", "Texture"],
-                                ["wrinkle", "Wrinkles"],
-                              ] as const
-                            ).map(([key, label]) => {
-                              const score = (scoreInfo as any)?.[key]?.ui_score ?? 0;
-                              const sev = severityFromConcernScore(score);
-                              return (
-                                <div
-                                  key={key}
-                                  style={{
-                                    padding: "1rem",
-                                    borderRadius: "14px",
-                                    border: "1px solid rgba(0,0,0,0.06)",
-                                    background: "rgba(255, 217, 240, 0.25)",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "baseline",
-                                      gap: "0.75rem",
-                                      marginBottom: "0.5rem",
-                                    }}
-                                  >
-                                    <div
-                                      style={{
-                                        fontWeight: 900,
-                                        color: "#2c3e50",
-                                      }}
-                                    >
-                                      {label}
-                                    </div>
-                                    <div
-                                      style={{
-                                        fontWeight: 900,
-                                        color: "#f847b4",
-                                      }}
-                                    >
-                                      {score} / 100
-                                    </div>
-                                  </div>
-                                  <div style={{ color: "#666" }}>
-                                    Severity:{" "}
-                                    <span style={{ fontWeight: 800, color: "#2c3e50" }}>
-                                      {sev}
-                                    </span>
-                                  </div>
-                                  <div style={{ color: "#666", marginTop: "0.5rem" }}>
-                                    {concernMeaning(key)}
-                                  </div>
-                                  <div style={{ color: "#666", marginTop: "0.5rem" }}>
-                                    What to do: {whatToDo(key, analysisBreakdown.questionnaire)}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div style={{ color: "#666", marginTop: "1rem" }}>
-                            This tool is educational and cannot diagnose medical conditions. If
-                            you have painful acne, sudden rashes, or worsening irritation, see a
-                            dermatologist.
-                          </div>
-                        </div>
-                      )}
+                     
                     </div>
                   </div>
                 )}
