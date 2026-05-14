@@ -408,6 +408,15 @@ const isStrongActive = (product: Product) => {
 const isProductValidForStep = (productName: string, step: string): boolean => {
   const name = productName.toLowerCase();
   
+  // STRICT FACE-ONLY CHECK: Reject anything that is explicitly for body, hands, feet, etc.
+  const nonFacialKeywords = ["body", "hand", "foot", "feet", "shower", "bath", "hair", "lip", "eye"];
+  if (nonFacialKeywords.some(k => name.includes(k))) {
+    // Exception: If it explicitly says it's also for the face
+    if (!name.includes("face") && !name.includes("facial")) {
+      return false;
+    }
+  }
+
   if (step === "toner") {
     // A toner should NOT be a cream, lotion, or moisturizer unless it's explicitly a "toner"
     if ((name.includes("cream") || name.includes("lotion") || name.includes("moisturizer") || name.includes("moisturising")) && !name.includes("toner")) {
@@ -631,27 +640,27 @@ export async function getLiveRecommendedProducts(scoreInfo: ScoreInfo | null): P
 
   // Search queries for each step based on concern
   const queries: Record<string, string> = {
-    cleanser: "gentle cleanser",
-    toner: "hydrating toner",
-    serum: "serum",
-    moisturizer: "moisturizer",
-    sunscreen: "sunscreen",
-    treatment: "treatment"
+    cleanser: "face cleanser",
+    toner: "face toner",
+    serum: "face serum",
+    moisturizer: "face moisturizer",
+    sunscreen: "face sunscreen",
+    treatment: "face treatment"
   };
 
   if (topConcern === "acne") {
-    queries.cleanser = "salicylic cleanser";
-    queries.treatment = "benzoyl peroxide";
-    queries.serum = "niacinamide serum";
+    queries.cleanser = "acne face cleanser";
+    queries.treatment = "benzoyl peroxide face";
+    queries.serum = "niacinamide face serum";
   } else if (topConcern === "wrinkle") {
-    queries.treatment = "retinol";
-    queries.serum = "vitamin c serum";
+    queries.treatment = "retinol face";
+    queries.serum = "vitamin c face serum";
   } else if (topConcern === "texture") {
-    queries.toner = "aha bha toner";
-    queries.serum = "snail mucin";
+    queries.toner = "exfoliating face toner";
+    queries.serum = "face snail mucin";
   } else if (topConcern === "pore") {
-    queries.serum = "niacinamide";
-    queries.treatment = "bha liquid";
+    queries.serum = "pore face serum";
+    queries.treatment = "bha face liquid";
   }
 
   // Fetch live products for each step
@@ -695,7 +704,7 @@ export async function getLiveRecommendedProducts(scoreInfo: ScoreInfo | null): P
 
     const finalProducts = await Promise.all(liveProducts.map(async (p) => {
       if (isStrongActive(p) && p.id !== activeToKeep.id) {
-        const replacements = await searchProducts(`gentle ${p.step}`);
+        const replacements = await searchProducts(`gentle face ${p.step}`);
         if (replacements && replacements.length > 0) {
           // Filter replacements to ensure they match the category
           const validReplacements = replacements.filter(r => isProductValidForStep(r.name, p.step));
