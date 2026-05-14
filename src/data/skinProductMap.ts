@@ -1,4 +1,5 @@
 import { getGranularLevel } from "@/util/utils";
+import { searchProducts } from "@/services/woocommerce";
 
 interface ScoreEntry {
   ui_score?: number;
@@ -350,6 +351,60 @@ export const skinCareRoutines: {
   },
 };
 
+const GENTLE_REPLACEMENTS: Record<string, Product> = {
+  cleanser: {
+    id: 101,
+    name: "Foaming Facial Cleanser",
+    price_html: "₦16,600",
+    brand: "CeraVe",
+    image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753342063/foamingcleansercerave_tfyjce.png",
+    link: "https://beautybayafrica.com/product/cerave-foaming-facial-cleanser/",
+    step: "cleanser",
+    proof: "Clinically proven to remove oil without disrupting the skin barrier.",
+    expertRecommendation: "Dermatologist Recommended: Contains 3 essential ceramides for barrier support.",
+  },
+  toner: {
+    id: 567868,
+    name: "Licorice pH Balancing Cleansing Toner",
+    price_html: "₦12,500",
+    brand: "Acwell",
+    image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/acwelltoner_wdmx4y.png",
+    link: "https://beautybayafrica.com/product/acwell-licorice-ph-balancing-cleansing-toner/",
+    step: "toner",
+    proof: "Licorice water is a natural skin brightener with anti-inflammatory properties.",
+    expertRecommendation: "Aesthetician's Choice: Helps balance skin pH and prep for active serums while reducing redness.",
+  },
+  moisturizer: {
+    id: 1890234,
+    name: "Moisturising Lotion",
+    price_html: "₦19,500",
+    brand: "CaraVe",
+    image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/ceravemoisturisinglotion_w6bnrr.png",
+    link: "https://beautybayafrica.com/product/cerave-daily-moisturizing-lotion/",
+    step: "moisturizer",
+    proof: "MVE Delivery Technology provides 24-hour hydration through controlled release of ingredients.",
+    expertRecommendation: "Dermatologist Recommended: Essential for maintaining a healthy moisture barrier during acne treatment.",
+  },
+  sunscreen: {
+    id: 9058858,
+    name: "Relief Sun : Rice + Probiotics",
+    price_html: "₦19,200",
+    brand: "Beauty Of Joseon",
+    image: "https://res.cloudinary.com/debcfaccq/image/upload/v1753341722/beautyofjoseonsunscreen_u3d1f5.png",
+    link: "https://beautybayafrica.com/product/beauty-of-josen-relief-sun-rice-probiotics/",
+    step: "sunscreen",
+    proof: "Rice bran water (30%) is rich in Vitamin E and minerals for skin nourishment.",
+    expertRecommendation: "Clinical Note: Excellent lightweight protection that doesn't clog pores or leave a white cast.",
+  },
+};
+
+const isStrongActive = (product: Product) => {
+  const name = product.name.toLowerCase();
+  const desc = ((product.proof || "") + " " + (product.expertRecommendation || "")).toLowerCase();
+  const actives = ["salicylic", "aha", "bha", "pha", "retinol", "vitamin c", "benzoyl peroxide", "azelaic", "glycolic", "lactic", "arbutin"];
+  return actives.some(active => name.includes(active) || desc.includes(active));
+};
+
 // Helper function to get routine based on combined concern levels
 export function getRecommendedRoutine(concernLevels: {
   acne?: "very_low" | "low" | "moderate" | "high" | "very_high";
@@ -424,9 +479,46 @@ export function getRecommendedProducts(scoreInfo: ScoreInfo | null): {
 
   // Get the recommended routine
   const routineLevel = getRecommendedRoutine(concernLevels);
-  const routine = skinCareRoutines[routineLevel];
+  let routine = skinCareRoutines[routineLevel];
 
   if (!routine) return null;
+
+  // Find the top concern to prioritize its active
+  const topConcern = concerns.reduce((a, b) => 
+    (scoreInfo?.[a]?.ui_score ?? 0) > (scoreInfo?.[b]?.ui_score ?? 0) ? a : b
+  );
+
+  // De-conflict actives: Ensure only one strong active is present
+  const routineProducts = [...routine.products];
+  const activeProducts = routineProducts.filter(isStrongActive);
+
+  if (activeProducts.length > 1) {
+    // Determine which active to keep based on top concern
+    let activeToKeep = activeProducts[0];
+    
+    if (topConcern === "acne") {
+      activeToKeep = activeProducts.find(p => p.name.toLowerCase().includes("salicylic") || p.name.toLowerCase().includes("benzoyl") || p.name.toLowerCase().includes("azelaic")) || activeProducts[0];
+    } else if (topConcern === "wrinkle") {
+      activeToKeep = activeProducts.find(p => p.name.toLowerCase().includes("retinol") || p.name.toLowerCase().includes("vitamin c")) || activeProducts[0];
+    } else if (topConcern === "texture" || topConcern === "pore") {
+      activeToKeep = activeProducts.find(p => p.name.toLowerCase().includes("aha") || p.name.toLowerCase().includes("bha") || p.name.toLowerCase().includes("pha")) || activeProducts[0];
+    }
+
+    // Filter products: keep the chosen active, replace others with gentle versions
+    const filteredProducts = routineProducts.map(product => {
+      if (isStrongActive(product) && product.id !== activeToKeep.id) {
+        // If it's a treatment or serum that we're removing and don't have a replacement for, we might just omit it
+        // but for cleanser/toner we should replace
+        return GENTLE_REPLACEMENTS[product.step] || null;
+      }
+      return product;
+    }).filter((p): p is Product => p !== null);
+
+    routine = { ...routine, products: filteredProducts };
+    
+    // Update description to mention the single-active focus
+    routine.description = routine.description + " (De-conflicted: Single active focus for skin safety.)";
+  }
 
   // Calculate total cost
   const totalCost = routine.products.reduce((sum, product) => {
@@ -462,4 +554,127 @@ export function getRecommendedProductsLegacy(scoreInfo: ScoreInfo | null): {
     level: result.routineLevel,
     products: result.routine.products,
   }));
+}
+
+export async function getLiveRecommendedProducts(scoreInfo: ScoreInfo | null): Promise<{
+  routineLevel: string;
+  routine: RoutineLevel;
+  totalCost: string;
+  concernsAddressed: string[];
+} | null> {
+  if (!scoreInfo) return null;
+
+  const concerns = ["acne", "wrinkle", "texture", "pore"] as const;
+  const concernLevels: any = {};
+  concerns.forEach((concern) => {
+    const uiScore = scoreInfo?.[concern]?.ui_score;
+    if (uiScore) {
+      concernLevels[concern] = getGranularLevel(`${uiScore}%`);
+    }
+  });
+
+  const routineLevel = getRecommendedRoutine(concernLevels);
+  
+  // Find top concern
+  const topConcern = concerns.reduce((a, b) => 
+    (scoreInfo?.[a]?.ui_score ?? 0) > (scoreInfo?.[b]?.ui_score ?? 0) ? a : b
+  );
+
+  // Search queries for each step based on concern
+  const queries: Record<string, string> = {
+    cleanser: "gentle cleanser",
+    toner: "hydrating toner",
+    serum: "serum",
+    moisturizer: "moisturizer",
+    sunscreen: "sunscreen",
+    treatment: "treatment"
+  };
+
+  if (topConcern === "acne") {
+    queries.cleanser = "salicylic cleanser";
+    queries.treatment = "benzoyl peroxide";
+    queries.serum = "niacinamide serum";
+  } else if (topConcern === "wrinkle") {
+    queries.treatment = "retinol";
+    queries.serum = "vitamin c serum";
+  } else if (topConcern === "texture") {
+    queries.toner = "aha bha toner";
+    queries.serum = "snail mucin";
+  } else if (topConcern === "pore") {
+    queries.serum = "niacinamide";
+    queries.treatment = "bha liquid";
+  }
+
+  // Fetch live products for each step
+  const steps = ["cleanser", "toner", "serum", "moisturizer", "sunscreen", "treatment"] as const;
+  const liveProducts: Product[] = [];
+
+  for (const step of steps) {
+    const results = await searchProducts(queries[step] || step);
+    if (results && results.length > 0) {
+      const p = results[0];
+      liveProducts.push({
+        id: p.id,
+        name: p.name,
+        price_html: p.price_html,
+        brand: p.brand,
+        image: p.image || "",
+        link: p.link,
+        step: step,
+        expertRecommendation: `Live recommendation for ${topConcern} care.`
+      });
+    }
+  }
+
+  // De-conflict actives (keep only one strong active)
+  const activeProducts = liveProducts.filter(isStrongActive);
+  if (activeProducts.length > 1) {
+    const activeToKeep = activeProducts.find(p => {
+      const n = p.name.toLowerCase();
+      if (topConcern === "acne") return n.includes("salicylic") || n.includes("benzoyl");
+      if (topConcern === "wrinkle") return n.includes("retinol") || n.includes("vitamin c");
+      if (topConcern === "texture") return n.includes("aha") || n.includes("bha");
+      return true;
+    }) || activeProducts[0];
+
+    const finalProducts = await Promise.all(liveProducts.map(async (p) => {
+      if (isStrongActive(p) && p.id !== activeToKeep.id) {
+        const replacements = await searchProducts(`gentle ${p.step}`);
+        if (replacements && replacements.length > 0) {
+          const r = replacements[0];
+          return {
+            id: r.id,
+            name: r.name,
+            price_html: r.price_html,
+            brand: r.brand,
+            image: r.image || "",
+            link: r.link,
+            step: p.step,
+            expertRecommendation: "Gentle alternative for skin safety."
+          };
+        }
+      }
+      return p;
+    }));
+    
+    liveProducts.length = 0;
+    liveProducts.push(...finalProducts);
+  }
+
+  const totalCostValue = liveProducts.reduce((sum, p) => {
+    const price = parseInt(p.price_html.replace(/[^\d]/g, "")) || 0;
+    return sum + price;
+  }, 0);
+
+  return {
+    routineLevel,
+    routine: {
+      name: `Live ${topConcern} Focused Routine`,
+      description: `Dynamic routine fetched directly from Beauty Hub for your specific concerns.`,
+      targets: [topConcern],
+      products: liveProducts
+    },
+    totalCost: `₦${totalCostValue.toLocaleString()}`,
+    concernsAddressed: [topConcern]
+  };
 }

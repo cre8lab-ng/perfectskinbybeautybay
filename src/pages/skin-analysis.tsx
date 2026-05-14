@@ -1,5 +1,6 @@
 import React from "react";
 import { useEffect, useState, ChangeEvent, useRef } from "react";
+import NextImage from "next/image";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import InstructionModal from "@/components/modal/instruction-modal";
@@ -11,7 +12,10 @@ import {
 } from "@/util/utils";
 import WebPageTitle from "@/components/webpagetitle";
 import { runMediaPipeFaceDetection } from "@/util/faceValidation";
-import { getRecommendedProducts } from "@/data/skinProductMap";
+import {
+  getRecommendedProducts,
+  getLiveRecommendedProducts,
+} from "@/data/skinProductMap";
 import SendResultModal from "@/components/modal/send-email";
 
 interface ScoreEntry {
@@ -396,6 +400,8 @@ export default function FaceDetectionComponent() {
   const [topConcern, setTopConcern] = useState<
     "acne" | "pore" | "texture" | "wrinkle" | null
   >(null);
+  const [liveRoutine, setLiveRoutine] = useState<any>(null);
+  const [loadingLiveRoutine, setLoadingLiveRoutine] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
   const [showSendModal, setShowSendModal] = useState(false);
@@ -950,7 +956,23 @@ export default function FaceDetectionComponent() {
     return canvas.toDataURL("image/png");
   };
 
-  const finalRoutine = scoreInfo
+  useEffect(() => {
+    if (scoreInfo) {
+      setLoadingLiveRoutine(true);
+      getLiveRecommendedProducts(scoreInfo)
+        .then((res) => {
+          setLiveRoutine(res);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch live routine:", err);
+        })
+        .finally(() => {
+          setLoadingLiveRoutine(false);
+        });
+    }
+  }, [scoreInfo]);
+
+  const finalRoutine = liveRoutine || (scoreInfo
     ? getRecommendedProducts({
         acne: { ui_score: scoreInfo.acne?.ui_score ?? 0 },
         pore: { ui_score: scoreInfo.pore?.ui_score ?? 0 },
@@ -958,10 +980,10 @@ export default function FaceDetectionComponent() {
         wrinkle: { ui_score: scoreInfo.wrinkle?.ui_score ?? 0 },
         all: { score: scoreInfo.all?.score ?? 0 },
       })
-    : null;
+    : null);
   const topConcernScore =
     topConcern && scoreInfo ? (scoreInfo as any)[topConcern]?.ui_score ?? 0 : 0;
-  const routine = (finalRoutine || routineRecommendation)?.routine ?? null;
+  const routine = finalRoutine?.routine ?? null;
   const routineProducts = routine?.products ?? [];
 
   return (
@@ -1013,8 +1035,8 @@ export default function FaceDetectionComponent() {
           <WebPageTitle title="Perfect Skin By Beauty Bay" />
           <Header />
           <main
+            className="skin-analysis-main"
             style={{
-              padding: "2rem 1rem",
               background: "linear-gradient(135deg, #ffd9f0 0%, #f847b4 100%)",
               minHeight: "100vh",
               position: "relative",
@@ -1039,12 +1061,11 @@ export default function FaceDetectionComponent() {
 
             {showQuestionnaire && (
               <div
+                className="questionnaire-card"
                 style={{
                   position: "relative",
                   zIndex: 1,
-                  maxWidth: "720px",
                   margin: "0 auto",
-                  padding: "2rem",
                   background: "rgba(255, 255, 255, 0.85)",
                   borderRadius: "20px",
                   border: "1px solid rgba(248, 71, 180, 0.2)",
@@ -1053,9 +1074,9 @@ export default function FaceDetectionComponent() {
                 }}
               >
                 <h2
+                  className="section-title"
                   style={{
                     margin: 0,
-                    fontSize: "1.8rem",
                     fontWeight: "800",
                     textAlign: "center",
                     background: "linear-gradient(45deg, #f847b4, #ff6bc7)",
@@ -1067,11 +1088,11 @@ export default function FaceDetectionComponent() {
                   Quick Skin Questionnaire
                 </h2>
                 <p
+                  className="section-subtitle"
                   style={{
                     margin: "0.75rem 0 1.75rem",
                     textAlign: "center",
                     color: "#666",
-                    fontSize: "1rem",
                   }}
                 >
                   Answer a few questions first, then we&apos;ll scan your photo and
@@ -1079,9 +1100,9 @@ export default function FaceDetectionComponent() {
                 </p>
 
                 <div
+                  className="questionnaire-grid"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
                     gap: "1rem",
                   }}
                 >
@@ -1322,6 +1343,7 @@ export default function FaceDetectionComponent() {
                       marginBottom: "2rem",
                     }}
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       ref={imageRef}
                       src={originalImagePreview}
@@ -1361,16 +1383,13 @@ export default function FaceDetectionComponent() {
                         }
 
                         return (
-                          <img
+                          <NextImage
                             key={i}
                             src={mask.url}
                             alt={mask.name}
+                            fill
+                            unoptimized
                             style={{
-                              position: "absolute",
-                              top: 0,
-                              left: 0,
-                              width: "100%",
-                              height: "100%",
                               opacity: 1,
                               filter,
                               // @ts-expect-error: Supabase typing is too strict here
@@ -1385,6 +1404,7 @@ export default function FaceDetectionComponent() {
                     {/* Score Overlays - UI layer */}
                     {!analyzing && !faceDetectionLoading && scoreInfo && (
                         <div
+                          className="score-overlay-container"
                           style={{
                             position: "absolute",
                             bottom: "10px",
@@ -1752,6 +1772,7 @@ export default function FaceDetectionComponent() {
                 {scoreInfo && (
                   <div style={{ marginBottom: "3rem" }}>
                     <div
+                      className="overall-score-card"
                       style={{
                         textAlign: "center",
                         padding: "2rem",
@@ -1768,6 +1789,7 @@ export default function FaceDetectionComponent() {
                       }}
                     >
                       <div
+                        className="score-star"
                         style={{
                           fontSize: "3rem",
                           marginBottom: "1rem",
@@ -1776,8 +1798,8 @@ export default function FaceDetectionComponent() {
                         ⭐️
                       </div>
                       <h3
+                        className="score-title"
                         style={{
-                          fontSize: "1.8rem",
                           background:
                             "linear-gradient(45deg, #f847b4, #ff6bc7)",
                           backgroundClip: "text",
@@ -1790,8 +1812,8 @@ export default function FaceDetectionComponent() {
                         Overall Skin Score
                       </h3>
                       <div
+                        className="score-value"
                         style={{
-                          fontSize: "3rem",
                           fontWeight: "800",
                           color: "#f847b4",
                           textShadow: "0 2px 10px rgba(248, 71, 180, 0.3)",
@@ -1800,9 +1822,9 @@ export default function FaceDetectionComponent() {
                         {scoreInfo.all?.score?.toFixed(1)}%
                       </div>
                       <p
+                        className="score-note"
                         style={{
                           color: "#666",
-                          fontSize: "1rem",
                           margin: "0.5rem 0 0",
                         }}
                       >
@@ -1814,9 +1836,9 @@ export default function FaceDetectionComponent() {
 
                 {scoreInfo && (finalRoutine || routineRecommendation) && (
                   <div
+                    className="results-container"
                     style={{
                       marginTop: "3rem",
-                      padding: "2rem",
                       background:
                         "linear-gradient(135deg, rgba(255, 217, 240, 0.3), rgba(248, 71, 180, 0.05))",
                       borderRadius: "20px",
@@ -1824,9 +1846,9 @@ export default function FaceDetectionComponent() {
                     }}
                   >
                     <div
+                      className="results-inner"
                       style={{
                         marginBottom: "3rem",
-                        padding: "2rem",
                         background: "rgba(255, 255, 255, 0.7)",
                         borderRadius: "16px",
                         border: "1px solid rgba(248, 71, 180, 0.1)",
@@ -1836,6 +1858,7 @@ export default function FaceDetectionComponent() {
                     >
                       {analysisBreakdown && topConcern && heroProduct && (
                         <div
+                          className="hero-product-section"
                           style={{
                             marginBottom: "2rem",
                             padding: "1.5rem",
@@ -1845,17 +1868,6 @@ export default function FaceDetectionComponent() {
                               "linear-gradient(135deg, rgba(248, 71, 180, 0.06), rgba(255, 255, 255, 0.8))",
                           }}
                         >
-                          <h4
-                            style={{
-                              margin: "0 0 0.5rem",
-                              fontSize: "1.3rem",
-                              fontWeight: "800",
-                              color: "#2c3e50",
-                              textAlign: "center",
-                            }}
-                          >
-                            Best Pick For You (Derm‑style)
-                          </h4>
                           <p
                             style={{
                               margin: "0 0 1rem",
@@ -1880,15 +1892,15 @@ export default function FaceDetectionComponent() {
                               alignItems: "center",
                             }}
                           >
-                            <div style={{ textAlign: "center" }}>
-                              <img
+                            <div style={{ textAlign: "center", position: "relative", width: "160px", height: "160px", margin: "0 auto" }}>
+                              <NextImage
                                 src={heroProduct.image}
                                 alt={heroProduct.name}
+                                width={160}
+                                height={160}
+                                unoptimized
                                 style={{
-                                  width: "160px",
-                                  height: "160px",
                                   objectFit: "contain",
-                                  margin: "0 auto",
                                   borderRadius: "12px",
                                   background: "white",
                                   border: "1px solid rgba(0,0,0,0.06)",
@@ -1905,6 +1917,35 @@ export default function FaceDetectionComponent() {
                               >
                                 {heroProduct.brand} — {heroProduct.name}
                               </div>
+                              <div
+                                style={{
+                                  fontWeight: 900,
+                                  color: "#f847b4",
+                                  marginTop: "0.25rem",
+                                  fontSize: "1rem"
+                                }}
+                                dangerouslySetInnerHTML={{ __html: heroProduct.price_html }}
+                              />
+                              <a
+                                href={heroProduct.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: "inline-block",
+                                  marginTop: "0.75rem",
+                                  padding: "0.5rem 1.25rem",
+                                  background: "linear-gradient(135deg, #f847b4, #ec4899)",
+                                  color: "white",
+                                  borderRadius: "10px",
+                                  fontSize: "0.85rem",
+                                  fontWeight: "800",
+                                  textTransform: "uppercase",
+                                  textDecoration: "none",
+                                  boxShadow: "0 4px 12px rgba(248, 71, 180, 0.3)"
+                                }}
+                              >
+                                Shop Now
+                              </a>
                               {heroProduct.expertRecommendation && (
                                 <div
                                   style={{
@@ -1974,6 +2015,15 @@ export default function FaceDetectionComponent() {
                             </div>
                           </div>
 
+                          {loadingLiveRoutine && (
+                            <div style={{ textAlign: "center", padding: "2rem" }}>
+                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto"></div>
+                              <p style={{ marginTop: "1rem", color: "#f847b4", fontWeight: 800 }}>
+                                Fetching live products from Beauty Hub...
+                              </p>
+                            </div>
+                          )}
+
                           {analysisBreakdown && routineProducts.length > 0 && (
                             <div style={{ marginTop: "1.5rem" }}>
                               <h5
@@ -2025,18 +2075,21 @@ export default function FaceDetectionComponent() {
                                         textDecoration: "none",
                                       }}
                                     >
-                                      <img
-                                        src={product.image}
-                                        alt={product.name}
-                                        style={{
-                                          width: "80px",
-                                          height: "80px",
-                                          objectFit: "contain",
-                                          borderRadius: "12px",
-                                          background: "white",
-                                          border: "1px solid rgba(0,0,0,0.06)",
-                                        }}
-                                      />
+                                      <div style={{ position: "relative", width: "80px", height: "80px" }}>
+                                        <NextImage
+                                          src={product.image}
+                                          alt={product.name}
+                                          width={80}
+                                          height={80}
+                                          unoptimized
+                                          style={{
+                                            objectFit: "contain",
+                                            borderRadius: "12px",
+                                            background: "white",
+                                            border: "1px solid rgba(0,0,0,0.06)",
+                                          }}
+                                        />
+                                      </div>
                                       <div>
                                         <div
                                           style={{
@@ -2058,6 +2111,30 @@ export default function FaceDetectionComponent() {
                                           }}
                                         >
                                           {product.brand} — {product.name}
+                                        </div>
+                                        <div
+                                          style={{
+                                            fontWeight: 900,
+                                            color: "#f847b4",
+                                            marginTop: "0.25rem",
+                                            fontSize: "0.9rem"
+                                          }}
+                                          dangerouslySetInnerHTML={{ __html: product.price_html }}
+                                        />
+                                        <div
+                                          style={{
+                                            display: "inline-block",
+                                            marginTop: "0.5rem",
+                                            padding: "0.4rem 0.8rem",
+                                            background: "linear-gradient(135deg, #f847b4, #ec4899)",
+                                            color: "white",
+                                            borderRadius: "8px",
+                                            fontSize: "0.75rem",
+                                            fontWeight: "800",
+                                            textTransform: "uppercase"
+                                          }}
+                                        >
+                                          Shop Now
                                         </div>
                                         {product.expertRecommendation && (
                                           <div
@@ -2489,6 +2566,89 @@ export default function FaceDetectionComponent() {
             )}
 
             <style jsx>{`
+              .skin-analysis-main {
+                padding: 1.5rem 0.75rem;
+              }
+              .questionnaire-card {
+                max-width: 720px;
+                padding: 1.5rem;
+              }
+              .section-title {
+                font-size: 1.4rem;
+              }
+              .section-subtitle {
+                font-size: 0.9rem;
+              }
+              .questionnaire-grid {
+                grid-template-columns: 1fr;
+              }
+
+              .score-overlay-container {
+                gap: 0.25rem;
+              }
+
+              .overall-score-card {
+                padding: 1.5rem;
+              }
+              .score-star {
+                font-size: 2.5rem;
+              }
+              .score-title {
+                font-size: 1.4rem;
+              }
+              .score-value {
+                font-size: 2.5rem;
+              }
+              .score-note {
+                font-size: 0.9rem;
+              }
+
+              .results-container {
+                padding: 1rem;
+              }
+              .results-inner {
+                padding: 1rem;
+              }
+
+              @media (min-width: 640px) {
+                .questionnaire-card {
+                  padding: 2rem;
+                }
+                .section-title {
+                  font-size: 1.8rem;
+                }
+                .section-subtitle {
+                  font-size: 1rem;
+                }
+                .questionnaire-grid {
+                  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                }
+                .overall-score-card {
+                  padding: 2rem;
+                }
+                .score-star {
+                  font-size: 3rem;
+                }
+                .score-title {
+                  font-size: 1.8rem;
+                }
+                .score-value {
+                  font-size: 3rem;
+                }
+                .score-note {
+                  font-size: 1rem;
+                }
+                .results-container {
+                  padding: 2rem;
+                }
+                .results-inner {
+                   padding: 2rem;
+                 }
+                 .skin-analysis-main {
+                   padding: 2rem 1rem;
+                 }
+               }
+
               @keyframes spin {
                 0% {
                   transform: rotate(0deg);

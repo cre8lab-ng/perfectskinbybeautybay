@@ -18,7 +18,7 @@ const PremiumSkincareSection = () => {
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-5xl lg:text-7xl font-black leading-tight text-gray-900 tracking-tight">
+          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black leading-tight text-gray-900 tracking-tight">
             Your Skin.
             <br />
             <span className="bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 bg-clip-text text-transparent animate-pulse">
@@ -29,7 +29,7 @@ const PremiumSkincareSection = () => {
           </h1>
 
           {/* Subheading */}
-          <p className="text-xl lg:text-2xl text-gray-600 max-w-lg mx-auto lg:mx-0 leading-relaxed font-light">
+          <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 max-w-lg mx-auto lg:mx-0 leading-relaxed font-light">
             Scan the QR to start your AI-powered skincare journey 
             <span className="font-semibold text-pink-700 ml-2">
               100% personalized
@@ -73,9 +73,9 @@ const PremiumSkincareSection = () => {
 
         {/* Phone Preview */}
         <div className="w-full lg:w-1/2 flex items-center justify-center relative animate-fade-in-delay">
-          <div className="relative transform hover:scale-105 transition-transform duration-700 ease-out">
+          <div className="relative transform hover:scale-105 transition-transform duration-700 ease-out w-full max-w-[320px]">
             {/* Phone Device */}
-            <div className="relative w-[320px] h-[640px] bg-black rounded-[3rem] p-3 shadow-2xl shadow-pink-500/20">
+            <div className="relative aspect-[9/18] w-full bg-black rounded-[3rem] p-3 shadow-2xl shadow-pink-500/20">
               {/* Screen */}
               <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
                 {/* Video Content */}

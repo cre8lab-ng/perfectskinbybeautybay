@@ -46,7 +46,8 @@ function extractErrorMessage(error: unknown): string {
 
 
 // WooCommerce base
-const BASE_URL = "https://beautybayafrica.com/wp-json/wc/v3";
+const WC_URL = process.env.WC_URL?.replace(/\/$/, "") || "https://beautybayafrica.com";
+const BASE_URL = `${WC_URL}/wp-json/wc/v3`;
 const auth = {
   username: process.env.WC_KEY!,
   password: process.env.WC_SECRET!,
@@ -94,6 +95,34 @@ export default async function handler(
       const response = await axios.get(`${BASE_URL}/products`, {
         auth,
         params: { tag: tagId, per_page: 20, status: "publish" },
+      });
+
+      const mapped = (response.data as WCProduct[]).map((p) => ({
+        id: p.id,
+        name: p.name,
+        price_html: p.price_html,
+        brand: p.brands?.[0]?.name || "Unknown Brand",
+        image: p.images?.[0]?.src || null,
+        link: p.permalink,
+      }));
+
+      cache.set(cacheKey, mapped);
+      return res.status(200).json(mapped);
+    }
+
+    // ----------- PRODUCTS BY SEARCH ----------
+    if (action === "productsBySearch" && req.method === "GET") {
+      const q = req.query.q as string;
+      if (!q)
+        return res.status(400).json({ error: "Missing 'q' parameter" });
+
+      const cacheKey = `search:${q}`;
+      const cached = cache.get(cacheKey);
+      if (cached) return res.status(200).json(cached);
+
+      const response = await axios.get(`${BASE_URL}/products`, {
+        auth,
+        params: { search: q, per_page: 5, status: "publish" },
       });
 
       const mapped = (response.data as WCProduct[]).map((p) => ({

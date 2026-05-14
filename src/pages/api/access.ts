@@ -3,7 +3,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import axios from "axios";
 import { LRUCache } from "lru-cache";
 
-const WC_BASE_URL = "https://beautybayafrica.com/wp-json/wc/v3";
+const WC_URL = process.env.WC_URL?.replace(/\/$/, "") || "https://beautybayafrica.com";
+const WC_BASE_URL = `${WC_URL}/wp-json/wc/v3`;
 const WC_AUTH = {
   username: process.env.WC_KEY!,
   password: process.env.WC_SECRET!,

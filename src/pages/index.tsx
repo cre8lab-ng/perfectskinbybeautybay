@@ -23,7 +23,7 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {/* Step 1 */}
           <div className="flex flex-col items-center">
-            <div className="relative w-64 h-96">
+            <div className="relative w-full max-w-[256px] aspect-[2/3]">
               <video
                 className="w-full h-full object-contain"
                 autoPlay
@@ -48,7 +48,7 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col items-center">
-            <div className="relative w-64 h-96">
+            <div className="relative w-full max-w-[256px] aspect-[2/3]">
               <video
                 className="w-full h-full object-contain"
                 autoPlay
@@ -72,7 +72,7 @@ export default function Home() {
 
           {/* Step 3 */}
           <div className="flex flex-col items-center">
-            <div className="relative w-64 h-96">
+            <div className="relative w-full max-w-[256px] aspect-[2/3]">
               <video
                 className="w-full h-full object-contain"
                 autoPlay

@@ -1,4 +1,3 @@
-import useAccessToken from "@/stores/useAccessToken";
 import { getOrCreateDeviceId } from "@/util/getOrCreateDeviceId";
 import React, { useEffect } from "react";
 
@@ -9,12 +8,6 @@ export default function InstructionModal({
   onTakeSelfie: () => void;
   onUploadPhoto: () => void;
 }) {
-
-  const generateToken = useAccessToken((s) => s.generateToken);
-
-  useEffect(() => {
-    generateToken();
-  }, [generateToken]);
 
   useEffect(() => {
     getOrCreateDeviceId();
