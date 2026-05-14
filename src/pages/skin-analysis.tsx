@@ -1035,8 +1035,8 @@ export default function FaceDetectionComponent() {
           <WebPageTitle title="Perfect Skin By Beauty Bay" />
           <Header />
           <main
+            className="skin-analysis-main"
             style={{
-              padding: "2rem 1rem",
               background: "linear-gradient(135deg, #ffd9f0 0%, #f847b4 100%)",
               minHeight: "100vh",
               position: "relative",
@@ -1061,12 +1061,11 @@ export default function FaceDetectionComponent() {
 
             {showQuestionnaire && (
               <div
+                className="questionnaire-card"
                 style={{
                   position: "relative",
                   zIndex: 1,
-                  maxWidth: "720px",
                   margin: "0 auto",
-                  padding: "2rem",
                   background: "rgba(255, 255, 255, 0.85)",
                   borderRadius: "20px",
                   border: "1px solid rgba(248, 71, 180, 0.2)",
@@ -1075,9 +1074,9 @@ export default function FaceDetectionComponent() {
                 }}
               >
                 <h2
+                  className="section-title"
                   style={{
                     margin: 0,
-                    fontSize: "1.8rem",
                     fontWeight: "800",
                     textAlign: "center",
                     background: "linear-gradient(45deg, #f847b4, #ff6bc7)",
@@ -1089,11 +1088,11 @@ export default function FaceDetectionComponent() {
                   Quick Skin Questionnaire
                 </h2>
                 <p
+                  className="section-subtitle"
                   style={{
                     margin: "0.75rem 0 1.75rem",
                     textAlign: "center",
                     color: "#666",
-                    fontSize: "1rem",
                   }}
                 >
                   Answer a few questions first, then we&apos;ll scan your photo and
@@ -1101,9 +1100,9 @@ export default function FaceDetectionComponent() {
                 </p>
 
                 <div
+                  className="questionnaire-grid"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
                     gap: "1rem",
                   }}
                 >
@@ -1405,6 +1404,7 @@ export default function FaceDetectionComponent() {
                     {/* Score Overlays - UI layer */}
                     {!analyzing && !faceDetectionLoading && scoreInfo && (
                         <div
+                          className="score-overlay-container"
                           style={{
                             position: "absolute",
                             bottom: "10px",
@@ -1772,6 +1772,7 @@ export default function FaceDetectionComponent() {
                 {scoreInfo && (
                   <div style={{ marginBottom: "3rem" }}>
                     <div
+                      className="overall-score-card"
                       style={{
                         textAlign: "center",
                         padding: "2rem",
@@ -1788,6 +1789,7 @@ export default function FaceDetectionComponent() {
                       }}
                     >
                       <div
+                        className="score-star"
                         style={{
                           fontSize: "3rem",
                           marginBottom: "1rem",
@@ -1796,8 +1798,8 @@ export default function FaceDetectionComponent() {
                         ⭐️
                       </div>
                       <h3
+                        className="score-title"
                         style={{
-                          fontSize: "1.8rem",
                           background:
                             "linear-gradient(45deg, #f847b4, #ff6bc7)",
                           backgroundClip: "text",
@@ -1810,8 +1812,8 @@ export default function FaceDetectionComponent() {
                         Overall Skin Score
                       </h3>
                       <div
+                        className="score-value"
                         style={{
-                          fontSize: "3rem",
                           fontWeight: "800",
                           color: "#f847b4",
                           textShadow: "0 2px 10px rgba(248, 71, 180, 0.3)",
@@ -1820,9 +1822,9 @@ export default function FaceDetectionComponent() {
                         {scoreInfo.all?.score?.toFixed(1)}%
                       </div>
                       <p
+                        className="score-note"
                         style={{
                           color: "#666",
-                          fontSize: "1rem",
                           margin: "0.5rem 0 0",
                         }}
                       >
@@ -1834,9 +1836,9 @@ export default function FaceDetectionComponent() {
 
                 {scoreInfo && (finalRoutine || routineRecommendation) && (
                   <div
+                    className="results-container"
                     style={{
                       marginTop: "3rem",
-                      padding: "2rem",
                       background:
                         "linear-gradient(135deg, rgba(255, 217, 240, 0.3), rgba(248, 71, 180, 0.05))",
                       borderRadius: "20px",
@@ -1844,9 +1846,9 @@ export default function FaceDetectionComponent() {
                     }}
                   >
                     <div
+                      className="results-inner"
                       style={{
                         marginBottom: "3rem",
-                        padding: "2rem",
                         background: "rgba(255, 255, 255, 0.7)",
                         borderRadius: "16px",
                         border: "1px solid rgba(248, 71, 180, 0.1)",
@@ -1856,6 +1858,7 @@ export default function FaceDetectionComponent() {
                     >
                       {analysisBreakdown && topConcern && heroProduct && (
                         <div
+                          className="hero-product-section"
                           style={{
                             marginBottom: "2rem",
                             padding: "1.5rem",
@@ -2563,6 +2566,89 @@ export default function FaceDetectionComponent() {
             )}
 
             <style jsx>{`
+              .skin-analysis-main {
+                padding: 1.5rem 0.75rem;
+              }
+              .questionnaire-card {
+                max-width: 720px;
+                padding: 1.5rem;
+              }
+              .section-title {
+                font-size: 1.4rem;
+              }
+              .section-subtitle {
+                font-size: 0.9rem;
+              }
+              .questionnaire-grid {
+                grid-template-columns: 1fr;
+              }
+
+              .score-overlay-container {
+                gap: 0.25rem;
+              }
+
+              .overall-score-card {
+                padding: 1.5rem;
+              }
+              .score-star {
+                font-size: 2.5rem;
+              }
+              .score-title {
+                font-size: 1.4rem;
+              }
+              .score-value {
+                font-size: 2.5rem;
+              }
+              .score-note {
+                font-size: 0.9rem;
+              }
+
+              .results-container {
+                padding: 1rem;
+              }
+              .results-inner {
+                padding: 1rem;
+              }
+
+              @media (min-width: 640px) {
+                .questionnaire-card {
+                  padding: 2rem;
+                }
+                .section-title {
+                  font-size: 1.8rem;
+                }
+                .section-subtitle {
+                  font-size: 1rem;
+                }
+                .questionnaire-grid {
+                  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                }
+                .overall-score-card {
+                  padding: 2rem;
+                }
+                .score-star {
+                  font-size: 3rem;
+                }
+                .score-title {
+                  font-size: 1.8rem;
+                }
+                .score-value {
+                  font-size: 3rem;
+                }
+                .score-note {
+                  font-size: 1rem;
+                }
+                .results-container {
+                  padding: 2rem;
+                }
+                .results-inner {
+                   padding: 2rem;
+                 }
+                 .skin-analysis-main {
+                   padding: 2rem 1rem;
+                 }
+               }
+
               @keyframes spin {
                 0% {
                   transform: rotate(0deg);

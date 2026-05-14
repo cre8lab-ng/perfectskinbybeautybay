@@ -51,15 +51,15 @@ export default function Header() {
       {/* Header section */}
       <div className="bg-white lg:bg-lightpink flex justify-between items-center py-2 px-4 lg:px-6">
         {/* Logo */}
-        <Image
-          src="/images/bb-logo.png"
-          alt="BH Logo"
-          width={100}
-          height={100}
-          onClick={() => router.push("/")}
-          style={{ cursor: "pointer" }}
-          priority
-        />
+        <div className="w-[80px] h-[80px] lg:w-[100px] lg:h-[100px] relative cursor-pointer" onClick={() => router.push("/")}>
+          <Image
+            src="/images/bb-logo.png"
+            alt="BH Logo"
+            fill
+            className="object-contain"
+            priority
+          />
+        </div>
 
         {/* Desktop Nav */}
         <div className="hidden lg:flex gap-12 text-pink-600 font-medium text-lg">

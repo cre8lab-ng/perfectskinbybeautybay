@@ -97,7 +97,10 @@ body {
 
 .bh-container {
   width: 100%;
-  padding: 1rem 3rem;
+  padding: 1rem;
+  @media (min-width: 768px) {
+    padding: 1rem 3rem;
+  }
   margin-right: auto;
   margin-left: auto;
 }
