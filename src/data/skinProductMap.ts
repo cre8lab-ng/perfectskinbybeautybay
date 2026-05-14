@@ -609,10 +609,13 @@ export async function getLiveRecommendedProducts(scoreInfo: ScoreInfo | null): P
   const steps = ["cleanser", "toner", "serum", "moisturizer", "sunscreen", "treatment"] as const;
   const liveProducts: Product[] = [];
 
+  const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
   for (const step of steps) {
     const results = await searchProducts(queries[step] || step);
     if (results && results.length > 0) {
-      const p = results[0];
+      // Pick a random product from results for variety
+      const p = pickRandom(results);
       liveProducts.push({
         id: p.id,
         name: p.name,
@@ -641,7 +644,8 @@ export async function getLiveRecommendedProducts(scoreInfo: ScoreInfo | null): P
       if (isStrongActive(p) && p.id !== activeToKeep.id) {
         const replacements = await searchProducts(`gentle ${p.step}`);
         if (replacements && replacements.length > 0) {
-          const r = replacements[0];
+          // Also pick a random gentle replacement
+          const r = pickRandom(replacements);
           return {
             id: r.id,
             name: r.name,
