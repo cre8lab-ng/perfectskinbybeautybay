@@ -33,6 +33,7 @@ export default function CameraPrompt({ onCapture }: Props) {
   const faceMeshRef = useRef<any>(null);
   const cameraStartedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const mediaPipeErrorCountRef = useRef(0);
 
   const ensureBrightnessCanvas = useCallback(() => {
     if (brightnessCanvasRef.current) return brightnessCanvasRef.current;
@@ -300,7 +301,10 @@ export default function CameraPrompt({ onCapture }: Props) {
       const faceMesh = faceMeshRef.current;
       
       const results = await new Promise<Results>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("MediaPipe timeout")), 3000);
+        // Increased timeout to 10s as initialization can be slow on some devices
+        const timeout = setTimeout(() => {
+          reject(new Error("MediaPipe timeout"));
+        }, 10000);
         
         faceMesh.onResults((res: Results) => {
           clearTimeout(timeout);
@@ -398,6 +402,7 @@ export default function CameraPrompt({ onCapture }: Props) {
         }
 
         drawMediaPipeMesh(ctx, results, perfect);
+        mediaPipeErrorCountRef.current = 0; // Reset error count on success
 
         if (perfect && !isCountingDownRef.current) {
           startCountdown(1); // Auto-capture faster (1s)
@@ -427,6 +432,16 @@ export default function CameraPrompt({ onCapture }: Props) {
       }
     } catch (err) {
       console.error("MediaPipe error:", err);
+      mediaPipeErrorCountRef.current++;
+      
+      // If we have many consecutive errors, show a helpful message
+      if (mediaPipeErrorCountRef.current > 3) {
+        const errorTip = "Scanning is taking longer than usual. Please check your connection or try Uploading instead.";
+        if (prevTipsRef.current[0] !== errorTip) {
+          setTips([errorTip]);
+          prevTipsRef.current = [errorTip];
+        }
+      }
     } finally {
       isProcessingRef.current = false;
     }

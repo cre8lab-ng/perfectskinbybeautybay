@@ -103,7 +103,8 @@ export async function runMediaPipeFaceDetection(
   const faceMesh = await getFaceMesh();
 
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("MediaPipe detection timeout")), 5000);
+    // Increased timeout to 10s to match CameraPrompt and handle slow initialization
+    const timeout = setTimeout(() => reject(new Error("MediaPipe detection timeout")), 10000);
 
     faceMesh.onResults((results: any) => {
       clearTimeout(timeout);
