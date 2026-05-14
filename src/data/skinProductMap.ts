@@ -429,8 +429,29 @@ const isProductValidForStep = (productName: string, step: string): boolean => {
   if (step === "sunscreen") {
     return name.includes("sunscreen") || name.includes("spf") || name.includes("sun") || name.includes("uv") || name.includes("fluid") || name.includes("protection");
   }
+
+  if (step === "serum") {
+    // A serum should NOT be a cleanser, wash, soap, or scrub
+    if (name.includes("cleanser") || name.includes("wash") || name.includes("soap") || name.includes("scrub")) {
+      return false;
+    }
+    // A serum should NOT be a standard moisturizer cream or lotion unless it explicitly says serum
+    if ((name.includes("cream") || name.includes("lotion") || name.includes("moisturizer")) && !name.includes("serum")) {
+      return false;
+    }
+    // Standard serum keywords
+    return name.includes("serum") || name.includes("essence") || name.includes("ampoule") || name.includes("concentrate") || name.includes("drops") || name.includes("mucin") || name.includes("active") || name.includes("oil") || name.includes("vitamin c") || name.includes("niacinamide") || name.includes("retinol") || name.includes("hyaluronic");
+  }
+
+  if (step === "treatment") {
+    // A treatment should NOT be a cleanser, wash, or soap
+    if (name.includes("cleanser") || name.includes("wash") || name.includes("soap") || name.includes("scrub")) {
+      return false;
+    }
+    return true;
+  }
   
-  return true; // Serums and treatments are more varied
+  return true;
 };
 
 // Helper function to get routine based on combined concern levels
