@@ -53,7 +53,7 @@ const PremiumSkincareSection = () => {
           {/* CTA Button */}
           <div className="pt-6" onClick={() => router.push("/skin-analysis")}>
             <button className="group inline-flex items-center px-8 py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl shadow-lg">
-              <span>Get Started</span>
+              <span>Get Starteds</span>
               <svg
                 className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300"
                 fill="none"
