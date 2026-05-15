@@ -12,6 +12,10 @@ interface ScoreInfo {
 interface GenerateSkinAnalysisParams {
   originalImageSrc: string;
   scoreInfo: ScoreInfo;
+  routine?: {
+    morning: string[];
+    night: string[];
+  };
 }
 
 export const notifySuccess = (successMessage: string) => {
@@ -79,6 +83,7 @@ export const errorMessages: Record<string, string> = {
 export function generateSkinAnalysisResult({
   originalImageSrc,
   scoreInfo,
+  routine,
 }: GenerateSkinAnalysisParams): void {
   const canvas: HTMLCanvasElement = document.createElement("canvas");
   const ctx: CanvasRenderingContext2D = canvas.getContext("2d")!;
@@ -102,7 +107,7 @@ export function generateSkinAnalysisResult({
     new Promise<void>((res) => (productImage.onload = () => res())),
   ]).then(() => {
     canvas.width = 900;
-    canvas.height = 1600;
+    canvas.height = 2400; // Increased height for routine section
 
     // BEAUTY HUB VIBRANT COLOR PALETTE - Instagram Ready
     const brandPink = "#f847b4";
@@ -501,6 +506,121 @@ export function generateSkinAnalysisResult({
       ctx.fillStyle = textDark;
       ctx.fillText(score.label, cardX + cardWidth / 2, cardY + 180);
     });
+
+    // PREMIUM ROUTINE SECTION
+    if (routine) {
+      const routineStartY = scoresStartY + 250;
+      const routineWidth = 800;
+      const routineX = (canvas.width - routineWidth) / 2;
+
+      // Routine Container
+      const routineGradient = ctx.createLinearGradient(
+        routineX,
+        routineStartY,
+        routineX + routineWidth,
+        routineStartY + 500
+      );
+      routineGradient.addColorStop(0, "rgba(255, 255, 255, 0.9)");
+      routineGradient.addColorStop(1, "rgba(255, 255, 255, 0.7)");
+
+      ctx.fillStyle = routineGradient;
+      ctx.beginPath();
+      ctx.roundRect(routineX, routineStartY, routineWidth, 650, 40);
+      ctx.fill();
+
+      // Border
+      ctx.strokeStyle = "rgba(248, 71, 180, 0.2)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Header
+      ctx.font = "bold 44px Inconsolata, monospace";
+      ctx.fillStyle = brandPink;
+      ctx.textAlign = "center";
+      ctx.fillText("Your Personalized Routine 🧖‍♀️", canvas.width / 2, routineStartY + 70);
+
+      // Morning Section
+      const morningY = routineStartY + 140;
+      ctx.textAlign = "left";
+      ctx.font = "bold 36px Inconsolata, monospace";
+      ctx.fillStyle = brandPink;
+      ctx.fillText("☀️ Morning", routineX + 50, morningY);
+
+      let currentX = routineX + 50;
+      let currentY = morningY + 60;
+      
+      routine.morning.forEach((step: string, i: number) => {
+        ctx.font = "bold 24px Inconsolata, monospace";
+        const textWidth = ctx.measureText(step).width + 40;
+        
+        if (currentX + textWidth > routineX + routineWidth - 50) {
+          currentX = routineX + 50;
+          currentY += 60;
+        }
+
+        // Chip Background
+        ctx.fillStyle = "#fff1f8";
+        ctx.beginPath();
+        ctx.roundRect(currentX, currentY - 30, textWidth, 45, 12);
+        ctx.fill();
+        ctx.strokeStyle = "#fdf4ff";
+        ctx.stroke();
+
+        // Text
+        ctx.fillStyle = "#c026d3";
+        ctx.fillText(step, currentX + 20, currentY);
+
+        currentX += textWidth + 20;
+        if (i < routine!.morning.length - 1) {
+           ctx.fillStyle = "#fbcfe8";
+           ctx.fillText("→", currentX - 10, currentY);
+           currentX += 30;
+        }
+      });
+
+      // Night Section
+      const nightY = currentY + 120;
+      ctx.font = "bold 36px Inconsolata, monospace";
+      ctx.fillStyle = "#7c3aed";
+      ctx.fillText("🌙 Night", routineX + 50, nightY);
+
+      currentX = routineX + 50;
+      currentY = nightY + 60;
+
+      routine.night.forEach((step: string, i: number) => {
+        ctx.font = "bold 24px Inconsolata, monospace";
+        const textWidth = ctx.measureText(step).width + 40;
+
+        if (currentX + textWidth > routineX + routineWidth - 50) {
+          currentX = routineX + 50;
+          currentY += 60;
+        }
+
+        // Chip Background
+        ctx.fillStyle = "#f5f3ff";
+        ctx.beginPath();
+        ctx.roundRect(currentX, currentY - 30, textWidth, 45, 12);
+        ctx.fill();
+        ctx.strokeStyle = "#ede9fe";
+        ctx.stroke();
+
+        // Text
+        ctx.fillStyle = "#6d28d9";
+        ctx.fillText(step, currentX + 20, currentY);
+
+        currentX += textWidth + 20;
+        if (i < routine!.night.length - 1) {
+           ctx.fillStyle = "#ddd6fe";
+           ctx.fillText("→", currentX - 10, currentY);
+           currentX += 30;
+        }
+      });
+
+      // Tip
+      ctx.font = "italic 22px Inconsolata, monospace";
+      ctx.fillStyle = "#6b7280";
+      ctx.fillText("ℹ️ Use exfoliating toner on alternate nights", routineX + 50, currentY + 80);
+    }
 
     // PREMIUM FOOTER
     const footerY = canvas.height - 120;

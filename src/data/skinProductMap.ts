@@ -405,6 +405,64 @@ const isStrongActive = (product: Product) => {
   return actives.some(active => name.includes(active) || desc.includes(active));
 };
 
+const isProductValidForStep = (productName: string, step: string): boolean => {
+  const name = productName.toLowerCase();
+  
+  // STRICT FACE-ONLY CHECK: Reject anything that is explicitly for body, hands, feet, etc.
+  const nonFacialKeywords = ["body", "hand", "foot", "feet", "shower", "bath", "hair", "lip", "eye"];
+  if (nonFacialKeywords.some(k => name.includes(k))) {
+    // Exception: If it explicitly says it's also for the face
+    if (!name.includes("face") && !name.includes("facial")) {
+      return false;
+    }
+  }
+
+  if (step === "toner") {
+    // A toner should NOT be a cream, lotion, or moisturizer unless it's explicitly a "toner"
+    if ((name.includes("cream") || name.includes("lotion") || name.includes("moisturizer") || name.includes("moisturising")) && !name.includes("toner")) {
+      return false;
+    }
+    // Most toners will have these keywords
+    return name.includes("toner") || name.includes("liquid") || name.includes("essence") || name.includes("water") || name.includes("pads") || name.includes("bha") || name.includes("aha") || name.includes("clear");
+  }
+  
+  if (step === "moisturizer") {
+    // A moisturizer should usually have these keywords
+    return name.includes("cream") || name.includes("lotion") || name.includes("moisturizer") || name.includes("moisturising") || name.includes("gel") || name.includes("balm") || name.includes("concentrate") || name.includes("emulsion");
+  }
+  
+  if (step === "cleanser") {
+    return name.includes("cleanser") || name.includes("wash") || name.includes("soap") || name.includes("foam") || name.includes("oil") || name.includes("balm") || name.includes("gel");
+  }
+
+  if (step === "sunscreen") {
+    return name.includes("sunscreen") || name.includes("spf") || name.includes("sun") || name.includes("uv") || name.includes("fluid") || name.includes("protection");
+  }
+
+  if (step === "serum") {
+    // A serum should NOT be a cleanser, wash, soap, or scrub
+    if (name.includes("cleanser") || name.includes("wash") || name.includes("soap") || name.includes("scrub")) {
+      return false;
+    }
+    // A serum should NOT be a standard moisturizer cream or lotion unless it explicitly says serum
+    if ((name.includes("cream") || name.includes("lotion") || name.includes("moisturizer")) && !name.includes("serum")) {
+      return false;
+    }
+    // Standard serum keywords
+    return name.includes("serum") || name.includes("essence") || name.includes("ampoule") || name.includes("concentrate") || name.includes("drops") || name.includes("mucin") || name.includes("active") || name.includes("oil") || name.includes("vitamin c") || name.includes("niacinamide") || name.includes("retinol") || name.includes("hyaluronic");
+  }
+
+  if (step === "treatment") {
+    // A treatment should NOT be a cleanser, wash, or soap
+    if (name.includes("cleanser") || name.includes("wash") || name.includes("soap") || name.includes("scrub")) {
+      return false;
+    }
+    return true;
+  }
+  
+  return true;
+};
+
 // Helper function to get routine based on combined concern levels
 export function getRecommendedRoutine(concernLevels: {
   acne?: "very_low" | "low" | "moderate" | "high" | "very_high";
@@ -582,37 +640,44 @@ export async function getLiveRecommendedProducts(scoreInfo: ScoreInfo | null): P
 
   // Search queries for each step based on concern
   const queries: Record<string, string> = {
-    cleanser: "gentle cleanser",
-    toner: "hydrating toner",
-    serum: "serum",
-    moisturizer: "moisturizer",
-    sunscreen: "sunscreen",
-    treatment: "treatment"
+    cleanser: "face cleanser",
+    toner: "face toner",
+    serum: "face serum",
+    moisturizer: "face moisturizer",
+    sunscreen: "face sunscreen",
+    treatment: "face treatment"
   };
 
   if (topConcern === "acne") {
-    queries.cleanser = "salicylic cleanser";
-    queries.treatment = "benzoyl peroxide";
-    queries.serum = "niacinamide serum";
+    queries.cleanser = "acne face cleanser";
+    queries.treatment = "benzoyl peroxide face";
+    queries.serum = "niacinamide face serum";
   } else if (topConcern === "wrinkle") {
-    queries.treatment = "retinol";
-    queries.serum = "vitamin c serum";
+    queries.treatment = "retinol face";
+    queries.serum = "vitamin c face serum";
   } else if (topConcern === "texture") {
-    queries.toner = "aha bha toner";
-    queries.serum = "snail mucin";
+    queries.toner = "exfoliating face toner";
+    queries.serum = "face snail mucin";
   } else if (topConcern === "pore") {
-    queries.serum = "niacinamide";
-    queries.treatment = "bha liquid";
+    queries.serum = "pore face serum";
+    queries.treatment = "bha face liquid";
   }
 
   // Fetch live products for each step
   const steps = ["cleanser", "toner", "serum", "moisturizer", "sunscreen", "treatment"] as const;
   const liveProducts: Product[] = [];
 
+  const pickRandom = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
   for (const step of steps) {
     const results = await searchProducts(queries[step] || step);
     if (results && results.length > 0) {
-      const p = results[0];
+      // Filter results to ensure they match the category
+      const validResults = results.filter(p => isProductValidForStep(p.name, step));
+      
+      // If no valid results found, fallback to the first result but log a warning
+      const p = validResults.length > 0 ? pickRandom(validResults) : results[0];
+      
       liveProducts.push({
         id: p.id,
         name: p.name,
@@ -639,9 +704,13 @@ export async function getLiveRecommendedProducts(scoreInfo: ScoreInfo | null): P
 
     const finalProducts = await Promise.all(liveProducts.map(async (p) => {
       if (isStrongActive(p) && p.id !== activeToKeep.id) {
-        const replacements = await searchProducts(`gentle ${p.step}`);
+        const replacements = await searchProducts(`gentle face ${p.step}`);
         if (replacements && replacements.length > 0) {
-          const r = replacements[0];
+          // Filter replacements to ensure they match the category
+          const validReplacements = replacements.filter(r => isProductValidForStep(r.name, p.step));
+          
+          // Also pick a random gentle replacement
+          const r = validReplacements.length > 0 ? pickRandom(validReplacements) : replacements[0];
           return {
             id: r.id,
             name: r.name,

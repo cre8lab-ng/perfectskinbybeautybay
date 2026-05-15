@@ -7,6 +7,8 @@ type WCProduct = {
   name: string;
   price_html: string;
   brands?: { name: string }[];
+  categories?: { name: string }[];
+  attributes?: { name: string; options: string[] }[];
   images?: { src: string }[];
   permalink: string;
 };
@@ -97,14 +99,46 @@ export default async function handler(
         params: { tag: tagId, per_page: 20, status: "publish" },
       });
 
-      const mapped = (response.data as WCProduct[]).map((p) => ({
-        id: p.id,
-        name: p.name,
-        price_html: p.price_html,
-        brand: p.brands?.[0]?.name || "Unknown Brand",
-        image: p.images?.[0]?.src || null,
-        link: p.permalink,
-      }));
+      const mapped = (response.data as WCProduct[]).map((p) => {
+        // 1. Try "brands" field (common in some plugins)
+        let brand = p.brands?.[0]?.name;
+
+        // 2. Try WooCommerce attributes (common way to store Brand)
+        if (!brand) {
+          const brandAttr = p.attributes?.find(
+            (a) => a.name.toLowerCase() === "brand"
+          );
+          if (brandAttr && brandAttr.options?.[0]) {
+            brand = brandAttr.options[0];
+          }
+        }
+
+        // 3. Try "pa_brand" (standard WooCommerce attribute slug)
+        if (!brand) {
+          const paBrandAttr = p.attributes?.find(
+            (a) => a.name.toLowerCase() === "pa_brand"
+          );
+          if (paBrandAttr && paBrandAttr.options?.[0]) {
+            brand = paBrandAttr.options[0];
+          }
+        }
+
+        // 4. Try categories (sometimes brand is a category)
+        if (!brand) {
+          // You might want to filter categories that aren't actually brands,
+          // but usually brand categories are distinct
+          brand = p.categories?.[0]?.name;
+        }
+
+        return {
+          id: p.id,
+          name: p.name,
+          price_html: p.price_html,
+          brand: brand || "Unknown Brand",
+          image: p.images?.[0]?.src || null,
+          link: p.permalink,
+        };
+      });
 
       cache.set(cacheKey, mapped);
       return res.status(200).json(mapped);
@@ -125,14 +159,44 @@ export default async function handler(
         params: { search: q, per_page: 5, status: "publish" },
       });
 
-      const mapped = (response.data as WCProduct[]).map((p) => ({
-        id: p.id,
-        name: p.name,
-        price_html: p.price_html,
-        brand: p.brands?.[0]?.name || "Unknown Brand",
-        image: p.images?.[0]?.src || null,
-        link: p.permalink,
-      }));
+      const mapped = (response.data as WCProduct[]).map((p) => {
+        // 1. Try "brands" field (common in some plugins)
+        let brand = p.brands?.[0]?.name;
+
+        // 2. Try WooCommerce attributes (common way to store Brand)
+        if (!brand) {
+          const brandAttr = p.attributes?.find(
+            (a) => a.name.toLowerCase() === "brand"
+          );
+          if (brandAttr && brandAttr.options?.[0]) {
+            brand = brandAttr.options[0];
+          }
+        }
+
+        // 3. Try "pa_brand" (standard WooCommerce attribute slug)
+        if (!brand) {
+          const paBrandAttr = p.attributes?.find(
+            (a) => a.name.toLowerCase() === "pa_brand"
+          );
+          if (paBrandAttr && paBrandAttr.options?.[0]) {
+            brand = paBrandAttr.options[0];
+          }
+        }
+
+        // 4. Try categories (sometimes brand is a category)
+        if (!brand) {
+          brand = p.categories?.[0]?.name;
+        }
+
+        return {
+          id: p.id,
+          name: p.name,
+          price_html: p.price_html,
+          brand: brand || "Unknown Brand",
+          image: p.images?.[0]?.src || null,
+          link: p.permalink,
+        };
+      });
 
       cache.set(cacheKey, mapped);
       return res.status(200).json(mapped);
