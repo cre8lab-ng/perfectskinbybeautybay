@@ -2,13 +2,14 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { getFaceMesh } from "@/util/faceValidation";
-import { Results } from "@mediapipe/face_mesh";
+import type { Results } from "@mediapipe/face_mesh";
 
 interface Props {
   onCapture: (dataUrl: string) => void;
+  onCancel?: () => void;
 }
 
-export default function CameraPrompt({ onCapture }: Props) {
+export default function CameraPrompt({ onCapture, onCancel }: Props) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -19,7 +20,11 @@ export default function CameraPrompt({ onCapture }: Props) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [countdown, setCountdown] = useState(3);
+  const [cameraError, setCameraError] = useState(false);
   const isCountingDownRef = useRef(false);
+  // A tap on "Take photo" is the user's decision: don't cancel it just because the framing
+  // isn't perfect. Only the automatic countdown requires every check to pass.
+  const manualCaptureRef = useRef(false);
   const hasCapturedRef = useRef(false);
   const animationRef = useRef<number | null>(null);
   const countdownRef = useRef<number | null>(null);
@@ -221,40 +226,48 @@ export default function CameraPrompt({ onCapture }: Props) {
   }, []);
 
   const cancelCountdown = useCallback(() => {
+    manualCaptureRef.current = false;
     setIsCountingDown(false);
     setIsPerfect(false);
     setCountdown(3);
     if (countdownRef.current) {
       cancelAnimationFrame(countdownRef.current);
+      countdownRef.current = null;
     }
     setTips(["Hold still and meet the checks to start the countdown again"]);
   }, []);
 
   const startCountdown = useCallback((seconds: number = 3) => {
+    if (countdownRef.current) cancelAnimationFrame(countdownRef.current);
     setIsCountingDown(true);
     setCountdown(seconds);
 
-    let lastTime = performance.now();
+    const startedAt = performance.now();
+    let shown = seconds;
 
-    const animate = (now: number) => {
-      if (now - lastTime >= 1000) {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            const image = captureFrame();
-            if (image) setCapturedImage(image);
-            setIsCountingDown(false);
-            hasCapturedRef.current = true;
-            stopCamera();
-            
-            return seconds;
-          }
-          return prev - 1;
-        });
-        lastTime = now;
+    // The loop stops itself once the photo is taken, so Retake starts from a clean state.
+    const tick = (now: number) => {
+      const remaining = seconds - Math.floor((now - startedAt) / 1000);
+      if (remaining <= 0) {
+        countdownRef.current = null;
+        manualCaptureRef.current = false;
+        setIsCountingDown(false);
+        setCountdown(seconds);
+        const image = captureFrame();
+        if (image) {
+          hasCapturedRef.current = true;
+          setCapturedImage(image);
+          stopCamera();
+        }
+        return;
       }
-      countdownRef.current = requestAnimationFrame(animate);
+      if (remaining !== shown) {
+        shown = remaining;
+        setCountdown(remaining);
+      }
+      countdownRef.current = requestAnimationFrame(tick);
     };
-    countdownRef.current = requestAnimationFrame(animate);
+    countdownRef.current = requestAnimationFrame(tick);
   }, [captureFrame, stopCamera]);
 
 
@@ -295,7 +308,13 @@ export default function CameraPrompt({ onCapture }: Props) {
     try {
       isProcessingRef.current = true;
       if (!faceMeshRef.current) {
+        // The model usually finished preloading during the questionnaire; if not, say so
+        // rather than showing connection errors while it starts.
+        const startingTip = ["Starting face scanner…"];
+        setTips(startingTip);
+        prevTipsRef.current = startingTip;
         faceMeshRef.current = await getFaceMesh();
+        mediaPipeErrorCountRef.current = 0;
       }
       
       const faceMesh = faceMeshRef.current;
@@ -406,7 +425,7 @@ export default function CameraPrompt({ onCapture }: Props) {
 
         if (perfect && !isCountingDownRef.current) {
           startCountdown(1); // Auto-capture faster (1s)
-        } else if (!perfect && isCountingDownRef.current) {
+        } else if (!perfect && isCountingDownRef.current && !manualCaptureRef.current) {
           cancelCountdown();
         }
       } else {
@@ -460,9 +479,11 @@ export default function CameraPrompt({ onCapture }: Props) {
     if (cameraStartedRef.current) return;
     
     if (!navigator?.mediaDevices?.getUserMedia) {
-      setTips(["Camera isn’t available on this device/browser. Use Upload instead."]);
+      setCameraError(true);
+      setTips(["Camera isn’t available on this device/browser. Upload a photo instead."]);
       return;
     }
+    setCameraError(false);
     
     // ... constraints ...
     const constraints: MediaStreamConstraints = {
@@ -498,9 +519,10 @@ export default function CameraPrompt({ onCapture }: Props) {
       }
     } catch (err) {
       console.error("Error starting camera:", err);
+      setCameraError(true);
       setTips([
         "We couldn’t access your camera.",
-        "Allow camera permission, then refresh this page.",
+        "Allow camera access in your browser settings, or upload a photo instead.",
       ]);
     }
   }, [analyze]);
@@ -521,10 +543,16 @@ export default function CameraPrompt({ onCapture }: Props) {
     if (hasCapturedRef.current) return;
     if (!faceValid || isCountingDownRef.current) return;
     setTips(["Hold still — capturing"]);
+    manualCaptureRef.current = true;
     startCountdown(1); // Manual capture also fast (1s)
   };
 
   const handleRetake = async () => {
+    if (countdownRef.current) cancelAnimationFrame(countdownRef.current);
+    countdownRef.current = null;
+    perfectScoreRef.current = 0;
+    prevFaceValidRef.current = false;
+    prevIsPerfectRef.current = false;
     hasCapturedRef.current = false;
     cameraStartedRef.current = false;
     setCapturedImage(null);
@@ -541,9 +569,10 @@ export default function CameraPrompt({ onCapture }: Props) {
       }
       await startCamera();
     } catch {
+      setCameraError(true);
       setTips([
         "We couldn’t access your camera.",
-        "Allow camera permission, then refresh this page.",
+        "Allow camera access in your browser settings, or upload a photo instead.",
       ]);
     }
   };
@@ -597,6 +626,19 @@ export default function CameraPrompt({ onCapture }: Props) {
           style={{ backgroundColor: "#f847b4" }}
         ></div>
       </div>
+
+      {onCancel && (
+        <button
+          onClick={() => {
+            stopCamera();
+            onCancel();
+          }}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-pink-900 shadow backdrop-blur-sm hover:bg-white"
+          aria-label="Go back"
+        >
+          ← Back
+        </button>
+      )}
 
       <div className="text-center mb-8 z-10">
         {/* Brand Logo */}
@@ -694,7 +736,26 @@ export default function CameraPrompt({ onCapture }: Props) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl"></div>
               </div>
             )}
+            {cameraError && !capturedImage && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 p-6 text-center text-white">
+                <div className="text-4xl">📷</div>
+                <p className="font-semibold">Camera unavailable</p>
+                <p className="text-sm text-white/80">
+                  Allow camera access in your browser settings, or upload a clear selfie instead.
+                </p>
+                <button
+                  onClick={handleUploadInstead}
+                  className="rounded-2xl bg-pink-500 px-6 py-3 font-semibold text-white shadow-xl hover:bg-pink-600"
+                >
+                  Upload a photo
+                </button>
+                <button onClick={handleRetake} className="text-sm font-semibold text-white/80 underline">
+                  Try camera again
+                </button>
+              </div>
+            )}
             {!capturedImage &&
+              !cameraError &&
               !hasCapturedRef.current &&
               !isCountingDown && (
                 <div className="absolute bottom-4 left-4 right-4 flex justify-center z-20">
@@ -714,7 +775,7 @@ export default function CameraPrompt({ onCapture }: Props) {
                 </div>
               )}
 
-            {!capturedImage && !isCountingDown && (
+            {!capturedImage && !isCountingDown && !cameraError && (
               <div className="absolute top-4 right-4 z-20">
                 <button
                   onClick={handleUploadInstead}

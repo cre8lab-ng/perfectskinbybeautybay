@@ -1,9 +1,38 @@
 // utils/faceValidation.ts
 
-import * as faceMeshModule from "@mediapipe/face_mesh";
+const MEDIAPIPE_VERSION = "0.4.1633559619";
+const MEDIAPIPE_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${MEDIAPIPE_VERSION}`;
 
 let faceMeshInstance: any = null;
 let faceMeshPromise: Promise<any> | null = null;
+
+// MediaPipe's WASM loader breaks when bundled by Next.js in production
+// ("Module.arguments has been replaced…"), so load its own script from the CDN instead.
+function loadFaceMeshScript(): Promise<any> {
+  const existing = (window as any).FaceMesh;
+  if (existing) return Promise.resolve(existing);
+
+  return new Promise((resolve, reject) => {
+    let script = document.getElementById("mediapipe-face-mesh") as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement("script");
+      script.id = "mediapipe-face-mesh";
+      script.src = `${MEDIAPIPE_BASE}/face_mesh.js`;
+      script.crossOrigin = "anonymous";
+      script.async = true;
+      document.head.appendChild(script);
+    }
+    script.addEventListener("load", () => {
+      const ctor = (window as any).FaceMesh;
+      if (ctor) resolve(ctor);
+      else reject(new Error("FaceMesh not found after loading script"));
+    });
+    script.addEventListener("error", () => {
+      script?.remove();
+      reject(new Error("Failed to load face detection script"));
+    });
+  });
+}
 
 export async function getFaceMesh(): Promise<any> {
   if (faceMeshInstance) return faceMeshInstance;
@@ -11,37 +40,9 @@ export async function getFaceMesh(): Promise<any> {
 
   faceMeshPromise = (async () => {
     try {
-      // Next.js/Webpack sometimes struggle with MediaPipe's CJS/ESM hybrid exports.
-      // Using a dynamic import inside the function can help resolve the constructor correctly on the client side.
-      const mpFaceMesh = await import("@mediapipe/face_mesh");
-      
-      let FaceMeshConstructor: any = null;
-
-      // Try all possible ways the constructor might be exported
-      if (mpFaceMesh.FaceMesh) {
-        FaceMeshConstructor = mpFaceMesh.FaceMesh;
-      } else if ((mpFaceMesh as any).default?.FaceMesh) {
-        FaceMeshConstructor = (mpFaceMesh as any).default.FaceMesh;
-      } else if (typeof (mpFaceMesh as any).default === "function") {
-        FaceMeshConstructor = (mpFaceMesh as any).default;
-      } else if (faceMeshModule.FaceMesh) {
-        FaceMeshConstructor = faceMeshModule.FaceMesh;
-      } else if ((faceMeshModule as any).default?.FaceMesh) {
-        FaceMeshConstructor = (faceMeshModule as any).default.FaceMesh;
-      } else if (typeof (faceMeshModule as any).default === "function") {
-        FaceMeshConstructor = (faceMeshModule as any).default;
-      } else if (typeof window !== "undefined" && (window as any).FaceMesh) {
-        FaceMeshConstructor = (window as any).FaceMesh;
-      }
-
-      if (!FaceMeshConstructor || typeof FaceMeshConstructor !== "function") {
-        console.error("MediaPipe Debug - mpFaceMesh keys:", Object.keys(mpFaceMesh));
-        throw new Error("Could not find a valid FaceMesh constructor in @mediapipe/face_mesh");
-      }
-
-      const instance = new FaceMeshConstructor({
-        locateFile: (file: string) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`,
+      const FaceMesh = await loadFaceMeshScript();
+      const instance = new FaceMesh({
+        locateFile: (file: string) => `${MEDIAPIPE_BASE}/${file}`,
       });
 
       instance.setOptions({
@@ -51,8 +52,9 @@ export async function getFaceMesh(): Promise<any> {
         minTrackingConfidence: 0.7,
       });
 
-      // Wait for the instance to initialize its WASM if possible, 
-      // though FaceMesh usually initializes on the first .send() call.
+      // Initialise exactly once. Letting the camera's first send() and a preload both
+      // trigger initialisation crashes MediaPipe ("ErrnoError") and detection silently fails.
+      await instance.initialize();
       faceMeshInstance = instance;
       return instance;
     } catch (err) {
@@ -62,6 +64,15 @@ export async function getFaceMesh(): Promise<any> {
   })();
 
   return faceMeshPromise;
+}
+
+/** Downloads and initialises the face model ahead of time so the camera starts tracking instantly. */
+export async function preloadFaceMesh() {
+  try {
+    await getFaceMesh();
+  } catch (err) {
+    console.warn("Face model preload failed; it will load on first use", err);
+  }
 }
 
 export function getAverageBrightness(
@@ -101,6 +112,9 @@ export async function runMediaPipeFaceDetection(
   image: HTMLImageElement
 ): Promise<any[]> {
   const faceMesh = await getFaceMesh();
+  // The model is shared with the live camera; clear its tracking state so a still photo
+  // is detected from scratch rather than from the last video frame's face position.
+  faceMesh.reset?.();
 
   return new Promise((resolve, reject) => {
     // Increased timeout to 10s to match CameraPrompt and handle slow initialization

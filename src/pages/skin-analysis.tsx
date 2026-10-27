@@ -11,11 +11,35 @@ import {
   notifyError,
 } from "@/util/utils";
 import WebPageTitle from "@/components/webpagetitle";
-import { runMediaPipeFaceDetection } from "@/util/faceValidation";
-import {
-  getLiveRecommendedProducts,
-} from "@/data/skinProductMap";
+import { preloadFaceMesh, runMediaPipeFaceDetection } from "@/util/faceValidation";
 import SendResultModal from "@/components/modal/send-email";
+import RoutineRecommendations from "@/components/RoutineRecommendations";
+import CartBar from "@/components/CartBar";
+import {
+  hydrateCatalog,
+  recommendRoutine,
+  type CatalogItem,
+  type RecommendedProduct,
+  type RoutineResult,
+} from "@/lib/recommendationEngine";
+
+// Loaded once per visit; the recommendation itself then runs instantly in the browser.
+let catalogPromise: Promise<CatalogItem[]> | null = null;
+function loadCatalog() {
+  if (!catalogPromise) {
+    catalogPromise = fetch("/api/catalog")
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Catalog request failed (${res.status})`);
+        const data = await res.json();
+        return hydrateCatalog(data.products);
+      })
+      .catch((err) => {
+        catalogPromise = null; // let the next attempt retry
+        throw err;
+      });
+  }
+  return catalogPromise;
+}
 
 interface ScoreEntry {
   ui_score?: number;
@@ -43,6 +67,8 @@ type TextureFeel = "smooth" | "slightly_rough" | "very_rough";
 type AgeRange = "under_18" | "18_24" | "25_34" | "35_44" | "45_plus";
 type SunscreenUse = "daily" | "sometimes" | "rarely";
 type SunExposure = "low" | "medium" | "high";
+type DarkSpots = "none" | "some" | "a_lot";
+type Pregnancy = "no" | "yes";
 
 type SkinQuestionnaire = {
   skinType: SkinType;
@@ -53,6 +79,8 @@ type SkinQuestionnaire = {
   ageRange: AgeRange;
   sunscreenUse: SunscreenUse;
   sunExposure: SunExposure;
+  darkSpots: DarkSpots;
+  pregnant: Pregnancy;
 };
 
 type FaceBox = { x: number; y: number; width: number; height: number };
@@ -118,11 +146,17 @@ function questionnaireToBaseScores(q: SkinQuestionnaire) {
 
   const sensitivityPenalty = q.sensitivity === "high" ? 10 : 0;
 
+  const pigmentationBase =
+    q.darkSpots === "none" ? 10 : q.darkSpots === "some" ? 45 : 75;
+  const pigmentationFromSun =
+    q.sunExposure === "high" && q.sunscreenUse !== "daily" ? 10 : 0;
+
   return {
     acne: acneBase,
     pore: clamp(Math.round(0.6 * poreFromType + 0.4 * poreFromVisibility), 1, 100),
     texture: clamp(textureFromFeel + sensitivityPenalty, 1, 100),
     wrinkle: clamp(wrinkleFromAge + wrinkleFromSunscreen + wrinkleFromExposure, 1, 100),
+    pigmentation: clamp(pigmentationBase + pigmentationFromSun, 1, 100),
   };
 }
 
@@ -135,7 +169,7 @@ type ImageMetrics = {
 
 type AnalysisBreakdown = {
   questionnaire: SkinQuestionnaire;
-  base: { acne: number; pore: number; texture: number; wrinkle: number };
+  base: { acne: number; pore: number; texture: number; wrinkle: number; pigmentation: number };
   metrics: ImageMetrics;
   weights: { questionnaire: number; image: number };
   combined: { acne: number; pore: number; texture: number; wrinkle: number; overall: number };
@@ -268,6 +302,14 @@ function stepHowToUse(step: string, productName: string, q: SkinQuestionnaire) {
   if (step === "moisturizer") {
     return "AM/PM: apply to slightly damp skin to support the barrier.";
   }
+  if (step === "treatment") {
+    const n = productName.toLowerCase();
+    if (n.includes("patch")) return "As needed: place on a clean, dry blemish and leave on overnight or until the patch turns white.";
+    if (n.includes("mask")) return "1–2 times a week after cleansing. Follow with moisturizer.";
+    return q.sensitivity === "high"
+      ? "Night only: start 1–2 nights/week on clean, dry skin, then moisturize. Skip if stinging."
+      : "Night only: start 2–3 nights/week after serum, then moisturize. Increase as tolerated.";
+  }
   return "Use as directed and introduce slowly.";
 }
 
@@ -310,12 +352,17 @@ export default function FaceDetectionComponent() {
     ageRange: "25_34",
     sunscreenUse: "sometimes",
     sunExposure: "medium",
+    darkSpots: "some",
+    pregnant: "no",
   });
   const [analysisBreakdown, setAnalysisBreakdown] =
     useState<AnalysisBreakdown | null>(null);
-  const [liveRoutine, setLiveRoutine] = useState<any>(null);
+  const [liveRoutine, setLiveRoutine] = useState<RoutineResult | null>(null);
   const [loadingLiveRoutine, setLoadingLiveRoutine] = useState(false);
+  const [routineError, setRoutineError] = useState<string | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<RecommendedProduct[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const retakeRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null); // 🆕 ADD THIS
   const [showSendModal, setShowSendModal] = useState(false);
 
@@ -511,7 +558,7 @@ export default function FaceDetectionComponent() {
 
   function resizeImageWithOverride(
     inputFile: File,
-    quality = 0.6
+    quality = 0.85
   ): Promise<{ file: File; previewUrl: string }> {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -556,6 +603,9 @@ export default function FaceDetectionComponent() {
 
         canvas.width = targetWidth;
         canvas.height = targetHeight;
+        // Transparent PNGs would otherwise turn black in the JPEG and fail the lighting check.
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, targetWidth, targetHeight);
         ctx.drawImage(
           img,
           sourceX,
@@ -583,6 +633,8 @@ export default function FaceDetectionComponent() {
         );
       };
 
+      // e.g. HEIC photos on browsers that can't decode them; without this the spinner hangs.
+      img.onerror = () => reject(new Error("Unsupported image format"));
       reader.onerror = (err) => reject(err);
       reader.readAsDataURL(inputFile);
     });
@@ -600,45 +652,66 @@ export default function FaceDetectionComponent() {
     }
 
     const file = capturedFile ?? e?.target?.files?.[0];
+    // Reset so choosing the same photo again still triggers a new analysis.
+    if (e?.target) e.target.value = "";
     if (!file) return;
 
-    let previewUrl = "";
-    try {
-      ({ previewUrl } = await resizeImageWithOverride(file));
-      setScoreInfo(null);
-      setZipContent([]);
-      setProcessedImagePreview(previewUrl);
-      setMessage(null);
-      setRetake(false);
-      setShowRetryButton(false);
-      setAnalysisBreakdown(null);
-    } catch (err) {
-      console.error(err);
-      setMessage("We couldn't process that photo. Please retake and try again.");
+    if (file.type && !file.type.startsWith("image/")) {
+      setMessage("That file isn't a photo. Please choose a JPG or PNG selfie.");
       setRetake(true);
       return;
     }
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = previewUrl;
+    setScoreInfo(null);
+    setZipContent([]);
+    setMessage(null);
+    setRetake(false);
+    setShowRetryButton(false);
+    setAnalysisBreakdown(null);
+    setLiveRoutine(null);
+    setSelectedProducts([]);
 
-    await new Promise((resolve) => (img.onload = resolve));
+    let previewUrl = "";
+    try {
+      ({ previewUrl } = await resizeImageWithOverride(file));
+      setProcessedImagePreview(previewUrl);
+    } catch (err) {
+      console.error(err);
+      setOriginalImagePreview(null);
+      setMessage(
+        "We couldn't open that photo. If it's an iPhone HEIC photo, take a screenshot of it or use the camera instead."
+      );
+      setRetake(true);
+      return;
+    }
 
     setFaceDetectionLoading(true);
     try {
-      img.crossOrigin = "anonymous";
-      img.src = previewUrl;
-
-      await new Promise((res) => (img.onload = res));
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load processed image"));
+        img.src = previewUrl;
+      });
 
       let faceBox: FaceBox | null = null;
       let landmarks: any[] | null = null;
+      let detectorFailed = false;
 
       try {
         landmarks = await runMediaPipeFaceDetection(img);
       } catch (err) {
+        // Model couldn't load (offline/blocked CDN): analyse the centre of the photo instead.
         console.warn("Face detection failed, falling back to center crop", err);
+        detectorFailed = true;
+      }
+
+      if (!detectorFailed && (!landmarks || landmarks.length === 0)) {
+        setMessage(
+          "We couldn't find a face in that photo. Use a clear, front-facing selfie with your whole face visible."
+        );
+        setRetake(true);
+        return;
       }
 
       if (landmarks && landmarks.length > 0) {
@@ -647,10 +720,12 @@ export default function FaceDetectionComponent() {
         const width = Math.max(...xs) - Math.min(...xs);
         const height = Math.max(...ys) - Math.min(...ys);
 
-        if (width < 300 || height < 300) {
-          notifyError(
-            "Your face is too small in the image. Please move closer or upload a clearer selfie."
+        // Relative to the photo, so it works the same for camera frames and large uploads.
+        if (width < img.width * 0.2 || height < 160) {
+          setMessage(
+            "Your face is too small in this photo. Move closer so your face fills most of the frame, then try again."
           );
+          setRetake(true);
           return;
         }
 
@@ -845,25 +920,81 @@ export default function FaceDetectionComponent() {
     return canvas.toDataURL("image/png");
   };
 
+  // Load the store catalog and the face model while the user fills in the questionnaire,
+  // so the camera tracks instantly and results appear without a long wait.
   useEffect(() => {
-    if (scoreInfo) {
-      setLoadingLiveRoutine(true);
-      getLiveRecommendedProducts(scoreInfo)
-        .then((res) => {
-          setLiveRoutine(res);
-        })
-        .catch((err) => {
-          console.error("Failed to fetch live routine:", err);
-        })
-        .finally(() => {
-          setLoadingLiveRoutine(false);
-        });
-    }
-  }, [scoreInfo]);
+    loadCatalog().catch(() => {});
+    preloadFaceMesh();
+  }, []);
 
-  const finalRoutine = liveRoutine;
-  const routine = finalRoutine?.routine ?? null;
-  const routineProducts = routine?.products ?? [];
+  // Make sure a "retake" message is on screen rather than below the fold.
+  useEffect(() => {
+    if (retake) retakeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [retake, message]);
+
+  // Start a new photo without reloading the page, keeping the questionnaire answers.
+  const restartScan = () => {
+    setScoreInfo(null);
+    setZipContent([]);
+    setProcessedImagePreview(null);
+    setOriginalImagePreview(null);
+    setMessage(null);
+    setRetake(false);
+    setShowRetryButton(false);
+    setAnalysisBreakdown(null);
+    setLiveRoutine(null);
+    setSelectedProducts([]);
+    setRoutineError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setShowInstructionModal(true);
+  };
+
+  const hasScanActivity =
+    faceDetectionLoading ||
+    analyzing ||
+    !!scoreInfo ||
+    !!processedImagePreview ||
+    !!originalImagePreview ||
+    retake;
+
+  const fetchRoutine = React.useCallback(async () => {
+    if (!scoreInfo || !analysisBreakdown) return;
+    setLoadingLiveRoutine(true);
+    setRoutineError(null);
+    try {
+      const catalog = await loadCatalog();
+      const q = analysisBreakdown.questionnaire;
+      setLiveRoutine(
+        recommendRoutine(catalog, {
+          scores: {
+            acne: scoreInfo.acne?.ui_score,
+            pore: scoreInfo.pore?.ui_score,
+            texture: scoreInfo.texture?.ui_score,
+            wrinkle: scoreInfo.wrinkle?.ui_score,
+            pigmentation: analysisBreakdown.base.pigmentation,
+          },
+          skinType: q.skinType,
+          sensitivity: q.sensitivity,
+          ageRange: q.ageRange,
+          pregnant: q.pregnant === "yes",
+        })
+      );
+    } catch (err) {
+      console.error("Failed to build routine:", err);
+      setLiveRoutine(null);
+      setRoutineError("Please check your connection and try again.");
+    } finally {
+      setLoadingLiveRoutine(false);
+    }
+  }, [scoreInfo, analysisBreakdown]);
+
+  useEffect(() => {
+    fetchRoutine();
+  }, [fetchRoutine]);
+
+  const routineProducts = selectedProducts.length
+    ? selectedProducts
+    : liveRoutine?.routine.products ?? [];
 
   return (
     <>
@@ -908,6 +1039,10 @@ export default function FaceDetectionComponent() {
             const file = dataURLtoFile(imageData, "captured.jpg");
             handleCaptureWithOverride(undefined, file);
           }}
+          onCancel={() => {
+            setShowCameraPrompt(false);
+            setShowInstructionModal(true);
+          }}
         />
       ) : (
         <>
@@ -915,7 +1050,7 @@ export default function FaceDetectionComponent() {
           <Header />
           <main
             style={{
-              padding: "2rem 1rem",
+              padding: "2rem 1rem 7rem",
               background: "linear-gradient(135deg, #ffd9f0 0%, #f847b4 100%)",
               minHeight: "100vh",
               position: "relative",
@@ -1091,6 +1226,33 @@ export default function FaceDetectionComponent() {
                       ] as const,
                     },
                     {
+                      label: "Dark spots / uneven tone",
+                      value: questionnaire.darkSpots,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          darkSpots: v as DarkSpots,
+                        })),
+                      options: [
+                        ["none", "None"],
+                        ["some", "Some"],
+                        ["a_lot", "A lot"],
+                      ] as const,
+                    },
+                    {
+                      label: "Pregnant or breastfeeding",
+                      value: questionnaire.pregnant,
+                      onChange: (v: string) =>
+                        setQuestionnaire((prev) => ({
+                          ...prev,
+                          pregnant: v as Pregnancy,
+                        })),
+                      options: [
+                        ["no", "No"],
+                        ["yes", "Yes"],
+                      ] as const,
+                    },
+                    {
                       label: "Sun exposure",
                       value: questionnaire.sunExposure,
                       onChange: (v: string) =>
@@ -1172,14 +1334,42 @@ export default function FaceDetectionComponent() {
               </div>
             )}
 
+            {/* Shown if the user closes the photo picker without choosing a photo. */}
             {!showQuestionnaire &&
-              (showCameraPrompt ||
-                faceDetectionLoading ||
-                analyzing ||
-                scoreInfo ||
-                zipContent.length > 0 ||
-                processedImagePreview ||
-                analysisBreakdown) && (
+              !showPrivacyModal &&
+              !showInstructionModal &&
+              questionnaireCompleted &&
+              !hasScanActivity && (
+                <div className="relative z-10 mx-auto max-w-md rounded-3xl bg-white/90 p-8 text-center shadow-xl">
+                  <div className="text-4xl">📸</div>
+                  <h2 className="mt-2 text-2xl font-extrabold text-gray-900">Ready for your scan</h2>
+                  <p className="mt-2 text-gray-600">
+                    Use a clear, front-facing selfie in good light, with no makeup or glasses.
+                  </p>
+                  <div className="mt-6 flex flex-col gap-3">
+                    <button
+                      onClick={() => setShowCameraPrompt(true)}
+                      className="rounded-2xl bg-darkpink px-6 py-4 font-extrabold text-white shadow-lg hover:opacity-90"
+                    >
+                      Take a selfie
+                    </button>
+                    <button
+                      onClick={() => document.getElementById("fileInput")?.click()}
+                      className="rounded-2xl border-2 border-darkpink bg-white px-6 py-4 font-bold text-darkpink hover:bg-pink-50"
+                    >
+                      Upload a photo
+                    </button>
+                    <button
+                      onClick={() => setShowQuestionnaire(true)}
+                      className="text-sm font-semibold text-gray-500 underline"
+                    >
+                      Edit my answers
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            {!showQuestionnaire && hasScanActivity && (
               <div
                 style={{
                   position: "relative",
@@ -1217,8 +1407,8 @@ export default function FaceDetectionComponent() {
                     style={{
                       position: "relative",
                       width: "100%",
-                      maxWidth: "100%",
-                      marginBottom: "2rem",
+                      maxWidth: "520px",
+                      margin: "0 auto 2rem",
                     }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1484,7 +1674,7 @@ export default function FaceDetectionComponent() {
                         }}
                       >
                         <button
-                          onClick={() => window.location.reload()}
+                          onClick={restartScan}
                           className="group px-6 py-3 bg-black/60 hover:bg-black/80 text-white rounded-xl font-semibold shadow-xl transition-all duration-300 hover:scale-105 border border-white/20 backdrop-blur-sm"
                         >
                           <span className="flex items-center justify-center space-x-2">
@@ -1599,6 +1789,8 @@ export default function FaceDetectionComponent() {
 
                 {retake ? (
                   <div
+                    ref={retakeRef}
+                    role="alert"
                     style={{
                       textAlign: "center",
                       padding: "2rem",
@@ -1620,9 +1812,7 @@ export default function FaceDetectionComponent() {
                     </p>
 
                     <button
-                      onClick={() => {
-                        window.location.reload();
-                      }}
+                      onClick={restartScan}
                       style={{
                         background: analyzing
                           ? "linear-gradient(135deg, #ccc, #999)"
@@ -1709,318 +1899,18 @@ export default function FaceDetectionComponent() {
                   </div>
                 )}
 
-                {scoreInfo && finalRoutine && (
-                  <div
-                    style={{
-                      marginTop: "3rem",
-                      padding: "2rem",
-                      background:
-                        "linear-gradient(135deg, rgba(255, 217, 240, 0.3), rgba(248, 71, 180, 0.05))",
-                      borderRadius: "20px",
-                      border: "1px solid rgba(248, 71, 180, 0.2)",
-                    }}
-                  >
-                    <div
-                      className="results-inner"
-                      style={{
-                        marginBottom: "3rem",
-                        padding: "2rem",
-                        background: "rgba(255, 255, 255, 0.7)",
-                        borderRadius: "16px",
-                        border: "1px solid rgba(248, 71, 180, 0.1)",
-                        margin: "0 auto 3rem auto",
-                        maxWidth: "1200px",
-                      }}
-                    >
-                      {loadingLiveRoutine && (
-                        <div style={{ textAlign: "center", padding: "3rem 2rem" }}>
-                          <div
-                            style={{
-                              width: "50px",
-                              height: "50px",
-                              border: "4px solid rgba(248, 71, 180, 0.2)",
-                              borderTop: "4px solid #f847b4",
-                              borderRadius: "50%",
-                              animation: "spin 1s linear infinite",
-                              margin: "0 auto 1.5rem",
-                              boxShadow: "0 8px 25px rgba(248, 71, 180, 0.2)",
-                            }}
-                          />
-                          <p
-                            style={{
-                              color: "#f847b4",
-                              fontWeight: "800",
-                              fontSize: "1.2rem",
-                              letterSpacing: "0.5px",
-                            }}
-                          >
-                            Curating your personalized routine...
-                          </p>
-                          <p style={{ marginTop: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
-                            Fetching live products from Beauty Hub store
-                          </p>
-                        </div>
-                      )}
-
-                      {analysisBreakdown && routineProducts.length > 0 && (
-                        <div style={{ marginTop: "1.5rem" }}>
-                          <h5
-                            style={{
-                              margin: "0 0 0.75rem",
-                              fontSize: "1.1rem",
-                              fontWeight: "900",
-                              color: "#2c3e50",
-                              textAlign: "center",
-                            }}
-                          >
-                            Your Full Routine (Derm‑built)
-                          </h5>
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns:
-                                "repeat(auto-fit, minmax(240px, 1fr))",
-                              gap: "1rem",
-                            }}
-                          >
-                            {[
-                              "cleanser",
-                              "toner",
-                              "serum",
-                              "moisturizer",
-                              "sunscreen",
-                              "treatment",
-                            ].map((step) => {
-                              const product = routineProducts.find(
-                                (p: any) => p.step === step
-                              );
-                              if (!product) return null;
-                              return (
-                                <a
-                                  key={step}
-                                  href={product.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "80px 1fr",
-                                    gap: "0.85rem",
-                                    alignItems: "center",
-                                    padding: "1rem",
-                                    borderRadius: "14px",
-                                    border: "1px solid rgba(0,0,0,0.06)",
-                                    background: "rgba(255, 255, 255, 0.95)",
-                                    textDecoration: "none",
-                                  }}
-                                >
-                                  <div style={{ position: "relative", width: "80px", height: "80px" }}>
-                                    <NextImage
-                                      src={product.image}
-                                      alt={product.name}
-                                      width={80}
-                                      height={80}
-                                      unoptimized
-                                      style={{
-                                        objectFit: "contain",
-                                        borderRadius: "12px",
-                                        background: "white",
-                                        border: "1px solid rgba(0,0,0,0.06)",
-                                      }}
-                                    />
-                                  </div>
-                                  <div>
-                                    <div
-                                      style={{
-                                        fontSize: "0.85rem",
-                                        textTransform: "capitalize",
-                                        letterSpacing: "0.5px",
-                                        fontWeight: 900,
-                                        color: "#f847b4",
-                                      }}
-                                    >
-                                      {step}
-                                    </div>
-                                    <div
-                                      style={{
-                                        fontWeight: 900,
-                                        color: "#2c3e50",
-                                        lineHeight: 1.2,
-                                        marginTop: "0.15rem",
-                                      }}
-                                    >
-                                      {product.brand} — {product.name}
-                                    </div>
-                                    <div
-                                      style={{
-                                        fontWeight: 900,
-                                        color: "#f847b4",
-                                        marginTop: "0.25rem",
-                                        fontSize: "0.9rem"
-                                      }}
-                                      dangerouslySetInnerHTML={{ __html: product.price_html }}
-                                    />
-                                    <div
-                                      style={{
-                                        display: "inline-block",
-                                        marginTop: "0.5rem",
-                                        padding: "0.4rem 0.8rem",
-                                        background: "linear-gradient(135deg, #f847b4, #ec4899)",
-                                        color: "white",
-                                        borderRadius: "8px",
-                                        fontSize: "0.75rem",
-                                        fontWeight: "800",
-                                        textTransform: "uppercase"
-                                      }}
-                                    >
-                                      Shop Now
-                                    </div>
-                                    {product.expertRecommendation && (
-                                      <div
-                                        style={{
-                                          fontSize: "0.75rem",
-                                          color: "#f847b4",
-                                          fontWeight: "700",
-                                          marginTop: "0.35rem",
-                                          fontStyle: "italic",
-                                        }}
-                                      >
-                                        ✨ {product.expertRecommendation}
-                                      </div>
-                                    )}
-                                    {product.proof && (
-                                      <div
-                                        style={{
-                                          fontSize: "0.7rem",
-                                          color: "#27ae60",
-                                          fontWeight: "600",
-                                          marginTop: "0.2rem",
-                                        }}
-                                      >
-                                        ✅ Evidence: {product.proof}
-                                      </div>
-                                    )}
-                                    <div style={{ color: "#666", marginTop: "0.35rem" }}>
-                                      {stepHowToUse(
-                                        step,
-                                        product.name,
-                                        analysisBreakdown.questionnaire
-                                      )}
-                                    </div>
-                                  </div>
-                                </a>
-                              );
-                            })}
-                          </div>
-                          <div style={{ 
-                            marginTop: "1.5rem", 
-                            padding: "1.2rem", 
-                            backgroundColor: "#fff", 
-                            borderRadius: "16px",
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                            border: "1px solid #f0f0f0",
-                            fontSize: "0.85rem"
-                          }}>
-                            <h4 style={{ 
-                              margin: "0 0 1rem 0", 
-                              color: "#333", 
-                              fontSize: "1rem", 
-                              fontWeight: "800",
-                              textAlign: "center"
-                            }}>
-                              Your Recommended Routine 🧖‍♀️
-                            </h4>
-                            
-                            {/* Morning Routine */}
-                            <div style={{ marginBottom: "1.2rem" }}>
-                              <div style={{ 
-                                display: "flex", 
-                                alignItems: "center", 
-                                gap: "0.5rem", 
-                                marginBottom: "0.6rem", 
-                                fontWeight: "700", 
-                                color: "#f847b4" 
-                              }}>
-                                <span style={{ fontSize: "1.1rem" }}>☀️</span> Morning
-                              </div>
-                              <div style={{ 
-                                display: "flex", 
-                                flexWrap: "wrap", 
-                                alignItems: "center", 
-                                gap: "0.4rem" 
-                              }}>
-                                {["Cleanser", "Toner (gentle)", "Serum", "Moisturizer", "Sunscreen"].map((step, i, arr) => (
-                                  <React.Fragment key={step}>
-                                    <span style={{ 
-                                      padding: "0.35rem 0.7rem", 
-                                      backgroundColor: "#fff1f8", 
-                                      borderRadius: "8px",
-                                      color: "#c026d3",
-                                      fontSize: "0.75rem",
-                                      fontWeight: "600",
-                                      border: "1px solid #fdf4ff"
-                                    }}>
-                                      {step}
-                                    </span>
-                                    {i < arr.length - 1 && <span style={{ color: "#fbcfe8", fontWeight: "bold" }}>→</span>}
-                                  </React.Fragment>
-                                ))}
-                              </div>
-                            </div>
-                            
-                            {/* Night Routine */}
-                            <div>
-                              <div style={{ 
-                                display: "flex", 
-                                alignItems: "center", 
-                                gap: "0.5rem", 
-                                marginBottom: "0.6rem", 
-                                fontWeight: "700", 
-                                color: "#7c3aed" 
-                              }}>
-                                <span style={{ fontSize: "1.1rem" }}>🌙</span> Night
-                              </div>
-                              <div style={{ 
-                                display: "flex", 
-                                flexWrap: "wrap", 
-                                alignItems: "center", 
-                                gap: "0.4rem" 
-                              }}>
-                                {["Cleanser", "Toner", "Serum", "Moisturizer"].map((step, i, arr) => (
-                                  <React.Fragment key={step}>
-                                    <span style={{ 
-                                      padding: "0.35rem 0.7rem", 
-                                      backgroundColor: "#f5f3ff", 
-                                      borderRadius: "8px",
-                                      color: "#6d28d9",
-                                      fontSize: "0.75rem",
-                                      fontWeight: "600",
-                                      border: "1px solid #ede9fe"
-                                    }}>
-                                      {step}
-                                    </span>
-                                    {i < arr.length - 1 && <span style={{ color: "#ddd6fe", fontWeight: "bold" }}>→</span>}
-                                  </React.Fragment>
-                                ))}
-                                <div style={{ 
-                                  fontSize: "0.7rem", 
-                                  color: "#6b7280", 
-                                  width: "100%", 
-                                  marginTop: "0.4rem", 
-                                  fontStyle: "italic",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "0.3rem"
-                                }}>
-                                  <span>ℹ️</span> Use exfoliating toner on alternate nights
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                     
-                    </div>
+                {scoreInfo && analysisBreakdown && (
+                  <div style={{ marginTop: "3rem", position: "relative", zIndex: 1 }}>
+                    <RoutineRecommendations
+                      result={liveRoutine}
+                      loading={loadingLiveRoutine}
+                      error={routineError}
+                      onRetry={fetchRoutine}
+                      howToUse={(step, name) =>
+                        stepHowToUse(step, name, analysisBreakdown.questionnaire)
+                      }
+                      onSelectionChange={setSelectedProducts}
+                    />
                   </div>
                 )}
 
@@ -2157,6 +2047,18 @@ export default function FaceDetectionComponent() {
                     </button>
                   </div>
                 )}
+
+                {scoreInfo && (
+                  <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
+                    <button
+                      type="button"
+                      onClick={restartScan}
+                      className="text-sm font-bold text-white underline underline-offset-4 hover:opacity-80"
+                    >
+                      ↻ Scan again with a new photo
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2222,6 +2124,7 @@ export default function FaceDetectionComponent() {
             `}</style>
           </main>
           <Footer />
+          <CartBar />
 
           <SendResultModal
             isOpen={showSendModal}
