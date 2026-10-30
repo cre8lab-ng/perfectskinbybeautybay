@@ -33,8 +33,14 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploy on Render
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The app is deployed to [Render](https://render.com) as a Node web service, configured in [`render.yaml`](render.yaml).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+1. In the Render dashboard, choose **New → Blueprint** and connect the `cre8lab-ng/perfectskinbybeautybay` repo.
+2. Render reads `render.yaml` and creates the `perfectskinbybeautybay` web service (build: `npm ci && npm run build`, start: `npm start`).
+3. Fill in the environment variables Render prompts for (Paystack, Supabase, WooCommerce, Mailchimp, and the `NEXT_PUBLIC_*` values).
+   `NEXT_PUBLIC_*` values are baked in at build time, so redeploy after changing them.
+4. Set `NEXT_PUBLIC_BASE_URL` to the Render URL (e.g. `https://perfectskinbybeautybay.onrender.com`) or your custom domain.
+
+Pushes to `main` deploy automatically.

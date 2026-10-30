@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: perfectskinbybeautybay
+    runtime: node
+    region: frankfurt
+    plan: starter
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      # Public (inlined into the client bundle at build time)
+      - key: NEXT_PUBLIC_BASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_STORE_URL
+        sync: false
+      - key: NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
+        sync: false
+      - key: NEXT_PUBLIC_ANALYSIS_COUPON
+        sync: false
+      # Server-only secrets
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: WC_URL
+        sync: false
+      - key: WC_KEY
+        sync: false
+      - key: WC_SECRET
+        sync: false
+      - key: MAILCHIMP_API_KEY
+        sync: false
+      - key: MAILCHIMP_LIST_ID
+        sync: false
